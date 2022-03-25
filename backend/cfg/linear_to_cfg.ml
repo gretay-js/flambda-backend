@@ -122,7 +122,11 @@ let record_traps t label traps =
   | Some existing_traps ->
     if !C.verbose
     then T.print_pair (Printf.sprintf "Unify at %d" label) traps existing_traps;
-    T.unify traps existing_traps;
+    (try
+       T.unify traps existing_traps;
+     with T.Unresolved ->
+       (* leave the existing one, if not resolved at the end, fail  *)
+       if !C.verbose then Printf.printf "Ignoring two unknown traps\n");
     if !C.verbose
     then (
       Printf.printf "after: ";

@@ -218,6 +218,7 @@ module Make (D : D) = struct
     | Link s1, Link s2 -> unify s1 s2
     | Link s, _ -> unify s s2
     | _, Link s -> unify s1 s
+    | Unknown, Unknown -> raise Unresolved
     | Unknown, _ -> link ~src:s1 ~dst:s2
     | _, Unknown -> link ~src:s2 ~dst:s1
     | Push p1, Push p2 ->
