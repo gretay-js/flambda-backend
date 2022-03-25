@@ -192,6 +192,7 @@ module Make (D : D) = struct
 
   let link ~(src : t) ~(dst : t) =
     assert (!src = Unknown);
+    if src == dst then () else (
     (* check that there is no path from dst to src. it guarantees that the link
        from src to dst that we install is not going to close a cycle, which will
        cause non-termination of other operations on the stack. *)
@@ -205,7 +206,7 @@ module Make (D : D) = struct
     in
     loop dst;
     (* create a link from src to dst. *)
-    src := Link dst
+    src := Link dst)
 
   (* Given acyclic [s1] and [s2], [unify s1 s2] terminates because every step
      removes one unknown or reduces the length of one of the argument stacks by
@@ -218,7 +219,6 @@ module Make (D : D) = struct
     | Link s1, Link s2 -> unify s1 s2
     | Link s, _ -> unify s s2
     | _, Link s -> unify s1 s
-    | Unknown, Unknown -> raise Unresolved
     | Unknown, _ -> link ~src:s1 ~dst:s2
     | _, Unknown -> link ~src:s2 ~dst:s1
     | Push p1, Push p2 ->
