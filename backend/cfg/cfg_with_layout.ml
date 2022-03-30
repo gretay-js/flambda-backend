@@ -104,7 +104,6 @@ let print_dot ?(show_instr = true) ?(show_exn = true) ?annotate_block
   let print_block_dot label (block : Cfg.basic_block) index =
     let name l = Printf.sprintf "\".L%d\"" l in
     let show_index = Option.value index ~default:(-1) in
-    Format.fprintf ppf "\n%s [shape=box label=\".L%d:I%d:S%d%s%s" (name label)
     Format.fprintf ppf "\n%s [shape=box label=\".L%d:I%d:S%d:T%d%s%s" (name label)
       label show_index (List.length block.body)
       (block.trap_depth)
