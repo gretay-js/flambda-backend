@@ -246,7 +246,7 @@ let dump_call ppf = function
 
 let dump_basic ppf i =
   let open Format in
-  fprintf ppf "%d: " i.id;
+  fprintf ppf "[T%d] %d: " i.trap_depth i.id;
   match i.desc with
   | Op op -> dump_op ppf op
   | Call call ->
@@ -259,7 +259,7 @@ let dump_basic ppf i =
 
 let dump_terminator ppf ?(sep = "\n") ti =
   let open Format in
-  fprintf ppf "%d: " ti.id;
+  fprintf ppf "[T%d] %d: " ti.trap_depth ti.id;
   match ti.desc with
   | Never -> fprintf ppf "deadend%s" sep
   | Always l -> fprintf ppf "goto %d%s" l sep
