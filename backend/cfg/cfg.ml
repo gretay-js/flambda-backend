@@ -34,7 +34,7 @@ type basic_block =
     mutable body : basic instruction list;
     mutable terminator : terminator instruction;
     mutable predecessors : Label.Set.t;
-    mutable trap_depth : int;
+    mutable stack_offset : int;
     mutable exn : Label.t option;
     mutable can_raise : bool;
     mutable is_trap_handler : bool;
@@ -147,7 +147,7 @@ let get_block_exn t label =
     Misc.fatal_errorf "Cfg.get_block_exn: block %d not found" label
   | block -> block
 
-let can_raise_interproc block = block.can_raise && block.trap_depth = 1
+let can_raise_interproc block = block.can_raise && block.stack_offset = 0
 
 let fun_name t = t.fun_name
 
@@ -246,7 +246,8 @@ let dump_call ppf = function
 
 let dump_basic ppf (i : basic instruction) =
   let open Format in
-  fprintf ppf "[T%d] %d: " i.trap_depth i.id;
+  if i.stack_offset > 0 then fprintf ppf "[T%d] " i.stack_offset;
+  fprintf ppf "%d: " i.id;
   if Array.length i.res > 0 then
     fprintf ppf "%a := " Printmach.regs i.res;
   (match i.desc with
@@ -262,9 +263,10 @@ let dump_basic ppf (i : basic instruction) =
 
 let dump_terminator ppf ?(sep = "\n") (ti : terminator instruction) =
   let open Format in
-  fprintf ppf "[T%d] %d: " ti.trap_depth ti.id;
-  if Array.length i.res > 0 then
-    fprintf ppf "%a := " Printmach.regs i.res;
+  if ti.stack_offset > 0 then fprintf ppf "[T%d] " ti.stack_offset;
+  fprintf ppf "%d: " ti.id;
+  if Array.length ti.res > 0 then
+    fprintf ppf "%a := " Printmach.regs ti.res;
   (match ti.desc with
    | Never -> fprintf ppf "deadend%s" sep
    | Always l -> fprintf ppf "goto %d%s" l sep
@@ -297,7 +299,7 @@ let dump_terminator ppf ?(sep = "\n") (ti : terminator instruction) =
    | Raise _ -> fprintf ppf "Raise%s" sep
    | Tailcall (Self _) -> fprintf ppf "Tailcall self%s" sep
    | Tailcall (Func _) -> fprintf ppf "Tailcall%s" sep);
-  fprintf ppf " %a" Printmach.regs i.arg
+  fprintf ppf " %a" Printmach.regs ti.arg
 
 let can_raise_terminator (i : terminator) =
   match i with
@@ -412,8 +414,8 @@ let is_noop_move instr =
   | Call _ | Reloadretaddr | Pushtrap _ | Poptrap | Prologue ->
     false
 
-let set_trap_depth (instr : _ instruction) trap_depth =
-  if instr.trap_depth = trap_depth then instr else { instr with trap_depth }
+let set_stack_offset (instr : _ instruction) stack_offset =
+  if instr.stack_offset = stack_offset then instr else { instr with stack_offset }
 
 let set_live (instr : _ instruction) live =
   if Reg.Set.equal instr.live live then instr else { instr with live }
