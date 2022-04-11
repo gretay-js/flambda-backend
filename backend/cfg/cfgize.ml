@@ -593,8 +593,10 @@ module Trap_depth_and_exn = struct
       Cfg.terminator Cfg.instruction ->
       (handler_stack * handler_option) * Cfg.terminator Cfg.instruction =
    fun exceptional_successor stack term ->
-   let term = Cfg.set_stack_offset term
-                (Proc.trap_size_in_bytes * (succ (List.length stack))) in
+    let term =
+      Cfg.set_stack_offset term
+        (Proc.trap_size_in_bytes * succ (List.length stack))
+    in
     match term.desc with
     | Never | Return
     | Tailcall (Func _)
@@ -617,8 +619,10 @@ module Trap_depth_and_exn = struct
       Cfg.basic Cfg.instruction ->
       (handler_stack * handler_option) * Cfg.basic Cfg.instruction =
    fun exceptional_successor stack instr ->
-   let instr = Cfg.set_stack_offset instr
-                 (Proc.trap_size_in_bytes * (succ (List.length stack))) in
+    let instr =
+      Cfg.set_stack_offset instr
+        (Proc.trap_size_in_bytes * succ (List.length stack))
+    in
     match instr.desc with
     | Pushtrap { lbl_handler } ->
       (lbl_handler :: stack, exceptional_successor), instr
@@ -642,8 +646,9 @@ module Trap_depth_and_exn = struct
       if block.stack_offset = invalid_stack_offset
       then true
       else begin
-          assert (block.stack_offset =
-                    Proc.trap_size_in_bytes * succ (List.length stack));
+        assert (
+          block.stack_offset
+          = Proc.trap_size_in_bytes * succ (List.length stack));
         false
       end
     in
