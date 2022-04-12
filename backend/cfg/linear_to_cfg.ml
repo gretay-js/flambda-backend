@@ -218,7 +218,7 @@ let check_traps t label (block : C.basic_block) =
       T.print trap_stack_at_start);
     match T.to_list_exn trap_stack_at_start with
     | trap_labels ->
-      if List.length trap_labels * Proc.trap_size_in_bytes <= block.stack_offset
+      if (List.length trap_labels - 1) * Proc.trap_size_in_bytes > block.stack_offset
       then
         Misc.fatal_errorf
           "Malformed linear IR: mismatch stack_offset=%d, but \
