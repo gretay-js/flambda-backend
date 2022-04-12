@@ -37,6 +37,7 @@ type basic_block =
     mutable stack_offset : int;
     mutable exn : Label.t option;
     mutable can_raise : bool;
+    mutable can_raise_interproc : bool;
     mutable is_trap_handler : bool;
     mutable dead : bool
   }
@@ -146,8 +147,6 @@ let get_block_exn t label =
   | exception Not_found ->
     Misc.fatal_errorf "Cfg.get_block_exn: block %d not found" label
   | block -> block
-
-let can_raise_interproc block = block.can_raise && block.stack_offset = 0
 
 let fun_name t = t.fun_name
 

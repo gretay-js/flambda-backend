@@ -173,6 +173,7 @@ let create_empty_block t start ~stack_offset ~traps =
       stack_offset;
       is_trap_handler = false;
       can_raise = false;
+      can_raise_interproc = false;
       dead = false
     }
   in
@@ -218,7 +219,8 @@ let check_traps t label (block : C.basic_block) =
       T.print trap_stack_at_start);
     match T.to_list_exn trap_stack_at_start with
     | trap_labels ->
-      if (List.length trap_labels - 1) * Proc.trap_size_in_bytes > block.stack_offset
+      if (List.length trap_labels - 1) * Proc.trap_size_in_bytes
+         > block.stack_offset
       then
         Misc.fatal_errorf
           "Malformed linear IR: mismatch stack_offset=%d, but \
@@ -251,7 +253,9 @@ let register_exns t label (block : C.basic_block) =
     (match T.top_exn trap_stack with
     | None -> Misc.fatal_errorf "register_exns: empty trap stack for %d" label
     | Some l ->
-      if not (Label.equal l t.interproc_handler) then block.exn <- Some l
+      if Label.equal l t.interproc_handler
+      then block.can_raise_interproc <- true
+      else block.exn <- Some l
     | exception T.Unresolved ->
       (* must be dead block or flow from exception handler only *)
       assert block.dead;
@@ -301,7 +305,7 @@ let check_and_register_traps t =
      then it has a registered exn successor or interproc exn. *)
   let f _ (block : C.basic_block) =
     let n = match block.exn with None -> 0 | Some _ -> 1 in
-    assert ((not block.can_raise) || n = 1 || Cfg.can_raise_interproc block)
+    assert ((not block.can_raise) || n = 1 || block.can_raise_interproc)
   in
   C.iter_blocks t.cfg ~f
 

@@ -441,6 +441,7 @@ let rec add_blocks :
           stack_offset = invalid_stack_offset;
           exn = None;
           can_raise;
+          can_raise_interproc = false;
           (* See [update_trap_handler_blocks] *)
           is_trap_handler = false;
           dead = false
@@ -737,6 +738,7 @@ let fundecl :
         stack_offset = invalid_stack_offset;
         exn = None;
         can_raise = false;
+        can_raise_interproc = false;
         is_trap_handler = false;
         dead = false
       };
@@ -751,6 +753,7 @@ let fundecl :
         stack_offset = invalid_stack_offset;
         exn = None;
         can_raise = false;
+        can_raise_interproc = false;
         is_trap_handler = false;
         dead = false
       };
