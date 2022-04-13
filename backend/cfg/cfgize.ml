@@ -600,7 +600,19 @@ module Trap_depth_and_exn = struct
     | Float_test _ | Int_test _ | Switch _ ->
       stack_offset, traps, term
 
-  let process_basic :
+            (* The only reason for this check is to avoid assert failures in the
+         recursive call *)
+      let propagate block successor_label =
+        if block.dead
+        then
+          let successor_block = Cfg.get_block_exn cfg successor_label in
+          if successor_block.dead
+          then true
+          else (* don't propagate from dead to live block *)
+            false
+        else true
+
+  let rec process_basic :
       stack_offset:int ->
       traps:handler_stack ->
       Cfg.basic Cfg.instruction ->
@@ -608,7 +620,9 @@ module Trap_depth_and_exn = struct
    fun ~stack_offset ~traps instr ->
     let instr = check_and_set_stack_offset instr ~stack_offset ~traps in
     match instr.desc with
-    | Pushtrap { lbl_handler } -> stack_offset, lbl_handler :: traps, instr
+    | Pushtrap { lbl_handler } ->
+       update_block cfg lbl_handler ~stack_offset ~traps;
+       stack_offset, lbl_handler :: traps, instr
     | Poptrap -> begin
       match traps with
       | [] ->
@@ -626,7 +640,7 @@ module Trap_depth_and_exn = struct
     | Call _ | Reloadretaddr | Prologue ->
       stack_offset, traps, instr
 
-  let rec update_block :
+  and update_block :
       Cfg.t -> Label.t -> stack_offset:int -> traps:handler_stack -> unit =
    fun cfg label ~stack_offset ~traps ->
     let block = Cfg.get_block_exn cfg label in
@@ -656,18 +670,6 @@ module Trap_depth_and_exn = struct
         process_terminator ~stack_offset ~traps block.terminator
       in
       block.terminator <- terminator;
-      (* The only reason for this check is to avoid assert failures in the
-         recursive call *)
-      let propagate successor_label =
-        if block.dead
-        then
-          let successor_block = Cfg.get_block_exn cfg successor_label in
-          if successor_block.dead
-          then true
-          else (* don't propagate from dead to live block *)
-            false
-        else true
-      in
       (* non-exceptional successors *)
       Label.Set.iter
         (fun successor_label ->
