@@ -213,7 +213,7 @@ let recompute_liveness_on_cfg (cfg_with_layout : Cfg_with_layout.t) : Cfg_with_l
   Simplify_terminator.run cfg;
   result
 
-let test_cfgize (f : Mach.fundecl) (res : Linear.fundecl) : unit =
+let test_cfgize ppf_dump (f : Mach.fundecl) (res : Linear.fundecl) : unit =
   if ocamlcfg_verbose then begin
     Format.eprintf "processing function %s...\n%!" f.Mach.fun_name;
   end;
@@ -236,6 +236,10 @@ let test_cfgize (f : Mach.fundecl) (res : Linear.fundecl) : unit =
   Eliminate_dead_code.run_dead_block expected;
   Simplify_terminator.run (Cfg_with_layout.cfg expected);
   let result = recompute_liveness_on_cfg result in
+  pass_dump_cfg_if ppf_dump Flambda_backend_flags.dump_cfg "After test_cfgize expected"
+    expected |> ignore;
+  pass_dump_cfg_if ppf_dump Flambda_backend_flags.dump_cfg "After test_cfgize result" result
+  |> ignore;
   Cfg_equivalence.check_cfg_with_layout ~mach:f expected result;
   if ocamlcfg_verbose then begin
     Format.eprintf "the CFG on both code paths are equivalent for function %s.\n%!"
@@ -274,7 +278,7 @@ let compile_fundecl ~ppf_dump fd_cmm =
       let res = Linearize.fundecl f in
       (* CR xclerc for xclerc: temporary, for testing. *)
       if !Flambda_backend_flags.use_ocamlcfg then begin
-        test_cfgize f res;
+        test_cfgize ppf_dump f res;
       end;
       res)
   ++ pass_dump_linear_if ppf_dump dump_linear "Linearized code"

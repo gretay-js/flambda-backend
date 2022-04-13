@@ -296,7 +296,7 @@ let dump_terminator ppf ?(sep = "\n") (ti : terminator instruction) =
   | Raise _ -> fprintf ppf "Raise%s" sep
   | Tailcall (Self _) -> fprintf ppf "Tailcall self%s" sep
   | Tailcall (Func _) -> fprintf ppf "Tailcall%s" sep);
-  fprintf ppf " %a" Printmach.regs ti.arg
+  if Array.length ti.arg > 0 then fprintf ppf " %a%s" Printmach.regs ti.arg sep
 
 let can_raise_terminator (i : terminator) =
   match i with

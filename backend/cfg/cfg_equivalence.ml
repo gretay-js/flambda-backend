@@ -508,9 +508,10 @@ let check_basic_block : State.t -> Cfg.basic_block -> Cfg.basic_block -> unit =
      && is_valid_stack_offset result.stack_offset
   then begin
     if not (Int.equal expected.stack_offset result.stack_offset)
-    then different location
-           (Printf.sprintf "trap depth: expected=%d result=%d"
-              expected.stack_offset result.stack_offset);
+    then
+      different location
+        (Printf.sprintf "trap depth: expected=%d result=%d"
+           expected.stack_offset result.stack_offset);
     let location = location ^ " (exceptional successors)" in
     match expected.exn, result.exn with
     | None, None -> ()
@@ -571,8 +572,8 @@ let _check_layout : State.t -> Label.t list -> Label.t list -> unit =
 
 let save_cfg_as_dot : Cfg_with_layout.t -> string -> unit =
  fun cfg_with_layout msg ->
-  Cfg_with_layout.save_as_dot cfg_with_layout ~show_instr:true ~show_exn:true
-    ~annotate_block:(Printf.sprintf "label:%d")
+  Cfg_with_layout.save_as_dot cfg_with_layout ~show_instr:true
+    ~show_exn:true (* ~annotate_block:(Printf.sprintf "label:%d") *)
     ~annotate_succ:(Printf.sprintf "%d->%d") msg
 
 let check_cfg_with_layout :
