@@ -165,6 +165,11 @@ let rec regalloc ~ppf_dump round fd =
 
 let (++) x f = f x
 
+let ocamlcfg_test_cfgize =
+  match Sys.getenv_opt "OCAMLCFG_TEST_CFGIZE" with
+  | Some "1" -> true
+  | Some _ | None -> false
+
 let ocamlcfg_verbose =
   match Sys.getenv_opt "OCAMLCFG_VERBOSE" with
   | Some "1" -> true
@@ -294,7 +299,7 @@ let compile_fundecl ~ppf_dump fd_cmm =
   ++ Profile.record ~accumulate:true "linearize" (fun (f : Mach.fundecl) ->
       let res = Linearize.fundecl f in
       (* CR xclerc for xclerc: temporary, for testing. *)
-      if !Flambda_backend_flags.use_ocamlcfg then begin
+      if ocamlcfg_test_cfgize then begin
         test_cfgize f res;
       end;
       res)
