@@ -181,7 +181,10 @@ let recompute_liveness_on_cfg (cfg_with_layout : Cfg_with_layout.t) : Cfg_with_l
           Misc.fatal_errorf "Missing liveness information for instruction %d in function %s@."
             instr.id
             cfg.Cfg.fun_name
-        | Some { Cfg_liveness.before = _; across } ->
+        | Some { Cfg_liveness.before; across } ->
+           if ocamlcfg_verbose then
+             Format.eprintf "%d: before = %a; across = %a\n" instr.id
+               Printmach.regsetaddr before Printmach.regsetaddr across;
           Cfg.set_live instr across
       in
       Cfg.iter_blocks cfg ~f:(fun _label block ->
