@@ -372,9 +372,11 @@ let check_instruction :
   if not (Fdo_info.equal expected.fdo result.fdo)
   then different location "FDO info";
   if check_live && not (Reg.Set.equal expected.live result.live)
-  then different location
-         (Printf.sprintf "live register set: instruction id expected %d, result %d\n"
-            expected.id result.id);
+  then
+    different location
+      (Printf.sprintf
+         "live register set: instruction id expected %d, result %d\n"
+         expected.id result.id);
   if is_valid_stack_offset expected.stack_offset
      && is_valid_stack_offset result.stack_offset
      && not (Int.equal expected.stack_offset result.stack_offset)
