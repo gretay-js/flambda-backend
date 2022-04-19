@@ -246,6 +246,8 @@ let dump_call ppf = function
 
 let dump_basic ppf (i : basic instruction) =
   let open Format in
+  if !Clflags.dump_live then
+    fprintf ppf "{%a}\n" Printmach.regsetaddr i.live;
   if i.stack_offset > 0 then fprintf ppf "[T%d] " i.stack_offset;
   fprintf ppf "%d: " i.id;
   if Array.length i.res > 0 then
@@ -263,6 +265,8 @@ let dump_basic ppf (i : basic instruction) =
 
 let dump_terminator ppf ?(sep = "\n") (ti : terminator instruction) =
   let open Format in
+  if !Clflags.dump_live then
+    fprintf ppf "{%a}%s" Printmach.regsetaddr ti.live sep;
   if ti.stack_offset > 0 then fprintf ppf "[T%d] " ti.stack_offset;
   fprintf ppf "%d: " ti.id;
   if Array.length ti.res > 0 then
@@ -299,7 +303,7 @@ let dump_terminator ppf ?(sep = "\n") (ti : terminator instruction) =
    | Raise _ -> fprintf ppf "Raise%s" sep
    | Tailcall (Self _) -> fprintf ppf "Tailcall self%s" sep
    | Tailcall (Func _) -> fprintf ppf "Tailcall%s" sep);
-   if Array.length ti.arg > 0 then fprintf ppf " %a%s" Printmach.regs ti.arg sep
+    if Array.length ti.arg > 0 then fprintf ppf " %a%s" Printmach.regs ti.arg sep
 
 let can_raise_terminator (i : terminator) =
   match i with

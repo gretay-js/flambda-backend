@@ -192,6 +192,10 @@ let recompute_liveness_on_cfg (cfg_with_layout : Cfg_with_layout.t) : Cfg_with_l
       Misc.fatal_errorf "Unable to compute liveness from CFG for function %s@."
         cfg.Cfg.fun_name;
   end;
+  if ocamlcfg_verbose then
+    Cfg_with_layout.save_as_dot cfg_with_layout ~show_instr:true
+      ~show_exn:true
+      ~annotate_succ:(Printf.sprintf "%d->%d") "result_before_noop";
   Cfg.iter_blocks cfg ~f:(fun _label block ->
       block.body <- ListLabels.filter block.body ~f:(fun instr ->
           not (Cfg.is_noop_move instr)));
