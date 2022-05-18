@@ -697,7 +697,7 @@ and transl_exp0 ~in_new_scope ~scopes e =
       else begin
         Lifthenelse
           (transl_exp ~scopes cond,
-           lambda_unit, 
+           lambda_unit,
            assert_failed ~scopes e,
            Pintval (* unit *))
       end
@@ -787,6 +787,8 @@ and transl_exp0 ~in_new_scope ~scopes e =
       end
   | Texp_probe {name; handler=exp} ->
     if !Clflags.native_code && !Clflags.probes then begin
+      let funcid = Ident.create_local ("$probe_handler_" ^ name) in
+      let scopes = enter_value_definition ~scopes funcid in
       let lam = transl_exp ~scopes exp in
       let map =
         Ident.Set.fold (fun v acc -> Ident.Map.add v (Ident.rename v) acc)
@@ -802,9 +804,7 @@ and transl_exp0 ~in_new_scope ~scopes e =
           is_a_functor = false;
           stub = false;
         } in
-      let funcid = Ident.create_local ("probe_handler_" ^ name) in
       let handler =
-        let scopes = enter_value_definition ~scopes funcid in
         { kind = Curried {nlocal=0};
           params = List.map (fun v -> v, Pgenval) param_idents;
           return = Pgenval;
