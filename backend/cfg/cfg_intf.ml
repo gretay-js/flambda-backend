@@ -34,10 +34,6 @@ module S = struct
     | Indirect
     | Direct of { func_symbol : string }
 
-  type tail_call_operation =
-    | Self of { destination : Label.t }
-    | Func of func_call_operation
-
   type external_call_operation =
     { func_symbol : string;
       alloc : bool;
@@ -53,47 +49,10 @@ module S = struct
           mode : Lambda.alloc_mode
         }
     | Checkbound of { immediate : int option }
-
-  type operation =
-    | Move
-    | Spill
-    | Reload
-    | Const_int of nativeint (* CR-someday xclerc: change to `Targetint.t` *)
-    | Const_float of int64
-    | Const_symbol of string
-    | Stackoffset of int
-    | Load of Cmm.memory_chunk * Arch.addressing_mode * Mach.mutable_flag
-    | Store of Cmm.memory_chunk * Arch.addressing_mode * bool
-    | Intop of Mach.integer_operation
-    | Intop_imm of Mach.integer_operation * int
-    | Negf
-    | Absf
-    | Addf
-    | Subf
-    | Mulf
-    | Divf
-    | Compf of Mach.float_comparison (* CR gyorsh: can merge with float_test? *)
-    | Floatofint
-    | Intoffloat
     | Probe of
         { name : string;
           handler_code_sym : string
         }
-    | Probe_is_enabled of { name : string }
-    | Opaque
-    | Begin_region
-    | End_region
-    | Specific of Arch.specific_operation
-    | Name_for_debugger of
-        { ident : Ident.t;
-          which_parameter : int option;
-          provenance : unit option;
-          is_assignment : bool
-        }
-
-  type call_operation =
-    | P of prim_call_operation
-    | F of func_call_operation
 
   type bool_test =
     { ifso : Label.t;  (** if test is true goto [ifso] label *)
@@ -144,9 +103,39 @@ module S = struct
       mutable irc_work_list : irc_work_list
     }
 
+  (* [basic] instruction cannot raise *)
   type basic =
-    | Op of operation
-    | Call of call_operation
+    | Move
+    | Spill
+    | Reload
+    | Const_int of nativeint (* CR-someday xclerc: change to `Targetint.t` *)
+    | Const_float of int64
+    | Const_symbol of string
+    | Stackoffset of int
+    | Load of Cmm.memory_chunk * Arch.addressing_mode * Mach.mutable_flag
+    | Store of Cmm.memory_chunk * Arch.addressing_mode * bool
+    | Intop of Mach.integer_operation
+    | Intop_imm of Mach.integer_operation * int
+    | Negf
+    | Absf
+    | Addf
+    | Subf
+    | Mulf
+    | Divf
+    | Compf of Mach.float_comparison (* CR gyorsh: can merge with float_test? *)
+    | Floatofint
+    | Intoffloat
+    | Probe_is_enabled of { name : string }
+    | Opaque
+    | Begin_region
+    | End_region
+    | Name_for_debugger of
+        { ident : Ident.t;
+          which_parameter : int option;
+          provenance : unit option;
+          is_assignment : bool
+        }
+    | Specific of Arch.specific_operation (* only the ones that cannot raise *)
     | Reloadretaddr
     | Pushtrap of { lbl_handler : Label.t }
     | Poptrap
@@ -174,8 +163,21 @@ module S = struct
     | Switch of Label.t array
     | Return
     | Raise of Lambda.raise_kind
-    | Tailcall of tail_call_operation
+    | Tailcall_self of { destination : Label.t }
+    | Tailcall of func_call_operation
     | Call_no_return of external_call_operation
+    | Call of
+        { call : func_call_operation;
+          label_after : Label.t
+        }
+    | Prim of
+        { prim : prim_call_operation;
+          label_after : Label.t
+        }
+    | Specific_can_raise of
+        { op : Arch.specific_operation;
+          label_after : Label.t
+        }
 end
 
 (* CR-someday gyorsh: Switch can be translated to Branch. *)

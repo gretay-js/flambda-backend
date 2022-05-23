@@ -126,72 +126,6 @@ end = struct
   let get_exception_handlers t = t.exception_handlers
 end
 
-type basic_or_terminator =
-  | Basic of Cfg.basic
-  | Terminator of Cfg.terminator
-
-let basic_or_terminator_of_operation :
-    State.t -> Mach.operation -> basic_or_terminator =
- fun state op ->
-  match op with
-  | Imove -> Basic (Op Move)
-  | Ispill -> Basic (Op Spill)
-  | Ireload -> Basic (Op Reload)
-  | Iconst_int i -> Basic (Op (Const_int i))
-  | Iconst_float f -> Basic (Op (Const_float f))
-  | Iconst_symbol s -> Basic (Op (Const_symbol s))
-  | Icall_ind -> Basic (Call (F Indirect))
-  | Icall_imm { func } -> Basic (Call (F (Direct { func_symbol = func })))
-  | Itailcall_ind -> Terminator (Tailcall (Func Indirect))
-  | Itailcall_imm { func } ->
-    Terminator
-      (Tailcall
-         (if String.equal (State.get_fun_name state) func
-         then Self { destination = State.get_tailrec_label state }
-         else Func (Direct { func_symbol = func })))
-  | Iextcall { func; ty_res; ty_args; alloc; returns } ->
-    let external_call = { Cfg.func_symbol = func; alloc; ty_res; ty_args } in
-    if returns
-    then Basic (Call (P (External external_call)))
-    else Terminator (Call_no_return external_call)
-  | Istackoffset ofs -> Basic (Op (Stackoffset ofs))
-  | Iload (mem, mode, mut) -> Basic (Op (Load (mem, mode, mut)))
-  | Istore (mem, mode, assignment) -> Basic (Op (Store (mem, mode, assignment)))
-  | Ialloc { bytes; dbginfo; mode } ->
-    Basic (Call (P (Alloc { bytes; dbginfo; mode })))
-  | Iintop Icheckbound -> Basic (Call (P (Checkbound { immediate = None })))
-  | Iintop_imm (Icheckbound, i) ->
-    Basic (Call (P (Checkbound { immediate = Some i })))
-  | Iintop
-      (( Iadd | Isub | Imul | Imulh _ | Idiv | Imod | Iand | Ior | Ixor | Ilsl
-       | Ilsr | Iasr | Iclz _ | Ictz _ | Ipopcnt | Icomp _ ) as op) ->
-    Basic (Op (Intop op))
-  | Iintop_imm
-      ( (( Iadd | Isub | Imul | Imulh _ | Idiv | Imod | Iand | Ior | Ixor | Ilsl
-         | Ilsr | Iasr | Iclz _ | Ictz _ | Ipopcnt | Icomp _ ) as op),
-        imm ) ->
-    Basic (Op (Intop_imm (op, imm)))
-  | Icompf comp -> Basic (Op (Compf comp))
-  | Inegf -> Basic (Op Negf)
-  | Iabsf -> Basic (Op Absf)
-  | Iaddf -> Basic (Op Addf)
-  | Isubf -> Basic (Op Subf)
-  | Imulf -> Basic (Op Mulf)
-  | Idivf -> Basic (Op Divf)
-  | Ifloatofint -> Basic (Op Floatofint)
-  | Iintoffloat -> Basic (Op Intoffloat)
-  | Ispecific op -> Basic (Op (Specific op))
-  | Iopaque -> Basic (Op Opaque)
-  | Iname_for_debugger _ ->
-    Misc.fatal_error
-      "Cfgize.basic_or_terminator_of_operation: \"the Iname_for_debugger\" \
-       instruction is currently not supported "
-  | Iprobe { name; handler_code_sym } ->
-    Basic (Op (Probe { name; handler_code_sym }))
-  | Iprobe_is_enabled { name } -> Basic (Op (Probe_is_enabled { name }))
-  | Ibeginregion -> Basic (Op Begin_region)
-  | Iendregion -> Basic (Op End_region)
-
 let float_test_of_float_comparison :
     Cmm.float_comparison ->
     label_false:Label.t ->
@@ -356,31 +290,89 @@ type block_info =
    terminator is [None], it is guaranteed that the [last] instruction is not an
    [Iop] (as it would either be part of [instrs] or be a terminator). *)
 let extract_block_info : State.t -> Mach.instruction -> block_info =
+ (* note: useless moves (See `Cfg.is_noop_move`) are no longer removed because
+    we want to compute liveness information on CFG values, and (i) such moves
+    are necessary to compute the live sets and (ii) they can only be identified
+    as useless after register allocation. *)
  fun state first ->
   let rec loop (instr : Mach.instruction) acc =
     let return terminator instrs =
       let instrs = List.rev instrs in
       { instrs; last = instr; terminator }
     in
+    let basic (desc : Cfg.basic) =
+      loop instr.next (copy_instruction state instr ~desc :: acc)
+    in
+    let terminator (terminator : Cfg.terminator) =
+      return (Some (copy_instruction state instr ~desc:terminator)) acc
+    in
     match instr.desc with
-    | Iop op -> (
-      match basic_or_terminator_of_operation state op with
-      | Basic desc ->
-        let instr' = copy_instruction state instr ~desc in
-        (* note: useless moves (See `Cfg.is_noop_move`) are no longer removed
-           because we want to compute liveness information on CFG values, and
-           (i) such moves are necessary to compute the live sets and (ii) they
-           can only be identified as useless after register allocation. *)
-        let acc = instr' :: acc in
-        if Cfg.can_raise_basic desc
-        then return None acc
-        else loop instr.next acc
-      | Terminator terminator ->
-        return (Some (copy_instruction state instr ~desc:terminator)) acc)
+    | Iop Imove -> basic Move
+    | Iop Ispill -> Basic Spill
+    | Iop Ireload -> basic Reload
+    | Iop (Iconst_int i) -> basic (Const_int i)
+    | Iop (Iconst_float f) -> basic (Const_float f)
+    | Iop (Iconst_symbol s) -> basic (Const_symbol s)
+    | Iop Icall_ind -> basic (Call (F Indirect))
+    | Iop (Icall_imm { func }) ->
+      basic (Call (F (Direct { func_symbol = func })))
+    | Iop Itailcall_ind -> terminator (Tailcall (Func Indirect))
+    | Iop (Itailcall_imm { func }) ->
+      terminator
+        (Tailcall
+           (if String.equal (State.get_fun_name state) func
+           then Self { destination = State.get_tailrec_label state }
+           else Func (Direct { func_symbol = func })))
+    | Iop (Iextcall { func; ty_res; ty_args; alloc; returns }) ->
+      let external_call = { Cfg.func_symbol = func; alloc; ty_res; ty_args } in
+      if returns
+      then basic (Call (P (External external_call)))
+      else terminator (Call_no_return external_call)
+    | Iop (Istackoffset ofs) -> basic (Stackoffset ofs)
+    | Iop (Iload (mem, mode, mut)) -> basic (Load (mem, mode, mut))
+    | Iop (Istore (mem, mode, assignment)) ->
+      basic (Store (mem, mode, assignment))
+    | Iop (Ialloc { bytes; dbginfo; mode }) ->
+      basic (Call (P (Alloc { bytes; dbginfo; mode })))
+    | Iop (Iintop Icheckbound) ->
+      basic (Call (P (Checkbound { immediate = None })))
+    | Iop (Iintop_imm (Icheckbound, i)) ->
+      basic (Call (P (Checkbound { immediate = Some i })))
+    | Iop
+        (Iintop
+          (( Iadd | Isub | Imul | Imulh _ | Idiv | Imod | Iand | Ior | Ixor
+           | Ilsl | Ilsr | Iasr | Iclz _ | Ictz _ | Ipopcnt | Icomp _ ) as op))
+      ->
+      basic (Intop op)
+    | Iop
+        (Iintop_imm
+          ( (( Iadd | Isub | Imul | Imulh _ | Idiv | Imod | Iand | Ior | Ixor
+             | Ilsl | Ilsr | Iasr | Iclz _ | Ictz _ | Ipopcnt | Icomp _ ) as op),
+            imm )) ->
+      basic (Intop_imm (op, imm))
+    | Iop (Icompf comp) -> basic (Compf comp)
+    | Iop Inegf -> basic Negf
+    | Iop Iabsf -> basic Absf
+    | Iop Iaddf -> basic Addf
+    | Iop Isubf -> basic Subf
+    | Iop Imulf -> basic Mulf
+    | Iop Idivf -> basic Divf
+    | Iop Ifloatofint -> basic Floatofint
+    | Iop Iintoffloat -> basic Intoffloat
+    | Iop (Ispecific op) -> basic (Specific op)
+    | Iop Iopaque -> basic Opaque
+    | Iop (Iname_for_debugger _) ->
+      Misc.fatal_error
+        "Cfgize.basic_or_terminator_of_operation: \"the Iname_for_debugger\" \
+         instruction is currently not supported "
+    | Iop (Iprobe { name; handler_code_sym }) ->
+      basic (Probe { name; handler_code_sym })
+    | Iop (Iprobe_is_enabled { name }) -> basic (Probe_is_enabled { name })
+    | Iop Ibeginregion -> basic Begin_region
+    | Iop Iendregion -> basic End_region
     | Iend | Ireturn _ | Iifthenelse _ | Iswitch _ | Icatch _ | Iexit _
-    | Itrywith _ ->
+    | Itrywith _ | Iraise _ ->
       return None acc
-    | Iraise _ -> return None acc
   in
   loop first []
 
@@ -649,14 +641,12 @@ module Stack_offset_and_exn = struct
           "Cfgize.Stack_offset_and_exn.process_basic: trying to pop from an \
            empty stack"
       | _ :: traps -> stack_offset, traps, instr)
-    | Op (Stackoffset n) -> stack_offset + n, traps, instr
-    | Op
-        ( Move | Spill | Reload | Const_int _ | Const_float _ | Const_symbol _
-        | Load _ | Store _ | Intop _ | Intop_imm _ | Negf | Absf | Addf | Subf
-        | Mulf | Divf | Compf _ | Floatofint | Intoffloat | Probe _
-        | Probe_is_enabled _ | Opaque | Begin_region | End_region | Specific _
-        | Name_for_debugger _ )
-    | Call _ | Reloadretaddr | Prologue ->
+    | Stackoffset n -> stack_offset + n, traps, instr
+    | Move | Spill | Reload | Const_int _ | Const_float _ | Const_symbol _
+    | Load _ | Store _ | Intop _ | Intop_imm _ | Negf | Absf | Addf | Subf
+    | Mulf | Divf | Compf _ | Floatofint | Intoffloat | Probe _
+    | Probe_is_enabled _ | Opaque | Begin_region | End_region | Specific _
+    | Name_for_debugger _ | Call _ | Reloadretaddr | Prologue ->
       stack_offset, traps, instr
 
   (* The argument [stack_offset] has a different meaning from the field
