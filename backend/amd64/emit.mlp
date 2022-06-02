@@ -506,6 +506,12 @@ let emit_global_label s =
   D.global lbl;
   _label lbl
 
+let emit_global_size s =
+  if system = S_linux then begin
+    let lbl = emit_symbol (Compilenv.make_symbol (Some s)) in
+    D.size lbl (ConstSub (ConstThis, ConstLabel lbl))
+  end
+
 let move (src : Reg.t) (dst : Reg.t) =
   if src.loc <> dst.loc then
     begin match src.typ, src.loc, dst.typ, dst.loc with
@@ -1317,10 +1323,12 @@ let begin_assembly ~init_dwarf =
 
   D.data ();
   emit_global_label "data_begin";
+  emit_global_size "data_begin";
 
   emit_named_text_section (Compilenv.make_symbol (Some "code_begin"));
   emit_global_label "code_begin";
   if system = S_macosx then I.nop (); (* PR#4690 *)
+  emit_global_size "code_begin";
   ()
 
 let make_stack_loc ~offset i (r : Reg.t) =
@@ -1637,6 +1645,7 @@ let end_assembly dwarf =
   (* suppress "ld warning: atom sorting error" *)
 
   emit_global_label "code_end";
+  emit_global_size "code_end";
 
   emit_imp_table();
 
@@ -1644,6 +1653,7 @@ let end_assembly dwarf =
   D.qword (const 0);  (* PR#6329 *)
   emit_global_label "data_end";
   D.qword (const 0);
+  emit_global_size "data_end";
 
   D.align 8;                            (* PR#7591 *)
   emit_global_label "frametable";
@@ -1676,10 +1686,7 @@ let end_assembly dwarf =
       efa_string = (fun s -> D.bytes (s ^ "\000"))
     };
 
-  if system = S_linux then begin
-    let frametable = emit_symbol (Compilenv.make_symbol (Some "frametable")) in
-    D.size frametable (ConstSub (ConstThis, ConstLabel frametable))
-  end;
+  emit_global_size "frametable";
 
   emit_probe_notes ();
   emit_trap_notes ();
