@@ -19,6 +19,7 @@ val dump_cfg : bool ref
 val cfg_invariants : bool ref
 val cfg_equivalence_check : bool ref
 
+val fdo_profile : string option ref
 val reorder_blocks_random : int option ref
 
 val dasm_comments : bool ref

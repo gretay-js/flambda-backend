@@ -33,6 +33,11 @@ let mk_dcfg_invariants f =
 let mk_dcfg_equivalence_check f =
   "-dcfg-equivalence-check", Arg.Unit f, " Extra sanity checks on Cfg transformations"
 
+let mk_fdo_profile f =
+  "-fdo-profile",
+  Arg.String f,
+  Printf.sprintf "<filename> FDO profile"
+
 let mk_reorder_blocks_random f =
   "-reorder-blocks-random",
   Arg.Int f,
@@ -409,6 +414,7 @@ module type Flambda_backend_options = sig
   val dcfg_invariants : unit -> unit
   val dcfg_equivalence_check : unit -> unit
 
+  val fdo_profile : string -> unit
   val reorder_blocks_random : int -> unit
 
   val dasm_comments : unit -> unit
@@ -477,6 +483,7 @@ struct
     mk_dcfg_invariants F.dcfg_invariants;
     mk_dcfg_equivalence_check F.dcfg_equivalence_check;
 
+    mk_fdo_profile F.fdo_profile;
     mk_reorder_blocks_random F.reorder_blocks_random;
 
     mk_dasm_comments F.dasm_comments;
@@ -573,6 +580,8 @@ module Flambda_backend_options_impl = struct
   let dcfg_invariants = set' Flambda_backend_flags.cfg_invariants
   let dcfg_equivalence_check = set' Flambda_backend_flags.cfg_equivalence_check
 
+  let fdo_profile file =
+    Flambda_backend_flags.fdo_profile := Some file
   let reorder_blocks_random seed =
     Flambda_backend_flags.reorder_blocks_random := Some seed
 
@@ -776,6 +785,8 @@ module Extra_params = struct
     | "cfg-invariants" -> set' Flambda_backend_flags.cfg_invariants
     | "cfg-equivalence-check" -> set' Flambda_backend_flags.cfg_equivalence_check
     | "dump-inlining-paths" -> set' Flambda_backend_flags.dump_inlining_paths
+    | "fdo-profile" ->
+       Flambda_backend_flags.fdo_profile := Some v; true
     | "reorder-blocks-random" ->
        set_int_option' Flambda_backend_flags.reorder_blocks_random
     | "heap-reduction-threshold" -> set_int' Flambda_backend_flags.heap_reduction_threshold
