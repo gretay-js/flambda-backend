@@ -117,6 +117,7 @@ and cmxs_magic_number = "Caml1999D501"
 and cmt_magic_number = "Caml1999T500"
 and linear_magic_number = "Caml1999L500"
 and cfg_magic_number = "Caml2021G500"
+and fdo_magic_number = "Caml2022F500"
 
 let interface_suffix = ref ".mli"
 

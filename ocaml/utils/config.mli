@@ -124,6 +124,9 @@ val linear_magic_number: string
 val cfg_magic_number: string
 (** Magic number for Cfg internal representation files *)
 
+val fdo_magic_number: string
+(** Magic number for FDO profile files *)
+
 val max_tag: int
 (** Biggest tag that can be stored in the header of a regular block. *)
 
