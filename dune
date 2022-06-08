@@ -234,6 +234,8 @@
   simplify_terminator
   trap_stack
   cfg_equivalence
+  fdo_profile_intf
+  fdo_profile
   ;; file_formats/
   linear_format
   cfg_format
@@ -646,6 +648,7 @@
   (simplify_terminator.mli as compiler-libs/simplify_terminator.mli)
   (trap_stack.mli as compiler-libs/trap_stack.mli)
   (cfg_equivalence.mli as compiler-libs/cfg_equivalence.mli)
+  (fdo_profile.mli as compiler-libs/fdo_profile.mli)
   (ocaml/extensions.mli as compiler-libs/extensions.mli)
   (ocaml/translcomprehension.mli as compiler-libs/translcomprehension.mli)
   (.ocamloptcomp.objs/byte/linear_format.cmi
@@ -1178,6 +1181,15 @@
   (.ocamloptcomp.objs/byte/cfg_equivalence.cmti
    as
    compiler-libs/cfg_equivalence.cmti)
+  (.ocamloptcomp.objs/native/fdo_profile_intf.cmx as compiler-libs/fdo_profile_intf.cmx)
+  (.ocamloptcomp.objs/byte/fdo_profile_intf.cmi as compiler-libs/fdo_profile_intf.cmi)
+  (.ocamloptcomp.objs/byte/fdo_profile_intf.cmo as compiler-libs/fdo_profile_intf.cmo)
+  (.ocamloptcomp.objs/byte/fdo_profile_intf.cmt as compiler-libs/fdo_profile_intf.cmt)
+  (.ocamloptcomp.objs/native/fdo_profile.cmx as compiler-libs/fdo_profile.cmx)
+  (.ocamloptcomp.objs/byte/fdo_profile.cmi as compiler-libs/fdo_profile.cmi)
+  (.ocamloptcomp.objs/byte/fdo_profile.cmo as compiler-libs/fdo_profile.cmo)
+  (.ocamloptcomp.objs/byte/fdo_profile.cmt as compiler-libs/fdo_profile.cmt)
+  (.ocamloptcomp.objs/byte/fdo_profile.cmti as compiler-libs/fdo_profile.cmti)
   (.ocamloptcomp.objs/native/afl_instrument.cmx
    as
    compiler-libs/afl_instrument.cmx)
