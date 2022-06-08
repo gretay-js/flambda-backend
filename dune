@@ -236,6 +236,7 @@
   cfg_equivalence
   fdo_profile_intf
   fdo_profile
+  cfg_info
   ;; file_formats/
   linear_format
   cfg_format
@@ -649,6 +650,7 @@
   (trap_stack.mli as compiler-libs/trap_stack.mli)
   (cfg_equivalence.mli as compiler-libs/cfg_equivalence.mli)
   (fdo_profile.mli as compiler-libs/fdo_profile.mli)
+  (cfg_info.mli as compiler-libs/cfg_info.mli)
   (ocaml/extensions.mli as compiler-libs/extensions.mli)
   (ocaml/translcomprehension.mli as compiler-libs/translcomprehension.mli)
   (.ocamloptcomp.objs/byte/linear_format.cmi
@@ -1190,6 +1192,11 @@
   (.ocamloptcomp.objs/byte/fdo_profile.cmo as compiler-libs/fdo_profile.cmo)
   (.ocamloptcomp.objs/byte/fdo_profile.cmt as compiler-libs/fdo_profile.cmt)
   (.ocamloptcomp.objs/byte/fdo_profile.cmti as compiler-libs/fdo_profile.cmti)
+  (.ocamloptcomp.objs/native/cfg_info.cmx as compiler-libs/cfg_info.cmx)
+  (.ocamloptcomp.objs/byte/cfg_info.cmi as compiler-libs/cfg_info.cmi)
+  (.ocamloptcomp.objs/byte/cfg_info.cmo as compiler-libs/cfg_info.cmo)
+  (.ocamloptcomp.objs/byte/cfg_info.cmt as compiler-libs/cfg_info.cmt)
+  (.ocamloptcomp.objs/byte/cfg_info.cmti as compiler-libs/cfg_info.cmti)
   (.ocamloptcomp.objs/native/afl_instrument.cmx
    as
    compiler-libs/afl_instrument.cmx)
