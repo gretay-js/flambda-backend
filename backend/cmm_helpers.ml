@@ -3229,6 +3229,11 @@ let prefetch ~is_write locality arg dbg =
   if_operation_supported op ~f:(fun () ->
       return_unit dbg (Cop (op, [arg], dbg)))
 
+let prefetch_offset  ~is_write locality value ~byte_offset dbg =
+  (* Byte offset is untagged. *)
+  let arg = add_int value byte_offset in
+  prefetch ~is_write locality arg dbg
+
 let ext_pointer_prefetch ~is_write locality arg dbg =
   prefetch ~is_write locality (int_as_pointer arg dbg) dbg
 
@@ -3468,6 +3473,48 @@ let transl_builtin name args dbg =
     prefetch ~is_write:false Moderate (one_arg name args) dbg
   | "caml_prefetch_read_low_native_pointer_unboxed" ->
     prefetch ~is_write:false Low (one_arg name args) dbg
+  (* OCaml value. Implementation is identical to Native_pointer prefetch. *)
+  | "caml_prefetch_write_high_value" ->
+    prefetch ~is_write:true High (one_arg name args) dbg
+  | "caml_prefetch_write_moderate_value" ->
+    prefetch ~is_write:true Moderate (one_arg name args) dbg
+  | "caml_prefetch_write_low_value" ->
+    prefetch ~is_write:true Low (one_arg name args) dbg
+  | "caml_prefetch_write_none_value" ->
+    prefetch ~is_write:true Nonlocal (one_arg name args) dbg
+  | "caml_prefetch_read_none_value" ->
+    prefetch ~is_write:false Nonlocal (one_arg name args) dbg
+  | "caml_prefetch_read_high_value" ->
+    prefetch ~is_write:false High (one_arg name args) dbg
+  | "caml_prefetch_read_moderate_value" ->
+    prefetch ~is_write:false Moderate (one_arg name args) dbg
+  | "caml_prefetch_read_low_value" ->
+    prefetch ~is_write:false Low (one_arg name args) dbg
+  (* Byte offset from OCaml value *)
+  | "caml_prefetch_write_high_offset_untagged" ->
+    let v, byte_offset = two_args name args in
+    prefetch_offset ~is_write:true High v ~byte_offset dbg
+  | "caml_prefetch_write_moderate_offset_untagged" ->
+    let v, byte_offset = two_args name args in
+    prefetch_offset ~is_write:true Moderate v ~byte_offset dbg
+  | "caml_prefetch_write_low_offset_untagged" ->
+    let v, byte_offset = two_args name args in
+    prefetch_offset ~is_write:true Low v ~byte_offset dbg
+  | "caml_prefetch_write_none_offset_untagged" ->
+    let v, byte_offset = two_args name args in
+    prefetch_offset ~is_write:true Nonlocal v ~byte_offset dbg
+  | "caml_prefetch_read_none_offset_untagged" ->
+    let v, byte_offset = two_args name args in
+    prefetch_offset ~is_write:false Nonlocal v ~byte_offset dbg
+  | "caml_prefetch_read_high_offset_untagged" ->
+    let v, byte_offset = two_args name args in
+    prefetch_offset ~is_write:false High v ~byte_offset dbg
+  | "caml_prefetch_read_moderate_offset_untagged" ->
+    let v, byte_offset = two_args name args in
+    prefetch_offset ~is_write:false Moderate v ~byte_offset dbg
+  | "caml_prefetch_read_low_offset_untagged" ->
+    let v, byte_offset = two_args name args in
+    prefetch_offset ~is_write:false Low v ~byte_offset dbg
   | _ -> None
 
 let transl_effects (e : Primitive.effects) : Cmm.effects =
