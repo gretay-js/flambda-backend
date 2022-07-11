@@ -194,6 +194,7 @@ and operation =
   | Cclz of { arg_is_non_zero: bool; }
   | Cctz of { arg_is_non_zero: bool; }
   | Cpopcnt
+  | Cfetch_add
   | Cprefetch of { is_write: bool; locality: prefetch_temporal_locality_hint; }
   | Ccmpi of integer_comparison
   | Caddv (* pointer addition that produces a [Val] (well-formed Caml value) *)

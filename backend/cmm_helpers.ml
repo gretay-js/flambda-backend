@@ -3259,6 +3259,20 @@ let prefetch ~is_write locality arg dbg =
 let ext_pointer_prefetch ~is_write locality arg dbg =
   prefetch ~is_write locality (int_as_pointer arg dbg) dbg
 
+let bigstring_fetch_and_add arg1 arg2 dbg name =
+  let op = Cfetch_add in
+  if_operation_supported op ~f:(fun () ->
+      (* [arg2], the index, is already untagged. *)
+      bind "index" arg2 (fun idx ->
+          bind "ba" arg1 (fun ba ->
+              bind "ba_data"
+                (Cop (Cload (Word_int, Mutable), [field_address ba 1 dbg], dbg))
+                (fun ba_data ->
+                  (* pointer to element "idx" of "ba" of type (char,
+                     int8_unsigned_elt, c_layout) Bigarray.Array1.t is simply
+                     offset "idx" from "ba_data" *)
+                  (Cop (op, [add_int ba_data idx dbg], dbg))))))
+
 (** [transl_builtin prim args dbg] returns None if the built-in [prim] is not
     supported, otherwise it constructs and returns the corresponding Cmm
     expression.
@@ -3495,6 +3509,14 @@ let transl_builtin name args dbg =
     prefetch ~is_write:false Moderate (one_arg name args) dbg
   | "caml_prefetch_read_low_native_pointer_unboxed" ->
     prefetch ~is_write:false Low (one_arg name args) dbg
+  (* fetch and add *)
+  | "caml_bigstring_fetch_and_add_untagged" ->
+    let arg1, arg2 = two_args name args in
+    bigstring_fetch_and_add arg1 arg2 dbg
+  | "caml_ext_pointer_fetch_and_add_untagged" ->
+    ext_pointer_fetch_and_add (one_arg name args) dbg
+  | "caml_native_pointer_fetch_and_add_untagged" ->
+    fetch_and_add (one_arg name args) dbg
   | _ -> None
 
 let transl_effects (e : Primitive.effects) : Cmm.effects =
