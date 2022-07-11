@@ -33,6 +33,7 @@ module type Flambda_backend_options = sig
   val dno_asm_comments : unit -> unit
 
   val heap_reduction_threshold : int -> unit
+  val ignore_unrecognized_builtin : unit -> unit
 
   val flambda2_join_points : unit -> unit
   val no_flambda2_join_points : unit -> unit

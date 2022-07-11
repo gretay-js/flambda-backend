@@ -26,6 +26,8 @@ val dasm_comments : bool ref
 val default_heap_reduction_threshold : int
 val heap_reduction_threshold : int ref
 
+val ignore_unrecognized_builtin : bool ref
+
 type function_result_types = Never | Functors_only | All_functions
 type opt_level = Oclassic | O2 | O3
 type 'a or_default = Set of 'a | Default

@@ -25,6 +25,8 @@ let dasm_comments = ref false (* -dasm-comments *)
 let default_heap_reduction_threshold = 500_000_000 / (Sys.word_size / 8)
 let heap_reduction_threshold = ref default_heap_reduction_threshold (* -heap-reduction-threshold *)
 
+let ignore_unrecognized_builtin = ref false (* -ignore-unrecognized-builtin *)
+
 type function_result_types = Never | Functors_only | All_functions
 type opt_level = Oclassic | O2 | O3
 type 'a or_default = Set of 'a | Default

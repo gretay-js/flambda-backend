@@ -52,6 +52,10 @@ let mk_heap_reduction_threshold f =
     Flambda_backend_flags.default_heap_reduction_threshold
 ;;
 
+let mk_ignore_unrecognized_builtin f =
+  "-ignore-unrecognized-builtin", Arg.Unit f,
+  " Turns off the check that all externals annotated with @builtin are recognized"
+
 let mk_dump_inlining_paths f =
   "-dump-inlining-paths", Arg.Unit f, " Dump inlining paths when dumping flambda2 terms"
 
@@ -416,6 +420,8 @@ module type Flambda_backend_options = sig
 
   val heap_reduction_threshold : int -> unit
 
+  val ignore_unrecognized_builtin : unit -> unit
+
   val flambda2_join_points : unit -> unit
   val no_flambda2_join_points : unit -> unit
   val flambda2_result_types_functors_only : unit -> unit
@@ -483,6 +489,7 @@ struct
     mk_dno_asm_comments F.dno_asm_comments;
 
     mk_heap_reduction_threshold F.heap_reduction_threshold;
+    mk_ignore_unrecognized_builtin F.ignore_unrecognized_builtin;
 
     mk_flambda2_join_points F.flambda2_join_points;
     mk_no_flambda2_join_points F.no_flambda2_join_points;
@@ -586,6 +593,9 @@ module Flambda_backend_options_impl = struct
 
   let heap_reduction_threshold x =
     Flambda_backend_flags.heap_reduction_threshold := x
+
+  let ignore_unrecognized_builtin =
+    set' Flambda_backend_flags.ignore_unrecognized_builtin
 
   let flambda2_join_points = set Flambda2.join_points
   let no_flambda2_join_points = clear Flambda2.join_points
@@ -779,6 +789,7 @@ module Extra_params = struct
     | "reorder-blocks-random" ->
        set_int_option' Flambda_backend_flags.reorder_blocks_random
     | "heap-reduction-threshold" -> set_int' Flambda_backend_flags.heap_reduction_threshold
+    | "ignore_unrecognized_builtin" -> set' Flambda_backend_flags.ignore_unrecognized_builtin
     | "dasm-comments" -> set' Flambda_backend_flags.dasm_comments
     | "dno-asm-comments" -> clear' Flambda_backend_flags.dasm_comments
     | "gupstream-dwarf" -> set' Debugging.restrict_to_upstream_dwarf
