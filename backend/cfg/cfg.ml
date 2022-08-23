@@ -306,10 +306,9 @@ let dump_terminator' ?(print_reg = Printmach.reg) ?(args = [||]) ?(sep = "\n")
   | Return -> fprintf ppf "Return%a" print_args args
   | Raise _ -> fprintf ppf "Raise%a" print_args args
   | Tailcall_self _ -> fprintf ppf "Tailcall self%a" print_args args
-  | Tailcall  call -> dump_call ppf call
-  | Call {call; _ } -> dump_call ppf call
-  | Prim _
-  | Specific_can_raise _ -> Misc.fatal_error "Implement me!!"
+  | Tailcall call -> dump_call ppf call
+  | Call { call; _ } -> dump_call ppf call
+  | Prim _ | Specific_can_raise _ -> Misc.fatal_error "Implement me!!"
 
 let dump_terminator ?sep ppf terminator = dump_terminator' ?sep ppf terminator
 
