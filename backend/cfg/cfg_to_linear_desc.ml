@@ -6,47 +6,31 @@ let from_basic (basic : basic) : Linear.instruction_desc =
   | Reloadretaddr -> Lreloadretaddr
   | Pushtrap { lbl_handler } -> Lpushtrap { lbl_handler }
   | Poptrap -> Lpoptrap
-  | Call (F Indirect) -> Lop Icall_ind
-  | Call (F (Direct { func_symbol })) -> Lop (Icall_imm { func = func_symbol })
-  | Call (P (External { func_symbol; alloc; ty_args; ty_res })) ->
-    Lop
-      (Iextcall { func = func_symbol; alloc; ty_args; ty_res; returns = true })
-  | Call (P (Checkbound { immediate = None })) -> Lop (Iintop Icheckbound)
-  | Call (P (Checkbound { immediate = Some i })) ->
-    Lop (Iintop_imm (Icheckbound, i))
-  | Call (P (Alloc { bytes; dbginfo; mode })) ->
-    Lop (Ialloc { bytes; dbginfo; mode })
-  | Op op ->
-    let op : Mach.operation =
-      match op with
-      | Move -> Imove
-      | Spill -> Ispill
-      | Reload -> Ireload
-      | Const_int n -> Iconst_int n
-      | Const_float n -> Iconst_float n
-      | Const_symbol n -> Iconst_symbol n
-      | Stackoffset n -> Istackoffset n
-      | Load (c, m, i) -> Iload (c, m, i)
-      | Store (c, m, b) -> Istore (c, m, b)
-      | Intop op -> Iintop op
-      | Intop_imm (op, i) -> Iintop_imm (op, i)
-      | Negf -> Inegf
-      | Absf -> Iabsf
-      | Addf -> Iaddf
-      | Subf -> Isubf
-      | Mulf -> Imulf
-      | Divf -> Idivf
-      | Compf c -> Icompf c
-      | Floatofint -> Ifloatofint
-      | Intoffloat -> Iintoffloat
-      | Probe { name; handler_code_sym } -> Iprobe { name; handler_code_sym }
-      | Probe_is_enabled { name } -> Iprobe_is_enabled { name }
-      | Opaque -> Iopaque
-      | Specific op -> Ispecific op
-      | Begin_region -> Ibeginregion
-      | End_region -> Iendregion
-      | Name_for_debugger { ident; which_parameter; provenance; is_assignment }
-        ->
-        Iname_for_debugger { ident; which_parameter; provenance; is_assignment }
-    in
-    Lop op
+  | Move -> Lop Imove
+  | Spill -> Lop Ispill
+  | Reload -> Lop Ireload
+  | Const_int n -> Lop (Iconst_int n)
+  | Const_float n -> Lop (Iconst_float n)
+  | Const_symbol n -> Lop (Iconst_symbol n)
+  | Stackoffset n -> Lop (Istackoffset n)
+  | Load (c, m, i) -> Lop (Iload (c, m, i))
+  | Store (c, m, b) -> Lop (Istore (c, m, b))
+  | Intop op -> Lop (Iintop op)
+  | Intop_imm (op, i) -> Lop (Iintop_imm (op, i))
+  | Negf -> Lop Inegf
+  | Absf -> Lop Iabsf
+  | Addf -> Lop Iaddf
+  | Subf -> Lop Isubf
+  | Mulf -> Lop Imulf
+  | Divf -> Lop Idivf
+  | Compf c -> Lop (Icompf c)
+  | Floatofint -> Lop Ifloatofint
+  | Intoffloat -> Lop Iintoffloat
+  | Probe_is_enabled { name } -> Lop (Iprobe_is_enabled { name })
+  | Opaque -> Lop Iopaque
+  | Specific op -> Lop (Ispecific op)
+  | Begin_region -> Lop Ibeginregion
+  | End_region -> Lop Iendregion
+  | Name_for_debugger { ident; which_parameter; provenance; is_assignment }
+    ->
+    Lop (Iname_for_debugger { ident; which_parameter; provenance; is_assignment })

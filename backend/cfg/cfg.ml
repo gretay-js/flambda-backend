@@ -213,37 +213,6 @@ let intop (op : Mach.integer_operation) =
   | Icomp cmp -> intcomp cmp
   | Icheckbound -> assert false
 
-let dump_op ?(specific = fun ppf _ -> Format.fprintf ppf "specific") ppf =
-  function
-  | Move -> Format.fprintf ppf "mov"
-  | Spill -> Format.fprintf ppf "spill"
-  | Reload -> Format.fprintf ppf "reload"
-  | Const_int n -> Format.fprintf ppf "const_int %nd" n
-  | Const_float f -> Format.fprintf ppf "const_float %F" (Int64.float_of_bits f)
-  | Const_symbol s -> Format.fprintf ppf "const_symbol %s" s
-  | Stackoffset n -> Format.fprintf ppf "stackoffset %d" n
-  | Load _ -> Format.fprintf ppf "load"
-  | Store _ -> Format.fprintf ppf "store"
-  | Intop op -> Format.fprintf ppf "intop %s" (intop op)
-  | Intop_imm (op, n) -> Format.fprintf ppf "intop %s %d" (intop op) n
-  | Negf -> Format.fprintf ppf "negf"
-  | Absf -> Format.fprintf ppf "absf"
-  | Addf -> Format.fprintf ppf "addf"
-  | Subf -> Format.fprintf ppf "subf"
-  | Mulf -> Format.fprintf ppf "mulf"
-  | Divf -> Format.fprintf ppf "divf"
-  | Compf _ -> Format.fprintf ppf "compf"
-  | Floatofint -> Format.fprintf ppf "floattoint"
-  | Intoffloat -> Format.fprintf ppf "intoffloat"
-  | Specific op -> specific ppf op
-  | Probe { name; handler_code_sym } ->
-    Format.fprintf ppf "probe %s %s" name handler_code_sym
-  | Probe_is_enabled { name } -> Format.fprintf ppf "probe_is_enabled %s" name
-  | Opaque -> Format.fprintf ppf "opaque"
-  | Begin_region -> Format.fprintf ppf "beginregion"
-  | End_region -> Format.fprintf ppf "endregion"
-  | Name_for_debugger _ -> Format.fprintf ppf "name_for_debugger"
-
 let dump_call ppf = function
   | Indirect -> Format.fprintf ppf "indirect"
   | Direct { func_symbol : string; _ } ->
@@ -336,8 +305,11 @@ let dump_terminator' ?(print_reg = Printmach.reg) ?(args = [||]) ?(sep = "\n")
     fprintf ppf "Call_no_return %s%a" func_symbol print_args args
   | Return -> fprintf ppf "Return%a" print_args args
   | Raise _ -> fprintf ppf "Raise%a" print_args args
-  | Tailcall (Self _) -> fprintf ppf "Tailcall self%a" print_args args
-  | Tailcall (Func _) -> fprintf ppf "Tailcall%a" print_args args
+  | Tailcall_self _ -> fprintf ppf "Tailcall self%a" print_args args
+  | Tailcall  call -> dump_call ppf call
+  | Call {call; _ } -> dump_call ppf call
+  | Prim _
+  | Specific_can_raise _ -> Misc.fatal_error "Implement me!!"
 
 let dump_terminator ?sep ppf terminator = dump_terminator' ?sep ppf terminator
 
