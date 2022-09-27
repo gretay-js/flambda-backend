@@ -191,7 +191,8 @@ module Split_mode = struct
     in
     lazy
       (match Sys.getenv_opt "IRC_SPLIT" with
-      | None -> Off
+      | None ->
+        Off
         (* fatal
          *   "the IRC_SPLIT environment variable is not set (possible values: %s)"
          *   (available_modes ()) *)
@@ -225,8 +226,8 @@ module Spilling_heuristics = struct
     in
     lazy
       (match Sys.getenv_opt "IRC_SPILLING_HEURISTICS" with
-       | None ->
-         Flat_uses
+      | None ->
+        Flat_uses
         (* fatal
          *   "the IRC_SPILLING_HEURISTICS environment variable is not set \
          *    (possible values: %s)"
