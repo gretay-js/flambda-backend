@@ -338,7 +338,7 @@ type register_allocator =
 
 let register_allocator : register_allocator =
   match Sys.getenv_opt "REGISTER_ALLOCATOR" with
-  | None -> Upstream
+  | None -> IRC
   | Some id ->
     match String.lowercase_ascii id with
     | "irc" -> IRC
