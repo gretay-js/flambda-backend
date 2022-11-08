@@ -3407,6 +3407,12 @@ let transl_builtin name args dbg typ_res =
     let cond, ifso, ifnot = three_args name args in
     if_operation_supported op ~f:(fun () ->
         Cop (op, [test_bool dbg cond; ifso; ifnot], dbg))
+  | "caml_csel_value_untagged_bool" ->
+    let op = Ccsel typ_res in
+    let cond_untagged, ifso, ifnot = three_args name args in
+    if_operation_supported op ~f:(fun () ->
+      let tst = Cop (Ccmpi Cne, [cond_untagged; Cconst_int (0, dbg)], dbg) in
+      Cop (op, [tst; ifso; ifnot], dbg))
   (* Native_pointer: handled as unboxed nativeint *)
   | "caml_ext_pointer_as_native_pointer" ->
     Some (int_as_pointer (one_arg name args) dbg)
