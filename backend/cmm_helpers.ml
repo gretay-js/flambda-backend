@@ -3561,6 +3561,15 @@ let transl_effects (e : Primitive.effects) : Cmm.effects =
 let transl_coeffects (ce : Primitive.coeffects) : Cmm.coeffects =
   match ce with No_coeffects -> No_coeffects | Has_coeffects -> Has_coeffects
 
+let make_symbol ?compilation_unit name =
+  let compilation_unit =
+    match compilation_unit with
+    | None -> Compilation_unit.get_current_exn ()
+    | Some compilation_unit -> compilation_unit
+  in
+  Symbol.for_name compilation_unit name
+  |> Symbol.linkage_name |> Linkage_name.to_string
+
 (* [cextcall] is called from [Cmmgen.transl_ccall] *)
 let cextcall (prim : Primitive.description) args dbg ret ty_args returns =
   let name = Primitive.native_name prim in
@@ -3579,12 +3588,25 @@ let cextcall (prim : Primitive.description) args dbg ret ty_args returns =
         args,
         dbg )
   in
+  let prefix = "caml_unboxed_types_test_" in
+  let apply_unboxed_arg name =
+    let len = String.length name in
+    let len_prefix = String.length prefix in
+    let func = String.sub name len_prefix (len - len_prefix) |> make_symbol in
+    (* CR gyorsh: test unboxed arguments of functions *)
+    fundecl
+    Cop (Capply (ret, Lambda.Rc_normal), Cconst_symbol (func, dbg) :: args, dbg)
+  in
   if prim.prim_c_builtin
-  then
+  then begin
+    if Misc.Stdlib.String.starts_with ~prefix name then begin
+      apply_unboxed_arg name
+    end else begin
     match transl_builtin name args dbg ret with
     | Some op -> op
     | None -> default
-  else default
+  end
+  end else default
 
 (* Symbols *)
 
@@ -3644,15 +3666,6 @@ let emit_float_array_constant symb fields cont =
   emit_block symb
     (floatarray_header (List.length fields))
     (Misc.map_end (fun f -> Cdouble f) fields cont)
-
-let make_symbol ?compilation_unit name =
-  let compilation_unit =
-    match compilation_unit with
-    | None -> Compilation_unit.get_current_exn ()
-    | Some compilation_unit -> compilation_unit
-  in
-  Symbol.for_name compilation_unit name
-  |> Symbol.linkage_name |> Linkage_name.to_string
 
 (* Generate the entry point *)
 
