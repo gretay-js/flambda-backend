@@ -42,6 +42,15 @@ type environment =
     region_tail : bool;
   }
 
+let ccatch_handler_labels = ref Int.Set.empty
+
+let check_ccatch_handlers_unique handlers =
+  List.iter (fun (nfail, _ids, _e2, _dbg) ->
+    if Int.Set.mem nfail !ccatch_handler_labels then
+      Misc.fatal_errorf "duplicate ccatch handler %d" nfail;
+    ccatch_handler_labels := Int.Set.add nfail !ccatch_handler_labels)
+    handlers
+
 let env_add ?(mut=Asttypes.Immutable) var regs env =
   let provenance = VP.provenance var in
   let var = VP.var var in
@@ -951,6 +960,7 @@ method emit_expr (env:environment) exp =
   | Ccatch(_, [], e1, _) ->
       self#emit_expr env e1
   | Ccatch(rec_flag, handlers, body, _) ->
+    check_ccatch_handlers_unique handlers;
       let handlers =
         List.map (fun (nfail, ids, e2, dbg) ->
             let rs =
@@ -1430,6 +1440,7 @@ method emit_tail (env:environment) exp =
   | Ccatch(_, [], e1, _) ->
       self#emit_tail env e1
   | Ccatch(rec_flag, handlers, e1, _) ->
+    check_ccatch_handlers_unique handlers;
       let handlers =
         List.map (fun (nfail, ids, e2, dbg) ->
             let rs =
@@ -1558,6 +1569,7 @@ method private emit_tail_sequence env exp =
 (* Sequentialization of a function definition *)
 
 method emit_fundecl ~future_funcnames f =
+  ccatch_handler_labels := Int.Set.empty;
   current_function_name := f.Cmm.fun_name;
   let rargs =
     List.map
@@ -1597,4 +1609,5 @@ method emit_fundecl ~future_funcnames f =
 end
 
 let reset () =
+  ccatch_handler_labels := Int.Set.empty;
   current_function_name := ""
