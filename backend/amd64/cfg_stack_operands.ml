@@ -198,6 +198,7 @@ let basic (map : spilled_map) (instr : Cfg.basic Cfg.instruction) =
                  | Ioffset_loc (_, _) | Ifloatarithmem (_, _)
                  | Ipause
                  | Iprefetch _
+                 | Istatic_csel _
                  | Ibswap _| Ifloatsqrtf _))
   | Reloadretaddr
   | Pushtrap _

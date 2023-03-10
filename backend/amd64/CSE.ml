@@ -40,6 +40,7 @@ method! class_of_operation op =
     | Icrc32q -> Op_pure
     | Ipause
     | Iprefetch _ -> Op_other
+    | Istatic_csel _ -> Op_other
     end
   | Imove | Ispill | Ireload | Inegf | Iabsf | Iaddf | Isubf | Imulf | Idivf
   | Icompf _

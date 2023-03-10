@@ -169,6 +169,25 @@ method! reload_operation op arg res =
         done;
         arg'.(len - 1) <- r;
         (arg', [|r|])
+  | Ispecific (Istatic_csel _) ->
+    (* First argument and result must be in the same register.
+       Second argument must be in register. *)
+    if stackp arg.(0) || stackp arg.(1) then
+      let arg0 =
+        if stackp arg.(0) then
+          self#makereg arg.(0)
+        else
+          arg.(0)
+      in
+      let arg1 =
+      if stackp arg.(1) then
+        self#makereg arg.(1)
+      else
+        arg.(1)
+      in
+      ([|arg0;arg1|], [|arg0|])
+    else
+      (arg, res)
   | Iintop (Ipopcnt | Iclz _| Ictz _)
   | Iintop_atomic _
   | Ispecific  (Isqrtf | Isextend32 | Izextend32 | Ilea _

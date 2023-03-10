@@ -116,6 +116,7 @@ type specific_operation =
         locality: prefetch_temporal_locality_hint;
         addr: addressing_mode;
       }
+  | Istatic_csel of string
 
 and float_operation =
     Ifloatadd | Ifloatsub | Ifloatmul | Ifloatdiv
@@ -245,6 +246,8 @@ let print_specific_operation printreg op ppf arg =
       fprintf ppf "prefetch is_write=%b prefetch_temporal_locality_hint=%s %a"
         is_write (string_of_prefetch_temporal_locality_hint locality)
         printreg arg.(0)
+  | Istatic_csel name ->
+    fprintf ppf "static_csel %s %a %a" name printreg arg.(0) printreg arg.(1)
 
 (* Are we using the Windows 64-bit ABI? *)
 let win64 =
@@ -258,6 +261,7 @@ let operation_is_pure = function
   | Ilea _ | Ibswap _ | Isqrtf | Isextend32 | Izextend32 -> true
   | Ifloatarithmem _ | Ifloatsqrtf _ -> true
   | Ifloat_iround | Ifloat_round _ | Ifloat_min | Ifloat_max -> true
+  | Istatic_csel _
   | Icrc32q -> true
   | Irdtsc | Irdpmc | Ipause
   | Ilfence | Isfence | Imfence
@@ -273,6 +277,7 @@ let operation_can_raise = function
   | Icrc32q | Irdtsc | Irdpmc | Ipause
   | Ilfence | Isfence | Imfence
   | Istore_int (_, _, _) | Ioffset_loc (_, _)
+  | Istatic_csel _
   | Iprefetch _ -> false
 
 let operation_allocates = function
@@ -282,6 +287,7 @@ let operation_allocates = function
   | Icrc32q | Irdtsc | Irdpmc | Ipause
   | Ilfence | Isfence | Imfence
   | Istore_int (_, _, _) | Ioffset_loc (_, _)
+  | Istatic_csel _
   | Iprefetch _ -> false
 
 open X86_ast
@@ -384,8 +390,10 @@ let equal_specific_operation left right =
     Bool.equal left_is_write right_is_write
     && equal_prefetch_temporal_locality_hint left_locality right_locality
     && equal_addressing_mode left_addr right_addr
+  | Istatic_csel left, Istatic_csel right ->
+    String.equal left right
   | (Ilea _ | Istore_int _ | Ioffset_loc _ | Ifloatarithmem _ | Ibswap _
     | Isqrtf | Ifloatsqrtf _ | Isextend32 | Izextend32 | Irdtsc | Irdpmc
     | Ilfence | Isfence | Imfence | Ifloat_iround | Ifloat_round _ |
-    Ifloat_min | Ifloat_max | Ipause | Icrc32q | Iprefetch _), _ ->
+    Ifloat_min | Ifloat_max | Ipause | Icrc32q | Iprefetch _ | Istatic_csel _), _ ->
     false

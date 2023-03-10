@@ -161,6 +161,9 @@ let pseudoregs_for_operation op arg res =
     let arg = Array.copy arg in
     arg.(len-1) <- res.(0);
     (arg, res)
+  | Ispecific (Istatic_csel _) ->
+    (* arg.(0) and res.(0) must be the same *)
+    ([|res.(0); arg.(1)|], res)
   (* Other instructions are regular *)
   | Iintop (Ipopcnt|Iclz _|Ictz _|Icomp _|Icheckbound)
   | Iintop_imm ((Imulh _|Idiv|Imod|Icomp _|Icheckbound
@@ -348,8 +351,12 @@ method! select_operation op args dbg =
       | "caml_memory_fence", ([|Val|] | [| |]) ->
          Ispecific Imfence, args
       | _ ->
-        super#select_operation op args dbg
-      end
+        match String.split_on_char '$' func with
+        | ["caml_static_csel_value"; name] ->
+          Ispecific (Istatic_csel name), args
+        | _ ->
+          super#select_operation op args dbg
+    end
   (* Recognize store instructions *)
   | Cstore ((Word_int|Word_val as chunk), _init) ->
       begin match args with

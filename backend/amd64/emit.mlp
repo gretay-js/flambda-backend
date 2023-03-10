@@ -750,18 +750,21 @@ let emit_call_probe_handler_wrapper i ~probe_label =
   record_frame stack_live (Dbg_other i.dbg)
 
 (* Emit trap handler notes *)
-
+type static_csel_site = { lbl: int; reg_ifso: int; reg_ifnot: int }
 type traps = { mutable push_traps : label list;
                mutable pop_traps : label list;
                mutable enter_traps : Int.Set.t;
+               mutable static_csel: (static_csel_site list) String.Map.t;
              }
 
-let traps = { push_traps = []; pop_traps = []; enter_traps = Int.Set.empty; }
+let traps = { push_traps = []; pop_traps = []; enter_traps = Int.Set.empty;
+              static_csel = String.Map.empty; }
 
 let reset_traps () =
   traps.push_traps <- [];
   traps.pop_traps <- [];
-  traps.enter_traps <- Int.Set.empty
+  traps.enter_traps <- Int.Set.empty;
+  traps.static_csel <- String.Map.empty
 
 let emit_pop_trap_label () =
   let lbl = Cmm.new_label () in
@@ -773,6 +776,16 @@ let emit_push_trap_label handler =
   def_label lbl;
   traps.push_traps <- lbl::traps.push_traps;
   traps.enter_traps <- Int.Set.add handler traps.enter_traps
+
+let emit_static_csel_label name reg_ifso reg_ifnot =
+  let lbl = Cmm.new_label () in
+  def_label lbl;
+  let d = { lbl; reg_ifso; reg_ifnot } in
+  traps.static_csel <-
+    String.Map.update name (function
+      | None -> Some [d]
+      | Some data -> Some (d::data))
+      traps.static_csel
 
 let emit_atomic instr op (size : Cmm.atomic_bitwidth) addr =
   let src, dst = match op, size with
@@ -1133,6 +1146,20 @@ let emit_instr fallthrough i =
       I.cmov c (reg ifso) (res i 0)
     in
     emit_test i tst ~taken
+  | Lop(Ispecific (Istatic_csel name)) ->
+    let assert_reg_int r =
+      assert (Reg.is_reg r);
+      assert (i.arg.(0).typ != Float);
+    in
+    assert (Reg.same_loc i.arg.(0) i.res.(0));
+    assert_reg_int i.arg.(0);
+    assert_reg_int i.arg.(1);
+    if not (Reg.same_loc i.arg.(1) i.res.(0)) then begin
+      let reg_ifso = X86_binary_emitter.rd_of_reg64 (reg64 i.arg.(0)) in
+      let reg_ifnot = X86_binary_emitter.rd_of_reg64 (reg64 i.arg.(1)) in
+      emit_static_csel_label name reg_ifso reg_ifnot;
+      I.mov (reg i.arg.(1)) (res i 0)
+    end
   | Lop(Ispecific Irdtsc) ->
     I.rdtsc ();
     let rdx = Reg64 RDX in
@@ -1747,14 +1774,26 @@ let emit_trap_notes () =
     List.iter (fun l -> D.qword (ConstLabel (emit_label l))) list;
     D.qword (const 0)
   in
+  let emit_named_labels name list =
+    D.bytes (name ^ "\000");
+    List.iter (fun {lbl; reg_ifso; reg_ifnot} ->
+      D.qword (ConstLabel (emit_label lbl));
+      D.byte (const reg_ifso);
+      D.byte (const reg_ifnot))
+      list;
+    D.qword (const 0)
+  in
   let emit_desc () =
     D.qword (ConstLabel "_.stapsdt.base");
     emit_labels (Int.Set.elements traps.enter_traps);
     emit_labels traps.push_traps;
-    emit_labels traps.pop_traps
+    emit_labels traps.pop_traps;
+    D.qword (const (String.Map.cardinal traps.static_csel));
+    String.Map.iter emit_named_labels traps.static_csel;
   in
   if is_system_supported && !Arch.trap_notes &&
-     not (Int.Set.is_empty traps.enter_traps) then begin
+     not ((Int.Set.is_empty traps.enter_traps) &&
+          (String.Map.is_empty traps.static_csel)) then begin
     D.section [".note.ocaml_eh"] (Some "?") [ "\"note\"" ];
     emit_elf_note ~owner:"OCaml" ~typ:1l ~emit_desc;
     (* Reuse stapsdt base section for calcluating addresses after pre-link *)

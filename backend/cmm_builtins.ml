@@ -296,6 +296,25 @@ let transl_builtin name args dbg typ_res =
     let cond, ifso, ifnot = three_args name args in
     if_operation_supported op ~f:(fun () ->
         Cop (op, [test_bool dbg cond; ifso; ifnot], dbg))
+  | "caml_static_csel_value" ->
+    let get_probe_name cmm =
+      match cmm with
+      | Cop (Caddi, [Cop (Clsl, [Cop(Cprobe_is_enabled { name }, _, _dbg);
+                                 Cconst_int (1, _)], _);
+                     Cconst_int (1, _)], _)
+        -> name
+      | _ ->
+        Misc.fatal_errorf "Cmm_builtins : expect %%probe_is_enabled for first arg, got %a"
+          Printcmm.expression cmm
+    in
+    let cond, ifso, ifnot = three_args name args in
+    let probe_name = get_probe_name cond in
+    let func = name^"$"^probe_name in
+    let fake_cextcall =
+      Cextcall { func; builtin = true; ty = typ_res; ty_args = []; returns = true;
+                 alloc = false; effects = No_effects; coeffects = No_coeffects;
+               } in
+    Some (Cop (fake_cextcall, [ifso;ifnot], dbg))
   (* Native_pointer: handled as unboxed nativeint *)
   | "caml_ext_pointer_as_native_pointer" ->
     Some (int_as_pointer (one_arg name args) dbg)

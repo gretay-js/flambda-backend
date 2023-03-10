@@ -60,3 +60,5 @@ val contents : buffer -> string
 val add_patch : offset:int -> size:data_size -> data:int64 -> buffer -> unit
 
 val labels : buffer -> symbol String.Tbl.t
+
+val rd_of_reg64 : reg64 -> int
