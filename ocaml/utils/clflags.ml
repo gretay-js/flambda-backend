@@ -706,3 +706,4 @@ let print_arguments program =
   Arg.usage !arg_spec (create_usage_msg program)
 
 let alloc_check = ref false                       (* -alloc-check *)
+let alloc_check_assert_all = ref false            (* -alloc-check-assert-all *)

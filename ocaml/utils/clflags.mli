@@ -303,3 +303,4 @@ val print_arguments : string -> unit
 val reset_arguments : unit -> unit
 
 val alloc_check : bool ref
+val alloc_check_assert_all : bool ref

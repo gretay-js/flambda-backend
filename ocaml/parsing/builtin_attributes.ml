@@ -505,9 +505,11 @@ let zero_alloc_attribute (attr : Parsetree.attribute)  =
   parse_attribute_with_ident_payload attr
     ~name:"zero_alloc" ~f:(function
       | "check" -> Clflags.alloc_check := true
+      | "assert-all" | "assert" | "assert_all" | "all" ->
+        Clflags.alloc_check_assert_all := true
       | _ ->
         warn_payload attr.attr_loc attr.attr_name.txt
-          "Only 'check' is supported")
+          "Only 'check' and 'all' are supported")
 
 let afl_inst_ratio_attribute attr =
   clflags_attribute_with_int_payload attr
