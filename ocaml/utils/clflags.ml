@@ -704,3 +704,5 @@ let create_usage_msg program =
 
 let print_arguments program =
   Arg.usage !arg_spec (create_usage_msg program)
+
+let alloc_check = ref false                       (* -alloc-check *)
