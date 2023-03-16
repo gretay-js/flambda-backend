@@ -310,6 +310,7 @@ type poll_attribute =
 
 type check_attribute =
   | Default_check
+  | Ignore_assert_all of property
   | Check of { property: property;
                strict: bool;
                (* [strict=true] property holds on all paths.
