@@ -285,6 +285,8 @@ module Func_info = struct
       unresolved_callees = String.Set.empty
     }
 
+  let is_resolved t = String.Set.is_empty t.unresolved_callees
+
   let print ~msg ppf t =
     let open Format in
     let print_names ppf set =
@@ -389,6 +391,11 @@ end = struct
           callee_info.unresolved_callers
             <- String.Set.remove func_info.name callee_info.unresolved_callers)
         unresolved_callees);
+    let value =
+      (* conservative use of summaries for unresolved dependencies *)
+      let v = V.join value.nor value.exn in
+      { Value.nor = v; exn = v; div = value.div }
+    in
     String.Set.iter (join_and_propagate t ~value) unresolved_callers
 
   and join_and_propagate t ~value name =
@@ -589,7 +596,7 @@ end = struct
       (* If callee is not fully resolved, add it to dependencies. *)
       let dep =
         if is_future_funcname t callee
-           || not (String.Set.is_empty callee_info.unresolved_callees)
+           || not (Func_info.is_resolved callee_info)
         then Some callee
         else None
       in
