@@ -274,7 +274,7 @@ module Inlining = struct
   let make_inlined_body acc ~callee ~region_inlined_into ~params ~args
       ~my_closure ~my_region ~my_depth ~body ~free_names_of_body
       ~exn_continuation ~return_continuation ~apply_exn_continuation
-      ~apply_return_continuation ~apply_depth =
+      ~apply_return_continuation ~apply_depth ~apply_dbg =
     let rec_info =
       match apply_depth with
       | None -> Rec_info_expr.initial
@@ -303,10 +303,19 @@ module Inlining = struct
       in
       acc, Expr.apply_renaming body renaming
     in
-    Inlining_helpers.make_inlined_body ~callee ~region_inlined_into ~params
-      ~args ~my_closure ~my_region ~my_depth ~rec_info ~body:(acc, body)
-      ~exn_continuation ~return_continuation ~apply_exn_continuation
-      ~apply_return_continuation ~bind_params ~bind_depth ~apply_renaming
+    let acc, body =
+      Inlining_helpers.make_inlined_body ~callee ~region_inlined_into ~params
+        ~args ~my_closure ~my_region ~my_depth ~rec_info ~body:(acc, body)
+        ~exn_continuation ~return_continuation ~apply_exn_continuation
+        ~apply_return_continuation ~bind_params ~bind_depth ~apply_renaming
+    in
+    Let_with_acc.create acc
+      (Bound_pattern.singleton
+         (VB.create (Variable.create "inlined_dbg") Name_mode.normal))
+      (Named.create_prim
+         (Nullary (Enter_inlined_apply { dbg = apply_dbg }))
+         Debuginfo.none)
+      ~body
 
   let wrap_inlined_body_for_exn_extra_args acc ~extra_args
       ~apply_exn_continuation ~apply_return_continuation ~result_arity
@@ -327,6 +336,7 @@ module Inlining = struct
       ~make_inlined_body ~apply_cont_create ~let_cont_create
 
   let inline acc ~apply ~apply_depth ~func_desc:code =
+    let apply_dbg = Apply.dbg apply in
     let callee = Apply.callee apply in
     let region_inlined_into = Apply.region apply in
     let args = Apply.args apply in
@@ -357,7 +367,7 @@ module Inlining = struct
           make_inlined_body ~callee ~region_inlined_into
             ~params:(Bound_parameters.vars params)
             ~args ~my_closure ~my_region ~my_depth ~body ~free_names_of_body
-            ~exn_continuation ~return_continuation ~apply_depth
+            ~exn_continuation ~return_continuation ~apply_depth ~apply_dbg
         in
         let acc = Acc.with_free_names Name_occurrences.empty acc in
         let acc = Acc.increment_metrics cost_metrics acc in
@@ -692,8 +702,9 @@ let close_primitive acc env ~let_bound_var named (prim : Lambda.primitive) ~args
       | Pbytes_set_32 _ | Pbytes_set_64 _ | Pbigstring_load_16 _
       | Pbigstring_load_32 _ | Pbigstring_load_64 _ | Pbigstring_set_16 _
       | Pbigstring_set_32 _ | Pbigstring_set_64 _ | Pctconst _ | Pbswap16
-      | Pbbswap _ | Pint_as_pointer | Popaque | Pprobe_is_enabled _ | Pobj_dup
-      | Pobj_magic ->
+      | Pbbswap _ | Pint_as_pointer | Popaque _ | Pprobe_is_enabled _ | Pobj_dup
+      | Pobj_magic _ | Punbox_float | Pbox_float _ | Punbox_int _ | Pbox_int _
+        ->
         (* Inconsistent with outer match *)
         assert false
     in
@@ -1165,12 +1176,12 @@ let close_one_function acc ~code_id ~external_env ~by_function_slot decl
 
      Note that free variables corresponding to predefined exception identifiers
      have been filtered out by [close_functions], above. *)
-  let value_slots_to_bind, value_slots_for_idents =
+  let (value_slots_to_bind : Value_slot.t Variable.Map.t), vars_for_idents =
     Ident.Map.fold
-      (fun id value_slots_for_idents (to_bind, var_for_ident) ->
+      (fun id value_slot (value_slots_to_bind, vars_for_idents) ->
         let var = Variable.create_with_same_name_as_ident id in
-        ( Variable.Map.add var value_slots_for_idents to_bind,
-          Ident.Map.add id var var_for_ident ))
+        ( Variable.Map.add var value_slot value_slots_to_bind,
+          Ident.Map.add id var vars_for_idents ))
       value_slots_from_idents
       (Variable.Map.empty, Ident.Map.empty)
   in
@@ -1234,7 +1245,7 @@ let close_one_function acc ~code_id ~external_env ~by_function_slot decl
           (Env.add_var env id var kind)
           var
           (find_value_approximation acc env simple))
-      value_slots_for_idents closure_env
+      vars_for_idents closure_env
   in
   let closure_env =
     List.fold_right
@@ -1311,14 +1322,12 @@ let close_one_function acc ~code_id ~external_env ~by_function_slot decl
     Variable.Map.fold
       (fun var value_slot (acc, body) ->
         let var = VB.create var Name_mode.normal in
+        let kind = Value_slot.kind value_slot in
         let named =
           Named.create_prim
             (Unary
                ( Project_value_slot
-                   { project_from = function_slot;
-                     value_slot;
-                     kind = K.With_subkind.any_value
-                   },
+                   { project_from = function_slot; value_slot; kind },
                  my_closure' ))
             Debuginfo.none
         in
@@ -1433,16 +1442,18 @@ let close_functions acc external_env ~current_region function_declarations =
         (* Filter out predefined exception identifiers and simple substitutions.
            The former will be turned into symbols, and the latter substituted
            when we closure-convert the body *)
-        let has_non_var_subst, subst_var =
+        let has_non_var_subst, subst_var, kind =
           match Env.find_simple_to_substitute_exn external_env id with
-          | exception Not_found -> false, None
-          | simple, _kind ->
+          | exception Not_found ->
+            let _, kind = find_simple_from_id_with_kind external_env id in
+            false, None, kind
+          | simple, kind ->
             Simple.pattern_match simple
-              ~const:(fun _ -> true, None)
+              ~const:(fun _ -> true, None, kind)
               ~name:(fun name ~coercion:_ ->
                 Name.pattern_match name
-                  ~var:(fun var -> false, Some var)
-                  ~symbol:(fun _ -> true, None))
+                  ~var:(fun var -> false, Some var, kind)
+                  ~symbol:(fun _ -> true, None, kind))
         in
         if has_non_var_subst || Ident.is_predef id
         then map
@@ -1452,7 +1463,7 @@ let close_functions acc external_env ~current_region function_declarations =
             | None -> Ident.name id
             | Some var -> Variable.name var
           in
-          Ident.Map.add id (Value_slot.create compilation_unit ~name) map)
+          Ident.Map.add id (Value_slot.create compilation_unit ~name kind) map)
       (Function_decls.all_free_idents function_declarations)
       Ident.Map.empty
   in
@@ -1605,13 +1616,19 @@ let close_functions acc external_env ~current_region function_declarations =
   let value_slots =
     Ident.Map.fold
       (fun id value_slot map ->
-        let external_simple, kind =
+        let kind = Value_slot.kind value_slot in
+        let external_simple, kind' =
           find_simple_from_id_with_kind external_env id
         in
+        if not (K.With_subkind.equal kind kind')
+        then
+          Misc.fatal_errorf "Value slot kinds %a and %a don't match for slot %a"
+            K.With_subkind.print kind K.With_subkind.print kind'
+            Value_slot.print value_slot;
         (* We're sure [external_simple] is a variable since
            [value_slot_from_idents] has already filtered constants and symbols
            out. *)
-        Value_slot.Map.add value_slot (external_simple, kind) map)
+        Value_slot.Map.add value_slot external_simple map)
       value_slots_from_idents Value_slot.Map.empty
   in
   let set_of_closures =
@@ -1762,7 +1779,7 @@ let wrap_partial_application acc env apply_continuation (apply : IR.apply)
   let function_slot =
     Function_slot.create
       (Compilation_unit.get_current_exn ())
-      ~name:(Ident.name wrapper_id)
+      ~name:(Ident.name wrapper_id) K.With_subkind.any_value
   in
   let num_provided = List.length provided in
   let params =

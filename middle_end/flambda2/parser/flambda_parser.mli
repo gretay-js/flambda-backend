@@ -5,6 +5,9 @@ type token =
   | TILDE
   | SYMBOL of (Fexpr.compilation_unit option * string)
   | STRING of (string)
+  | STATIC_CONST_FLOAT_BLOCK
+  | STATIC_CONST_FLOAT_ARRAY
+  | STATIC_CONST_BLOCK
   | STARDOT
   | STAR
   | SLASHDOT
@@ -30,10 +33,12 @@ type token =
   | PRIM_OPAQUE
   | PRIM_NUM_CONV
   | PRIM_IS_INT
+  | PRIM_IS_FLAT_FLOAT_ARRAY
   | PRIM_INT_SHIFT
   | PRIM_INT_COMP
   | PRIM_INT_ARITH
   | PRIM_GET_TAG
+  | PRIM_END_REGION
   | PRIM_BYTES_LENGTH
   | PRIM_BOX_NATIVEINT
   | PRIM_BOX_INT64
@@ -41,6 +46,7 @@ type token =
   | PRIM_BOX_FLOAT
   | PRIM_BLOCK_LOAD
   | PRIM_BLOCK
+  | PRIM_BEGIN_REGION
   | PRIM_ARRAY_SET
   | PRIM_ARRAY_LOAD
   | PRIM_ARRAY_LENGTH
@@ -49,6 +55,7 @@ type token =
   | PIPE
   | PERCENT
   | NOTEQUALDOT
+  | NOTEQUAL
   | MINUSGREATER
   | MINUSDOT
   | MINUS
@@ -69,6 +76,8 @@ type token =
   | KWD_UNREACHABLE
   | KWD_UNIT
   | KWD_TUPLED
+  | KWD_TOPLEVEL
+  | KWD_TAILREC
   | KWD_TAGGED
   | KWD_TAG
   | KWD_SWITCH
@@ -93,6 +102,8 @@ type token =
   | KWD_LSR
   | KWD_LSL
   | KWD_LOR
+  | KWD_LOOPIFY
+  | KWD_LOCAL
   | KWD_LET
   | KWD_LAND
   | KWD_INT64
@@ -106,9 +117,8 @@ type token =
   | KWD_IMM
   | KWD_ID
   | KWD_HINT
+  | KWD_HEAP_OR_LOCAL
   | KWD_HCF
-  | KWD_FLOAT_BLOCK
-  | KWD_FLOAT_ARRAY
   | KWD_FLOAT
   | KWD_EXN
   | KWD_ERROR
@@ -125,11 +135,11 @@ type token =
   | KWD_CLOSURE
   | KWD_CCALL
   | KWD_BOXED
-  | KWD_BLOCK
   | KWD_AVAILABLE
   | KWD_ASR
   | KWD_ARRAY
   | KWD_APPLY
+  | KWD_ANY
   | KWD_ANDWHERE
   | KWD_AND
   | KWD_ALWAYS
@@ -146,6 +156,7 @@ type token =
   | DOT
   | COMMA
   | COLON
+  | CARET
   | BLANK
   | BIGARROW
   | AT

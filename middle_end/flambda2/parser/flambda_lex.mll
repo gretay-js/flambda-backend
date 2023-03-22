@@ -33,11 +33,11 @@ let keyword_table =
     "always", KWD_ALWAYS;
     "and", KWD_AND;
     "andwhere", KWD_ANDWHERE;
+    "any", KWD_ANY;
     "apply", KWD_APPLY;
     "array", KWD_ARRAY;
     "asr", KWD_ASR;
     "available", KWD_AVAILABLE;
-    "Block", KWD_BLOCK;
     "boxed", KWD_BOXED;
     "ccall", KWD_CCALL;
     "closure", KWD_CLOSURE;
@@ -54,6 +54,7 @@ let keyword_table =
     "exn", KWD_EXN;
     "float", KWD_FLOAT;
     "halt_and_catch_fire", KWD_HCF;
+    "heap_or_local", KWD_HEAP_OR_LOCAL;
     "hint", KWD_HINT;
     "id", KWD_ID;
     "imm", KWD_IMM;
@@ -65,7 +66,10 @@ let keyword_table =
     "inlining_state", KWD_INLINING_STATE;
     "int32", KWD_INT32;
     "int64", KWD_INT64;
+    "land", KWD_LAND;
     "let", KWD_LET;
+    "local", KWD_LOCAL;
+    "loopify", KWD_LOOPIFY;
     "lsl", KWD_LSL;
     "lsr", KWD_LSR;
     "mutable", KWD_MUTABLE;
@@ -88,6 +92,8 @@ let keyword_table =
     "switch", KWD_SWITCH;
     "tag", KWD_TAG;
     "tagged", KWD_TAGGED;
+    "tailrec", KWD_TAILREC;
+    "toplevel", KWD_TOPLEVEL;
     "tupled", KWD_TUPLED;
     "unit", KWD_UNIT;
     "unreachable", KWD_UNREACHABLE;
@@ -96,6 +102,11 @@ let keyword_table =
     "val", KWD_VAL;
     "where", KWD_WHERE;
     "with", KWD_WITH;
+
+    (* Constructors for static constants *)
+    "Block", STATIC_CONST_BLOCK;
+    "Float_array", STATIC_CONST_FLOAT_ARRAY;
+    "Float_block", STATIC_CONST_FLOAT_BLOCK;
 ]
 
 let ident_or_keyword str =
@@ -110,6 +121,7 @@ let prim_table =
     "array_length", PRIM_ARRAY_LENGTH;
     "array_load", PRIM_ARRAY_LOAD;
     "array_set", PRIM_ARRAY_SET;
+    "begin_region", PRIM_BEGIN_REGION;
     "Block", PRIM_BLOCK;
     "block_load", PRIM_BLOCK_LOAD;
     "Box_float", PRIM_BOX_FLOAT;
@@ -117,10 +129,12 @@ let prim_table =
     "Box_int64", PRIM_BOX_INT64;
     "Box_nativeint", PRIM_BOX_NATIVEINT;
     "bytes_length", PRIM_BYTES_LENGTH;
+    "end_region", PRIM_END_REGION;
     "get_tag", PRIM_GET_TAG;
     "int_arith", PRIM_INT_ARITH;
     "int_comp", PRIM_INT_COMP;
     "int_shift", PRIM_INT_SHIFT;
+    "is_flat_float_array", PRIM_IS_FLAT_FLOAT_ARRAY;
     "is_int", PRIM_IS_INT;
     "num_conv", PRIM_NUM_CONV;
     "Opaque", PRIM_OPAQUE;
@@ -178,8 +192,9 @@ let oct_literal =
   '0' ['o' 'O'] ['0'-'7'] ['0'-'7' '_']*
 let bin_literal =
   '0' ['b' 'B'] ['0'-'1'] ['0'-'1' '_']*
+let sign = ['-']
 let int_literal =
-  decimal_literal | hex_literal | oct_literal | bin_literal
+  sign? (decimal_literal | hex_literal | oct_literal | bin_literal)
 let float_literal =
   ['0'-'9'] ['0'-'9' '_']*
   ('.' ['0'-'9' '_']* )?
@@ -236,13 +251,14 @@ rule token = parse
   | ">"  { GREATER }
   | "<=" { LESSEQUAL }
   | ">=" { GREATEREQUAL }
+  | "<>" { NOTEQUAL }
   | "?"  { QMARK }
   | "+." { PLUSDOT }
   | "-." { MINUSDOT }
   | "*." { STARDOT }
   | "/." { SLASHDOT }
   | "=." { EQUALDOT }
-  | "!=." { NOTEQUALDOT }
+  | "<>." { NOTEQUALDOT }
   | "<." { LESSDOT }
   | "<=." { LESSEQUALDOT }
   | "?." { QMARKDOT }
@@ -252,6 +268,7 @@ rule token = parse
   | "|"  { PIPE }
   | "~"  { TILDE }
   | "&"  { AMP }
+  | "^"  { CARET }
   | "===>" { BIGARROW }
   | identstart identchar* as ident
          { ident_or_keyword ident }
