@@ -1,6 +1,6 @@
-(* fails because forward dependency on g is treated conservatively *)
-exception E
-let[@zero_alloc] rec f x b =
-  if b then (g x; raise E)
-  else ()
-and g y = ignore (Sys.opaque_identity (y, y)) (* Allocating *)
+(* fail because conservate about the call to forever3 does not know that
+   the call never returns and so the allocation is not reachable. *)
+let[@zero_alloc strict][@inline never] rec test30 () =
+  forever3 ();
+  (2, 3)
+and[@zero_alloc strict][@inline never] forever3 () = while true do () done

@@ -146,10 +146,14 @@ and[@zero_alloc strict][@inline never] test29 () =
   forever2 ();
   (2, 3)
 
-let[@zero_alloc strict][@inline never] rec test30 () =
-  forever3 ();
-  (2, 3)
-and[@zero_alloc strict][@inline never] forever3 () = while true do () done
+(* forward dependency on test30a is treated conservatively but it does not matter
+   here because it is followed by a raise. *)
+exception E
+let[@zero_alloc] rec test30 x b =
+  if b then (test30a x; raise E)
+  else ()
+and test30a y = ignore (Sys.opaque_identity (y, y)) (* Allocating *)
+
 
 (* test31+test32 show that tracking "div" component separately from "nor" improves
    precision. *)
@@ -209,3 +213,9 @@ let[@zero_alloc] f x z =
       g (y-1) (acc + z)
   in
   g x 0
+
+let[@zero_alloc strict] rec test40 acc i =
+  if i <= 0 then
+    acc
+  else
+    test40 (acc+1) (i-1)
