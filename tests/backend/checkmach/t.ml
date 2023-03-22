@@ -73,13 +73,6 @@ let[@zero_alloc][@inline never] test18 n boo =
     raise (Exn3 p)
   end
 
-let[@inline never] test19 n =
-  let rec create n =
-    if n = 0 then []
-    else
-      (n :: create (n -1))
-  in
-  create n
 
 let[@zero_alloc] rec foo n =
   bar (n-1)
@@ -188,3 +181,31 @@ let[@zero_alloc] rec test36 x =
   else raise (Failure x)
 
 and[@zero_alloc]  test37 x = assert (String.length x > 0)
+
+let[@zero_alloc] f' x z =
+  let[@zero_alloc] rec g' y acc z =
+    if Sys.opaque_identity y < 0 then
+      acc
+    else
+      g' (y-1) (acc + z) z
+  in
+  g' x 0 z
+
+let[@zero_alloc] rec g'' y acc z =
+  if Sys.opaque_identity y < 0 then
+    acc
+  else
+    g'' (y-1) (acc + 2) z
+
+let[@zero_alloc] f'' x z =
+  g'' x 0 z
+
+(* fail, closure allocation, g captures z *)
+let[@zero_alloc] f x z =
+  let[@zero_alloc] rec g y acc =
+    if Sys.opaque_identity y < 0 then
+      acc
+    else
+      g (y-1) (acc + z)
+  in
+  g x 0
