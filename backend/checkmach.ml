@@ -103,8 +103,6 @@ module Value : sig
 
   val join : t -> t -> t
 
-  val is_top : t -> bool
-
   val top : t
 
   val bot : t
@@ -159,8 +157,6 @@ end = struct
   let top = { nor = V.Top; exn = V.Top; div = V.Top }
 
   let relaxed = { nor = V.Safe; exn = V.Top; div = V.Top }
-
-  let is_top v = v = top
 
   let print ppf { nor; exn; div } =
     Format.fprintf ppf "{ nor=%a; exn=%a; div=%a }" V.print nor V.print exn
@@ -254,40 +250,23 @@ end = struct
 end
 
 module Func_info = struct
-  (* Fields are mutable: [annotation] changes when a call appears before the
-     declaration. [value] and [unresolved_callers] change to track and update
-     dependencies as the compilation unit is scanned. *)
   type t =
     { name : string;  (** function name *)
-      mutable value : Value.t;  (** the result of the check *)
-      mutable annotation : Annotation.t option;
-          (** [value] must be lessequal than the expected value
+      value : Value.t;  (** the result of the check *)
+      annotation : Annotation.t option;
+      (** [value] must be lessequal than the expected value
           if there is user-defined annotation on this function. *)
-      mutable unresolved_callers : String.Set.t;  (** direct callers  *)
-      mutable unresolved_callees : String.Set.t  (** direct callees  *)
     }
 
-  let create name =
+  let create name value annotation=
     { name;
-      value = Value.bot;
-      annotation = None;
-      unresolved_callers = String.Set.empty;
-      unresolved_callees = String.Set.empty
+      value;
+      annotation;
     }
-
-  let is_resolved t = String.Set.is_empty t.unresolved_callees
 
   let print ~msg ppf t =
     let open Format in
-    let print_names ppf set =
-      set |> String.Set.to_seq
-      |> pp_print_seq
-           ~pp_sep:(fun ppf () -> pp_print_char ppf ' ')
-           pp_print_string ppf
-    in
-    fprintf ppf "%s %s %a@,(unresolved callees: %a)@,(unresolved callers: %a)@."
-      msg t.name Value.print t.value print_names t.unresolved_callees
-      print_names t.unresolved_callers
+    fprintf ppf "%s %s %a@." msg t.name Value.print t.value
 end
 
 module type Spec = sig
@@ -324,24 +303,9 @@ module Unit_info : sig
 
   val find_opt : t -> string -> Func_info.t option
 
-  (** [join_value t name v] name must be in the current compilation unit,
-      and previously recorded.  *)
-  val join_value : t -> string -> Value.t -> unit
-
-  (** [add_value t name v] name must be in the current compilation unit
-      and have not been recorded yet.  *)
-  val add_value : t -> string -> Value.t -> unit
-
-  (** [record_deps t ~caller ~callees] caller and callees must be in the current
-      compilation unit.  *)
-  val record_deps : t -> caller:string -> callees:String.Set.t -> unit
-
-  (** [cleanup_deps] remove resolved dependencies starting from [name]. *)
-  val cleanup_deps : t -> string -> unit
-
-  val record_annotation : t -> string -> Annotation.t option -> unit
-
-  val resolve_all : t -> unit
+  (** [recod t name v a] name must be in the current compilation unit,
+      and not previously recorded.  *)
+  val record : t -> string -> Value.t -> Annotation.t option -> unit
 
   val iter : t -> f:(Func_info.t -> unit) -> unit
 end = struct
@@ -352,103 +316,17 @@ end = struct
 
   let reset t = String.Tbl.reset t
 
-  let get_exn t name : Func_info.t = String.Tbl.find t name
-
   let find_opt t name = String.Tbl.find_opt t name
-
-  let get_or_create t name : Func_info.t =
-    match String.Tbl.find_opt t name with
-    | None ->
-      let func_info = Func_info.create name in
-      String.Tbl.replace t name func_info;
-      func_info
-    | Some func_info -> func_info
-
-  (* fixpoint backward propogation of function summaries along the recorded
-     dependency edges. *)
-  let rec propagate t (func_info : Func_info.t) =
-    let unresolved_callers = func_info.unresolved_callers in
-    let unresolved_callees = func_info.unresolved_callees in
-    let value = func_info.value in
-    if Value.is_top value
-    then (
-      (* optimization: remove incoming and outgoing dependency edges *)
-      func_info.unresolved_callers <- String.Set.empty;
-      func_info.unresolved_callees <- String.Set.empty;
-      String.Set.iter
-        (fun callee ->
-          let callee_info = get_exn t callee in
-          callee_info.unresolved_callers
-            <- String.Set.remove func_info.name callee_info.unresolved_callers)
-        unresolved_callees);
-    let value =
-      (* conservative use of summaries for unresolved dependencies *)
-      let v = V.join value.nor value.exn in
-      { Value.nor = v; exn = v; div = value.div }
-    in
-    String.Set.iter (join_and_propagate t ~value) unresolved_callers
-
-  and join_and_propagate t ~value name =
-    let func_info = get_exn t name in
-    let new_value = Value.join func_info.value value in
-    if not (Value.lessequal new_value func_info.value)
-    then (
-      func_info.value <- new_value;
-      propagate t func_info)
 
   let iter t ~f = String.Tbl.iter (fun _ func_info -> f func_info) t
 
-  let resolve_all t = iter t ~f:(propagate t)
-
-  let add_value t name value =
-    let (_ : Func_info.t) = get_or_create t name in
-    join_and_propagate t name ~value
-
-  let join_value t name value = join_and_propagate t name ~value
-
-  let record_annotation t name annotation =
-    let func_info = get_or_create t name in
-    if Option.is_some func_info.annotation
-    then Misc.fatal_errorf "Duplicate symbol %s" name;
-    func_info.annotation <- annotation
-
-  let record_deps t ~caller ~callees =
-    let func_info = get_exn t caller in
-    if not (String.Set.is_empty func_info.unresolved_callees)
-    then Misc.fatal_errorf "Unexpected unresolved callees for %s" caller;
-    func_info.unresolved_callees <- callees;
-    String.Set.iter
-      (fun callee ->
-        let func_info = get_or_create t callee in
-        func_info.unresolved_callers
-          <- String.Set.add caller func_info.unresolved_callers)
-      callees
-
-  let rec cleanup_deps t name =
-    (* optimization: clean up unresolved *)
-    let func_info = get_exn t name in
-    let unresolved_callees_except_self =
-      String.Set.remove name func_info.unresolved_callees
-    in
-    if String.Set.is_empty unresolved_callees_except_self
-    then (
-      (* remove all resolved deps *)
-      let unresolved_callers = func_info.unresolved_callers in
-      func_info.unresolved_callers <- String.Set.empty;
-      let changed_callers =
-        String.Set.filter
-          (fun caller ->
-            let caller_info : Func_info.t = get_exn t caller in
-            if String.Set.mem name caller_info.unresolved_callees
-            then (
-              caller_info.unresolved_callees
-                <- String.Set.remove name caller_info.unresolved_callees;
-              true)
-            else false)
-          unresolved_callers
-      in
-      (* propagate *)
-      String.Set.iter (cleanup_deps t) changed_callers)
+  let record t name value annotation =
+    match String.Tbl.find_opt t name with
+    | Some _ ->
+      Misc.fatal_errorf "Duplicate symbol %s" name;
+    | None ->
+      let func_info = Func_info.create name value annotation in
+      String.Tbl.replace t name func_info
 end
 
 (** Check one function. *)
@@ -468,17 +346,17 @@ end = struct
       current_fun_name : string;
       future_funcnames : String.Set.t;
           (** functions defined later in the same compilation unit  *)
-      mutable unresolved_deps : String.Set.t;
-          (** must be the current compilation unit.  *)
-      unit_info : Unit_info.t
+      unit_info : Unit_info.t;
+      mutable approx : Value.t option
+      (** Used for computing fixpoint for self calls. *)
     }
 
   let create ppf current_fun_name future_funcnames unit_info =
     { ppf;
       current_fun_name;
       future_funcnames;
-      unresolved_deps = String.Set.empty;
-      unit_info
+      unit_info;
+      approx = None;
     }
 
   let analysis_name = Printcmm.property_to_string S.property
@@ -516,8 +394,6 @@ end = struct
       Func_info.print ppf ~msg func_info
 
   let record_unit unit_info ppf =
-    report_unit_info ppf unit_info ~msg:"before resolve_all";
-    Unit_info.resolve_all unit_info;
     let record (func_info : Func_info.t) =
       (match func_info.annotation with
       | None -> ()
@@ -543,63 +419,45 @@ end = struct
       Profile.record_call ~accumulate:true ("record_unit " ^ analysis_name)
         (fun () -> record_unit unit_info ppf)
 
-  let update_deps t v dep desc dbg =
-    match dep with
-    | Some callee ->
-      t.unresolved_deps <- String.Set.add callee t.unresolved_deps;
-      report t v ~msg:"unresolved" ~desc dbg
-    | None -> report t v ~msg:"resolved" ~desc dbg
+  (* [find_callee] returns the value associated with the callee. *)
+  type callee =
+    | Resolved of Value.t
+    | Unresolved of Value.t
 
-  (* [find_callee] returns the value associated with the callee and whether
-     there is a new dependency to record. *)
   let find_callee t callee =
-    match Unit_info.find_opt t.unit_info callee with
-    | None ->
-      if is_future_funcname t callee
-      then (
-        (* The callee is defined later in the file. We have not seen any calls
-           to it yet. *)
-        (* CR-soon gyorsh: Returning Safe is sound because the value of the
-           callee, when it becomes available, will be joined to the final value
-           of the caller (the current function). Analysis result depends on the
-           order of functions in the file. To address it, use more precise
-           function summaries. *)
-        let v = Value.safe in
-        Unit_info.add_value t.unit_info callee v;
-        v, Some callee)
-      else
-        (* Callee is not defined in the current compilation unit. *)
-        let v =
-          match S.get_value_opt callee with
+    if is_future_funcname t callee then begin
+      if String.equal callee t.current_fun_name then begin
+        (* Self call. Summary is not computed yet. *)
+        let approx =
+        match t.approx with
           | None ->
-            report t Value.top ~msg:"callee compiled without checks"
-              ~desc:callee Debuginfo.none;
-            Value.top
-          | Some v -> v
+            let v = Value.bot in
+            t.approx <- Some v;
+            v
+          | Some approx -> approx
         in
-        v, None
-    | Some callee_info ->
-      (* Callee defined earlier in the same compilation unit, or we have already
-         seen a call to this callee earlier in the same compilation unit
-         (possibly in the same function), but haven't finished analysis of the
-         callee's definition yet. *)
-      (* If callee is not fully resolved, add it to dependencies. *)
-      let dep =
-        if is_future_funcname t callee
-           || not (Func_info.is_resolved callee_info)
-        then Some callee
-        else None
-      in
-      let v =
-        if String.equal t.current_fun_name callee
-        then (
-          (* self-call, conservative *)
-          let v = Value.join callee_info.value Value.safe in
-          Unit_info.add_value t.unit_info callee v;
-          v)
-        else callee_info.value
-      in
-      v, dep
+        Unresolved approx
+      end else
+        (* Call is defined later in the current compilation unit.
+           Summary of this callee is not yet computed,
+           conservatively return Top. Won't be able to prove any recursive
+           non-allocating functions. *)
+        Unresolved Value.top
+    end else begin
+      match Unit_info.find_opt t.unit_info callee with
+      | None ->
+        (* Callee is not defined in the current compilation unit. *)
+        (match S.get_value_opt callee with
+         | None ->
+           report t Value.top ~msg:"callee compiled without checks"
+             ~desc:callee Debuginfo.none;
+          Unresolved Value.top
+         | Some v ->
+           Resolved v)
+      | Some callee_info ->
+        (* Callee defined earlier in the same compilation unit. *)
+        Resolved callee_info.value
+    end
 
   let transform_return ~(effect : V.t) dst =
     match effect with
@@ -625,8 +483,15 @@ end = struct
   let transform_call t ~next ~exn callee ~desc dbg =
     report t next ~msg:"transform_call next" ~desc dbg;
     report t exn ~msg:"transform_call exn" ~desc dbg;
-    let callee_value, new_dep = find_callee t callee in
-    update_deps t callee_value new_dep desc dbg;
+    let callee_value =
+    match find_callee t callee with
+      | Resolved v ->
+        report t v ~msg:"resolved" ~desc dbg;
+        v
+      | Unresolved v ->
+        report t v ~msg:"unresolved" ~desc dbg;
+        v
+    in
     transform t ~next ~exn ~effect:callee_value desc dbg
 
   let transform_operation t (op : Mach.operation) ~next ~exn dbg =
@@ -727,38 +592,42 @@ end = struct
        To check divergent loops, the initial value of "div" component of all
        Iexit labels is set to "Safe" instead of "Bot". This is conservative with
        respect to non-recursive Icatch. *)
-    D.analyze ~exnescape:Value.exn_escape ~init_lbl:Value.diverges ~transfer
-      body
-    |> fst
+    let rec fixpoint () =
+      let new_value =
+        D.analyze ~exnescape:Value.exn_escape ~init_lbl:Value.diverges ~transfer
+          body
+        |> fst
+      in
+      match t.approx with
+      | None -> new_value
+      | Some approx ->
+        if Value.lessequal new_value approx then
+          approx
+        else
+          begin
+            t.approx <- Some (Value.join new_value approx);
+            fixpoint ()
+          end
+    in
+    fixpoint ()
 
   let fundecl (f : Mach.fundecl) ~future_funcnames unit_info ppf =
     let check () =
       let fun_name = f.fun_name in
       let t = create ppf fun_name future_funcnames unit_info in
       let a = Annotation.find f.fun_codegen_options S.property f.fun_dbg in
-      Unit_info.record_annotation unit_info fun_name a;
       match a with
       | Some a when Annotation.is_assume a ->
         let expected_value = Annotation.expected_value a in
         report t expected_value ~msg:"assumed" ~desc:"fundecl" f.fun_dbg;
-        Unit_info.join_value unit_info fun_name expected_value
+        Unit_info.record unit_info fun_name expected_value None
       | None | Some _ ->
         report t Value.top ~msg:"assert" ~desc:"fundecl" f.fun_dbg;
         let res = check_instr t f.fun_body in
-        let msg =
-          if String.Set.is_empty t.unresolved_deps
-          then "finished"
-          else "unresolved deps"
-        in
-        report t res ~msg ~desc:"fundecl" f.fun_dbg;
-        report_unit_info ppf unit_info ~msg:"before record deps";
-        Unit_info.record_deps unit_info ~callees:t.unresolved_deps
-          ~caller:fun_name;
-        report_unit_info ppf unit_info ~msg:"after record deps";
-        Unit_info.join_value unit_info fun_name res;
-        report_unit_info ppf unit_info ~msg:"after join value";
-        Unit_info.cleanup_deps unit_info fun_name;
-        report_unit_info ppf unit_info ~msg:"after cleanup_deps"
+        report t res ~msg:"finished" ~desc:"fundecl" f.fun_dbg;
+        report_unit_info ppf unit_info ~msg:"before join value";
+        Unit_info.record unit_info fun_name res a;
+        report_unit_info ppf unit_info ~msg:"after join value"
     in
     if S.enabled ()
     then Profile.record_call ~accumulate:true ("check " ^ analysis_name) check
