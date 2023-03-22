@@ -225,19 +225,17 @@ end = struct
           | Ignore_assert_all property when property = spec ->
             ignore_assert_all := true;
             None
-          | Ignore_assert_all _
-          | Check _ | Reduce_code_size | No_CSE | Use_linscan_regalloc ->
+          | Ignore_assert_all _ | Check _ | Reduce_code_size | No_CSE
+          | Use_linscan_regalloc ->
             None)
         codegen_options
     in
     match a with
     | [] ->
-      if !Clflags.alloc_check_assert_all
-      && not !ignore_assert_all
+      if !Clflags.alloc_check_assert_all && not !ignore_assert_all
       then
         Some { strict = false; assume = false; loc = Debuginfo.to_location dbg }
-      else
-        None
+      else None
     | [p] -> Some p
     | _ :: _ ->
       Misc.fatal_errorf "Unexpected duplicate annotation %a"
@@ -385,12 +383,12 @@ end = struct
       (* optimization: remove incoming and outgoing dependency edges *)
       func_info.unresolved_callers <- String.Set.empty;
       func_info.unresolved_callees <- String.Set.empty;
-      String.Set.iter (fun callee ->
-        let callee_info = get_exn t callee in
-        callee_info.unresolved_callers <-
-          String.Set.remove func_info.name callee_info.unresolved_callers;
-      ) unresolved_callees;
-    );
+      String.Set.iter
+        (fun callee ->
+          let callee_info = get_exn t callee in
+          callee_info.unresolved_callers
+            <- String.Set.remove func_info.name callee_info.unresolved_callers)
+        unresolved_callees);
     String.Set.iter (join_and_propagate t ~value) unresolved_callers
 
   and join_and_propagate t ~value name =
@@ -403,8 +401,7 @@ end = struct
 
   let iter t ~f = String.Tbl.iter (fun _ func_info -> f func_info) t
 
-  let resolve_all t =
-    iter t ~f:(propagate t)
+  let resolve_all t = iter t ~f:(propagate t)
 
   let add_value t name value =
     let (_ : Func_info.t) = get_or_create t name in
@@ -476,7 +473,7 @@ end = struct
           (** functions defined later in the same compilation unit  *)
       mutable unresolved_deps : String.Set.t;
           (** must be the current compilation unit.  *)
-      unit_info : Unit_info.t;
+      unit_info : Unit_info.t
     }
 
   let create ppf current_fun_name future_funcnames unit_info =
@@ -484,7 +481,7 @@ end = struct
       current_fun_name;
       future_funcnames;
       unresolved_deps = String.Set.empty;
-      unit_info;
+      unit_info
     }
 
   let analysis_name = Printcmm.property_to_string S.property
@@ -717,16 +714,18 @@ end = struct
         next
     in
     (* By default, backward analysis does not check the property on paths that
-       diverge (non-terminating loops that do not reach normal or exceptional return).
-       All loops must go through an (Iexit label) instruction or a recursive
-       function call. If (Iexit label) is not backward reachable from the
-       function's Normal or Exceptional Return, either the loop diverges or
+       diverge (non-terminating loops that do not reach normal or exceptional
+       return). All loops must go through an (Iexit label) instruction or a
+       recursive function call. If (Iexit label) is not backward reachable from
+       the function's Normal or Exceptional Return, either the loop diverges or
        the Iexit instruction is not reachable from function entry.
 
-       To check divergent loops, the initial value of "div" component
-       of all Iexit labels is set to "Safe" instead of "Bot".
-       This is conservative with respect to non-recursive Icatch. *)
-    D.analyze ~exnescape:Value.exn_escape ~init_lbl:Value.diverges ~transfer body |> fst
+       To check divergent loops, the initial value of "div" component of all
+       Iexit labels is set to "Safe" instead of "Bot". This is conservative with
+       respect to non-recursive Icatch. *)
+    D.analyze ~exnescape:Value.exn_escape ~init_lbl:Value.diverges ~transfer
+      body
+    |> fst
 
   let fundecl (f : Mach.fundecl) ~future_funcnames unit_info ppf =
     let check () =
