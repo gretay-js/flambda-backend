@@ -567,8 +567,8 @@ end = struct
     | None ->
       if is_future_funcname t callee
       then (
-        (* The callee is defined later in the file. We have not seen any calls to it
-           yet. *)
+        (* The callee is defined later in the file. We have not seen any calls
+           to it yet. *)
         (* CR-soon gyorsh: Returning Safe is sound because the value of the
            callee, when it becomes available, will be joined to the final value
            of the caller (the current function). Analysis result depends on the
@@ -591,8 +591,8 @@ end = struct
     | Some callee_info ->
       (* Callee defined earlier in the same compilation unit, or we have already
          seen a call to this callee earlier in the same compilation unit
-         (possibly in the same function),
-         but haven't finished analysis of the callee's definition yet. *)
+         (possibly in the same function), but haven't finished analysis of the
+         callee's definition yet. *)
       (* If callee is not fully resolved, add it to dependencies. *)
       let dep =
         if is_future_funcname t callee
@@ -601,13 +601,13 @@ end = struct
         else None
       in
       let v =
-        if String.equal t.current_fun_name callee then
+        if String.equal t.current_fun_name callee
+        then (
           (* self-call, conservative *)
           let v = Value.join callee_info.value Value.safe in
           Unit_info.add_value t.unit_info callee v;
-          v
-        else
-          callee_info.value
+          v)
+        else callee_info.value
       in
       v, dep
 
@@ -621,7 +621,7 @@ end = struct
     let div = V.join effect dst.div in
     { dst with div }
 
-  let transform t ~next ~exn ~(effect:Value.t) desc dbg =
+  let transform t ~next ~exn ~(effect : Value.t) desc dbg =
     let next = transform_return ~effect:effect.nor next in
     let exn = transform_return ~effect:effect.exn exn in
     report t next ~msg:"transform new next" ~desc dbg;
@@ -678,8 +678,8 @@ end = struct
     | Icall_ind -> transform t ~next ~exn ~effect:Value.top "indirect call" dbg
     | Itailcall_ind ->
       (* Sound to ignore [next] and [exn] because the call never returns. *)
-      transform t ~next:Value.normal_return ~exn:Value.exn_escape ~effect:Value.top
-        "indirect tailcall" dbg
+      transform t ~next:Value.normal_return ~exn:Value.exn_escape
+        ~effect:Value.top "indirect tailcall" dbg
     | Icall_imm { func } ->
       transform_call t ~next ~exn func ~desc:("direct call to " ^ func) dbg
     | Itailcall_imm { func } ->
