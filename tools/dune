@@ -18,10 +18,18 @@
   (modules flambda_backend_objinfo)
   (libraries ocamlcommon ocamlbytecomp ocamloptcomp))
 
+(executable
+  (name flambda_backend_objcopy)
+  (modes byte native)
+  (modules flambda_backend_objcopy)
+  (libraries ocamlcommon ocamlbytecomp ocamloptcomp))
+
 (install
   (files
     (flambda_backend_objinfo.bc as ocamlobjinfo.byte)
     (flambda_backend_objinfo.exe as ocamlobjinfo.opt)
+    (flambda_backend_objcopy.exe as ocamlobjcopy.opt)
+    (flambda_backend_objcopy.bc as ocamlobjcopy.byte)
   )
   (section bin)
   (package ocaml))
