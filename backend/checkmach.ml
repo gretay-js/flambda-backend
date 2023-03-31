@@ -35,9 +35,15 @@ module Tag = struct
     | D -> 2
   let size = 3
 end
-module Var = struct
+
+module Var : sig
+  type t
+  val get : string -> Tag.t -> t
+  val print : Format.formatter -> t -> unit
+end = struct
   type t = int
-  let map : (name, int) Hashtbl.t = Hashtbl.create 3
+  let name2id : (name, int) Hashtbl.t = Hashtbl.create 3
+  let id2name : (name, int) Hashtbl.t = Hashtbl.create 3
   let count = ref 0
 
   let get_and_incr () =
@@ -46,19 +52,29 @@ module Var = struct
     res
 
   let get name tag =
-    match Hashtbl.find_opt map name with
-    | Some n ->
-      n + Tag.to_offset tag
-    | None ->
-      Hashtbl.replace map name (get_and_incr ())
+    let n =
+      match Hashtbl.find_opt name2id name with
+      | Some n ->
+        n
+      | None ->
+        let n = get_and_incr () in
+        Hashtbl.replace name2id name n;
+        Hashtbl.replace id2name n name;
+        n
+    in
+    n + Tag.to_offset tag
+
+  let print ppf t =
+    Format.fprintf ppf "%s"
 end
+
 (** Abstract value for each component of the domain. *)
 module V : sig
   type rec t =
     | Top  (** Property may not hold on some paths. *)
     | Safe  (** Property holds on all paths.  *)
     | Bot  (** Not reachable. *)
-    | Unresolved of { bot:t; safe:t; top:t; var:Var.t }
+    | Unresolved of { var:Var.t list; eval:t list -> t }
 
   val lessequal : t -> t -> bool
 
@@ -72,20 +88,35 @@ module V : sig
 
   val print : Format.formatter -> t -> unit
 end = struct
-  type t =
+  type rec t =
     | Top
     | Safe
     | Bot
+    | Unresolved { var : Var.t list; eval : t list -> t }
 
-  let join c1 c2 =
+  let rec join c1 c2 =
     match c1, c2 with
     | Bot, Bot -> Bot
     | Safe, Safe -> Safe
     | Top, Top -> Top
     | Safe, Bot | Bot, Safe -> Safe
     | Top, Bot | Top, Safe | Bot, Top | Safe, Top -> Top
+    | Top, Unresolved _ -> Top
+    | Unresolved _, Top -> Top
+    | Bot, Unresolved _ -> c2
+    | Unresolved _, Bot -> c1
+    | Safe, Unresolved { var; eval } | Unresolved {var; eval}, Safe ->
+      Unresolved { var;
+                   eval = (fun tl -> join (eval tl) Safe);
+                 }
 
-  let lessequal v1 v2 =
+  (* Split the first n elements into a one list, the rest into another list. *)
+  let split tl n =
+    let t1 = List.filteri (fun i _ -> i < n) tl in
+    let t2 = List.filteri (fun i _ -> i >= n) tl in
+    t1,t2
+
+  let rec lessequal v1 v2 =
     match v1, v2 with
     | Bot, Bot -> true
     | Safe, Safe -> true
@@ -95,6 +126,22 @@ end = struct
     | Safe, Top -> true
     | Top, (Bot | Safe) -> false
     | Safe, Bot -> false
+    | Unresolved { var=var1; eval=eval1 },
+      Unresolved { var=var2; eval=eval2 } ->
+      Unresolved { var = var1@var2;
+                   eval = fun tl ->
+                     let t1,t2 = split tl (List.length var1) in
+                     lessequal (eval t1) (eval t2)
+                 }
+    | Unresolved { var; eval }, v2 ->
+      Unresolved { var;
+                   eval = fun tl -> lessequal (eval tl) v2;
+                 }
+    | v1, Unresolved {var; eval} ->
+      Unresolved
+        { var;
+          eval = eval = fun tl -> lessequal v1 (eval tl);
+        }
 
   (** abstract transformer (backward analysis) for a statement that violates the property
       but doesn't alter control flow. *)
@@ -105,51 +152,34 @@ end = struct
          immediately before the statement. *)
       Bot
     | Safe | Top -> Top
+    | Unresolved { var; eval } ->
+      let eval =
+        (fun tl ->
+           match eval tl with
+           | Bot -> Bot
+           | Safe | Top -> Top
+           | assert false)
+      in
+      Unresolved { var; eval }
+
 
   (* symmetric, reflexive *)
-  let transform_return t t' =
-    match t with
-    | Bot -> Bot
-    | Safe -> t'
-    | Top -> transform t'
-    | (Unresolved { bot; safe; top; var}) ->
-      match y with
-      | Bot -> bot
-      | Safe -> t
-      | Top -> transfrom t
-      | (Unresolved { bot = b'; s = s'; t = t'; var = var' }) as u' ->
-        if equal u u' then
-          u
-        else begin
-          let res =
-          if Var.compare var var' = 0 then
-            (* same variable *)
-            Unresolved { b = transform_return b b';
-                         s = transform_return s s';
-                         t = transform_return t t';
-                         var
-                       }
-          else if Var.compare var var' < 0 then
-            (* var is smaller *)
-            Unresolved { b = transform_return b u';
-                         s = transform_return s u';
-                         t = transform_return t u';
-                         var
-                       }
-          else
-            (* var' is smaller *)
-            Unresolved { b = transform_return u b';
-                         s = transform_return u s';
-                         t = transform_return u t';
-                         var'
-                       }
-          in
-          if equal res.bot res.safe && equal res.safe res.top then
-            res.bot
-          else
-            res
-      end
-
+  let rec transform_return t t' =
+    match t, t' with
+    | Bot, _ - Bot
+    | _, Bot -> Bot
+    | Top, _ -> Top
+    | _, Top -> Top
+    | Safe, Safe -> Safe
+    | Safe, t' -> t'
+    | t, Safe -> t
+    | Unresolved { var = var1; eval = eval1 },
+      Unresolved { var = var2; eval = eval2 } ->
+      { var = var1@var2;
+        eval = fun tl ->
+          let t1,t2 = split tl (List.len var1) in
+          transform_return (eval1 t1) (eval2 t2);
+      }
 
   let is_not_safe = function Top -> true | Safe | Bot -> false
 
@@ -157,6 +187,10 @@ end = struct
     | Bot -> Format.fprintf ppf "bot"
     | Top -> Format.fprintf ppf "top"
     | Safe -> Format.fprintf ppf "safe"
+    | Unresolved { var; eval=_} ->
+      let pp ppf l = Format.pp_print_list Var.print ppf l in
+      Format.fprintf ppf "unresolved %a@,"
+         pp var
 end
 
 (** Abstract value associated with each program location in a function. *)
