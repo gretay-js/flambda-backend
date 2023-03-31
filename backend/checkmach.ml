@@ -27,18 +27,46 @@
 
 module String = Misc.Stdlib.String
 
+module Tag = struct
+  type t = N | E | D
+  let to_offset = function
+    | N -> 0
+    | E -> 1
+    | D -> 2
+  let size = 3
+end
+module Var = struct
+  type t = int
+  let map : (name, int) Hashtbl.t = Hashtbl.create 3
+  let count = ref 0
+
+  let get_and_incr () =
+    let res = !count in
+    count := count + Tag.size;
+    res
+
+  let get name tag =
+    match Hashtbl.find_opt map name with
+    | Some n ->
+      n + Tag.to_offset tag
+    | None ->
+      Hashtbl.replace map name (get_and_incr ())
+end
 (** Abstract value for each component of the domain. *)
 module V : sig
-  type t =
+  type rec t =
     | Top  (** Property may not hold on some paths. *)
     | Safe  (** Property holds on all paths.  *)
     | Bot  (** Not reachable. *)
+    | Unresolved of { bot:t; safe:t; top:t; var:Var.t }
 
   val lessequal : t -> t -> bool
 
   val join : t -> t -> t
 
   val transform : t -> t
+
+  val transform_return : effect:V.t -> t -> t
 
   val is_not_safe : t -> bool
 
@@ -77,6 +105,51 @@ end = struct
          immediately before the statement. *)
       Bot
     | Safe | Top -> Top
+
+  (* symmetric, reflexive *)
+  let transform_return t t' =
+    match t with
+    | Bot -> Bot
+    | Safe -> t'
+    | Top -> transform t'
+    | (Unresolved { bot; safe; top; var}) ->
+      match y with
+      | Bot -> bot
+      | Safe -> t
+      | Top -> transfrom t
+      | (Unresolved { bot = b'; s = s'; t = t'; var = var' }) as u' ->
+        if equal u u' then
+          u
+        else begin
+          let res =
+          if Var.compare var var' = 0 then
+            (* same variable *)
+            Unresolved { b = transform_return b b';
+                         s = transform_return s s';
+                         t = transform_return t t';
+                         var
+                       }
+          else if Var.compare var var' < 0 then
+            (* var is smaller *)
+            Unresolved { b = transform_return b u';
+                         s = transform_return s u';
+                         t = transform_return t u';
+                         var
+                       }
+          else
+            (* var' is smaller *)
+            Unresolved { b = transform_return u b';
+                         s = transform_return u s';
+                         t = transform_return u t';
+                         var'
+                       }
+          in
+          if equal res.bot res.safe && equal res.safe res.top then
+            res.bot
+          else
+            res
+      end
+
 
   let is_not_safe = function Top -> true | Safe | Bot -> false
 
@@ -120,6 +193,8 @@ module Value : sig
   val print : Format.formatter -> t -> unit
 
   val transform : t -> t
+  val transform_return : effect:V.t -> t -> t
+  val transform_diverge : effect:V.t -> t -> t
 end = struct
   (** Lifts V to triples  *)
   type t =
@@ -145,6 +220,21 @@ end = struct
       exn = V.transform v.exn;
       div = V.transform v.div
     }
+
+  let transform_return ~(effect : V.t) dst =
+    match effect with
+    | V.Bot -> Value.bot
+    | V.Safe -> dst
+    | V.Top -> Value.transform dst
+    | V.Unresolved { b; s; t; var} ->
+      { nor = V.transform_return dst.nor ~effect;
+        exn = V.transform_return dst.exn ~effect;
+        div = V.transform_return dst.div ~effect;
+      }
+
+  let transform_diverge ~(effect : V.t) (dst : Value.t) =
+    let div = V.join effect dst.div in
+    { dst with div }
 
   let normal_return = { bot with nor = V.Safe }
 
@@ -458,19 +548,9 @@ end = struct
         Resolved callee_info.value
     end
 
-  let transform_return ~(effect : V.t) dst =
-    match effect with
-    | V.Bot -> Value.bot
-    | V.Safe -> dst
-    | V.Top -> Value.transform dst
-
-  let transform_diverge ~(effect : V.t) (dst : Value.t) =
-    let div = V.join effect dst.div in
-    { dst with div }
-
   let transform t ~next ~exn ~(effect : Value.t) desc dbg =
-    let next = transform_return ~effect:effect.nor next in
-    let exn = transform_return ~effect:effect.exn exn in
+    let next = Value.transform_return ~effect:effect.nor next in
+    let exn = Value.transform_return ~effect:effect.exn exn in
     report t next ~msg:"transform new next" ~desc dbg;
     report t exn ~msg:"transform new exn" ~desc dbg;
     let r = Value.join next exn in
