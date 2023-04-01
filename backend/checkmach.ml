@@ -73,13 +73,16 @@ module V : sig
   (* val eval : t -> env:(Var.t -> t option) -> t *)
 
 end = struct
+
   type rec t =
     | Top
     | Safe
     | Bot
     | Unresolved { eval : env -> t }
-  and env = (Var.t * t) list
-
+  and env = (Var.t -> t)
+  and unresolved =
+    | Join t * t
+    | 
   let rec join c1 c2 =
     match c1, c2 with
     | Bot, Bot -> Bot
@@ -437,22 +440,29 @@ end = struct
       t []
     in
     (* CR gyorsh: handle components *)
+    let apply summary env =
+      let lookup var =
+        List.assoc_find_opt (fun func_info -> func_info.name ...) env)
+      in
+      match summary with
+      | Bot | Safe| Top -> summary
+      | Unresolved {eval} -> eval lookup
+    in
     let rec loop env =
       let changed = ref false in
       let env' =
       List.map (fun (func_info, v) ->
-          match func_info.value with
-          | Bot | Safe| Top -> func_info.value
-          | Unresolved {eval} ->
-            let v' = eval (env) in
-            if v' = v then changed := true;
-            v'
+          let v' = apply func_info.value env in
+          assert (Value.is_resolved v');
+          changed := !changed || Value.equal v' v
+          v'
         )
         env
       in
       if !changed then loop env' else env'
     in
-    loop env
+    let env = loop env in
+    String.Tbl.iter (fun _ func_info -> func_info.value <- env(name)) t
 end
 
 (** Check one function. *)
