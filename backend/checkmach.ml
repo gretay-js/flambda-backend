@@ -52,11 +52,14 @@ end
 
 (** Abstract value for each component of the domain. *)
 module V : sig
-  type rec t =
+  type u
+  type t =
     | Top  (** Property may not hold on some paths. *)
     | Safe  (** Property holds on all paths.  *)
     | Bot  (** Not reachable. *)
+    | Unresolved u
 
+  val mk_unresolved : Var.t -> t
 
   val lessequal : t -> t -> bool
 
@@ -78,11 +81,51 @@ end = struct
     | Top
     | Safe
     | Bot
-    | Unresolved { eval : env -> t }
-  and env = (Var.t -> t)
-  and unresolved =
-    | Join t * t
-    | 
+    | Unresolved { eval : unresolved_t }
+  and unresolved_t =
+    | Join of unresolved_t list
+    | Transform of unresolved_t list
+    | Var of Var.t
+    | Const of t
+
+  type u = unresolved_t
+
+
+  let unresolved var = Unresolved (Var var)
+
+  let normalize (u:unresolved_t) =
+    match u with
+    | Const (Unresolved _) -> assert false
+    | Const _ -> u
+    | Var _ -> u
+    | Transform l ->
+      (* normal form: list of Vars *)
+      Transform
+    | Join l ->
+      (* normal form: list of Vars or Transforms  *)
+
+
+  let mk_join (u1:unresolved_t) (u2:unresolved_t) =
+    Join [u1; u2] |> normalize
+
+  let mk_transform (u1:unresolved_t) (u2:unresolved_t) =
+    Transform [u1; u2] |> normalize
+
+  let rec equal (t1:t) (t2:t) =
+    match t1, t2 with
+    | Top, Top -> true
+    | Safe, Safe -> true
+    | Bot, Bot -> true
+    | Unresolved u1, Unresolved u2 -> equal_unresolved u1 u2
+    | Top | Safe | Bot | Unresolved _, _ -> false
+  and rec equal_unresolved (u1:unresolved_t) (u2:unresolved_t) =
+    (* u1, u2 should already be normalized *)
+    match normalize u1, normalize u2 with
+    | Const t1, Const t2 -> equal t1 t2
+    | Var v1, Var v2 -> Var.equal v1 v2
+    | Transform l1, Transform l2
+    | Join l1, Join l2 -> List.equal equal_unresolved l1 l2
+
   let rec join c1 c2 =
     match c1, c2 with
     | Bot, Bot -> Bot
@@ -95,49 +138,14 @@ end = struct
     | Bot, Unresolved _ -> c2
     | Unresolved _, Bot -> c1
     | Safe, Unresolved { eval } | Unresolved { eval }, Safe ->
-      Unresolved { eval = (fun env -> join (eval env) Safe);
-                 }
+      Unresolved { eval = mk_join_with_safe eval (Const Safe)) }
     | Unresolved { eval = eval1 },
       Unresolved { eval = eval2 } ->
-      Unresolved {
-                   eval = fun env -> join (eval1 env) (eval2 env)
-                 }
+      Unresolved { eval = mk_join eval1 eval2 }
 
-  let rec lessequal v1 v2 =
-    match v1, v2 with
-    | Bot, Bot -> true
-    | Safe, Safe -> true
-    | Top, Top -> true
-    | Bot, Safe -> true
-    | Bot, Top -> true
-    | Safe, Top -> true
-    | Top, (Bot | Safe) -> false
-    | Safe, Bot -> false
-    | Unresolved { eval }, v2 ->
-      Unresolved { eval = fun env -> lessequal (eval env) v2;                 }
-    | v1, Unresolved { eval} ->
-      Unresolved
-        { eval = fun env -> lessequal v1 (eval env);
-        }
-    | Unresolved { eval=eval1 },
-      Unresolved { eval=eval2 } ->
-      Unresolved { eval = fun env -> lessequal (eval env) (eval env)              }
-
-  (** abstract transformer (backward analysis) for a statement that violates the property
-      but doesn't alter control flow. *)
-  let rec transform = function
-    | Bot ->
-      (* if a return is unreachable from the program location immediately after
-         the statement, then return is unreachable from the program location
-         immediately before the statement. *)
-      Bot
-    | Safe | Top -> Top
-    | Unresolved { var; eval } ->
-      Unresolved { var;
-                   eval = fun tl -> transform (eval tl)
-                 }
-
-  (* symmetric, reflexive *)
+  (** Abstract transformer. Symmetric, associative.
+      if t = V.Bot || t' = V.Bot then Bot else (join t t')
+  *)
   let rec transform_return t t' =
     match t, t' with
     | Bot, _ - Bot
@@ -149,30 +157,48 @@ end = struct
     | t, Safe -> t
     | Unresolved { eval = eval1 },
       Unresolved { eval = eval2 } ->
-      let n = (List.len var1) in
-      { eval = fun env ->
-          transform_return (eval1 env) (eval2 env);
-      }
+      mk_transform eval1 eval2
 
-  let is_not_safe = function Top -> true | Safe | Bot -> false
+  let rec apply : unresolved_t -> (Var.t -> t) -> t = fun u env ->
+    match u with
+    | Join l ->
+      List.fold_left (fun acc u -> join (apply u env) acc) Bot l
+    | Transform (t1, t2) ->
+      List.fold_left (fun acc u -> transform_return (apply u env) acc) Safe l
+    | Var v -> env v
+    | Const (Unresolved _) -> assert false
+    | Const t -> t
 
-  let print ppf = function
+  let rec lessequal v1 v2 =
+    match v1, v2 with
+    | Bot, Bot -> true
+    | Safe, Safe -> true
+    | Top, Top -> true
+    | Bot, Safe -> true
+    | Bot, Top -> true
+    | Safe, Top -> true
+    | Top, (Bot | Safe) -> false
+    | Safe, Bot -> false
+    | v1, v2 ->
+      equal v1 v2 || not (equal (join v1 v2) v2)
+
+  let is_not_safe = function Top -> true | Safe | Bot | Unresolved _ -> false
+
+  let rec print ppf t =
+    match t with
     | Bot -> Format.fprintf ppf "bot"
     | Top -> Format.fprintf ppf "top"
     | Safe -> Format.fprintf ppf "safe"
-    | Unresolved { var; eval=_} ->
-      let pp ppf l = Format.pp_print_list Var.print ppf l in
-      Format.fprintf ppf "unresolved %a@,"
-         pp var
-
-  let rec eval t env =
-    match t with
-    | Bot -> Bot
-    | Safe -> Safe
-    | Top -> Top
-    | Unresolved { var; eval } ->
-
-      eval ()
+    | Unresolved { eval } ->
+      Format.fprintf ppf "unresolved %a@" print_unresolved eval
+  and print_unresolved ppf u =
+    let pp ppf l = Format.pp_print_list print_unresolved ppf l in
+    match u with
+    | Join tl -> Format.fprintf ppf "(join %a)@," pp tl
+    | Transfrom tl -> Format.fprintf ppf "(transform %a)@," pp tl
+    | Var v -> Format.fprintf ppf "(var %a)@," Var.print v
+    | Const (Unresolved _) -> assert false
+    | Const t -> Format.fprintf ppf "%a" print t
 
 end
 
@@ -209,7 +235,6 @@ module Value : sig
 
   val print : Format.formatter -> t -> unit
 
-  val transform : t -> t
   val transform_return : effect:V.t -> t -> t
   val transform_diverge : effect:V.t -> t -> t
 end = struct
@@ -232,18 +257,12 @@ end = struct
       div = V.join v1.div v2.div
     }
 
-  let transform v =
-    { nor = V.transform v.nor;
-      exn = V.transform v.exn;
-      div = V.transform v.div
-    }
-
   let transform_return ~(effect : V.t) dst =
     match effect with
     | V.Bot -> Value.bot
     | V.Safe -> dst
-    | V.Top -> Value.transform dst
-    | V.Unresolved { b; s; t; var} ->
+    | V.Top
+    | V.Unresolved _ ->
       { nor = V.transform_return dst.nor ~effect;
         exn = V.transform_return dst.exn ~effect;
         div = V.transform_return dst.div ~effect;
@@ -446,7 +465,7 @@ end = struct
       in
       match summary with
       | Bot | Safe| Top -> summary
-      | Unresolved {eval} -> eval lookup
+      | Unresolved {eval} -> Value.apply_t eval lookup
     in
     let rec loop env =
       let changed = ref false in
@@ -654,7 +673,7 @@ end = struct
       next
     | Ialloc { mode = Alloc_heap; _ } ->
       assert (not (Mach.operation_can_raise op));
-      let r = Value.transform next in
+      let r = Value.transform_return next ~effect:V.Top in
       check t r "heap allocation" dbg
     | Iprobe { name; handler_code_sym } ->
       let desc = Printf.sprintf "probe %s handler %s" name handler_code_sym in
