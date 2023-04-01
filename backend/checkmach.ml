@@ -93,16 +93,53 @@ end = struct
 
   let unresolved var = Unresolved (Var var)
 
+  (*
+
+     (* distribute over joins *)
+     let rec distribute_over_joins acc =
+     match acc with
+     | [] -> []
+     | (Join l)::tl ->
+     mk_join (mk_transform ) (mk_transform )
+     in
+     let l = distribute_over_joins l in
+     (* flatten all trs *)
+     let flatten_tr l = ListLabels.fold_left l ~init:[] ~f:(fun acc u ->
+     match
+     )
+     in
+  *)
+
+  (* CR gyorsh: first normalize or first flatten? currrently do both to be on
+     the safe side, this will obvously be very inefficient and reallocate a ton
+     of lists. More efficient way is to normalize on construction, using
+     the special knowledge that args are already in normal form. Or it may
+     also be more efficient to normalize only when checking for equality and not
+     in advance, but the intermediate values might grow deep and big. *)
   let normalize (u:unresolved_t) =
     match u with
     | Const (Unresolved _) -> assert false
     | Const _ -> u
     | Var _ -> u
     | Transform l ->
-      (* normal form: list of Vars *)
-      Transform
+      (* normal form: list of Vars only *)
+      let l' = l
+      |> List.map normalize
+      |> distribute_over_joins
+      |> flatten_tr
+      |> List.map normalize
+      in
+      Transform l'
     | Join l ->
-      (* normal form: list of Vars or Transforms  *)
+      (* normal form: list of Const, Var or Transforms in normal form *)
+      let l =
+        l
+        |> List.map normalize
+        |> flatten_join
+        |> simplify_safe
+        |> List.map normalize
+      in
+      Join l
 
 
   let mk_join (u1:unresolved_t) (u2:unresolved_t) =
@@ -138,7 +175,7 @@ end = struct
     | Bot, Unresolved _ -> c2
     | Unresolved _, Bot -> c1
     | Safe, Unresolved { eval } | Unresolved { eval }, Safe ->
-      Unresolved { eval = mk_join_with_safe eval (Const Safe)) }
+      Unresolved { eval = mk_join eval (Const Safe) }
     | Unresolved { eval = eval1 },
       Unresolved { eval = eval2 } ->
       Unresolved { eval = mk_join eval1 eval2 }
