@@ -56,7 +56,7 @@ module V : sig
     | Top  (** Property may not hold on some paths. *)
     | Safe  (** Property holds on all paths.  *)
     | Bot  (** Not reachable. *)
-    | Unresolved of { var:Var.t list; eval:t list -> t }
+
 
   val lessequal : t -> t -> bool
 
@@ -70,21 +70,15 @@ module V : sig
 
   val print : Format.formatter -> t -> unit
 
-  val eval : t -> env:(Var.t -> t option) -> t
+  (* val eval : t -> env:(Var.t -> t option) -> t *)
 
 end = struct
   type rec t =
     | Top
     | Safe
     | Bot
-    | Unresolved { var : Var.t list; eval : t list -> t }
-
-  (* Split the first n elements into a one list, the rest into another list. *)
-  let split tl n =
-    let t1 = List.filteri (fun i _ -> i < n) tl in
-    let t2 = List.filteri (fun i _ -> i >= n) tl in
-    t1,t2
-
+    | Unresolved { eval : env -> t }
+  and env = (Var.t * t) list
 
   let rec join c1 c2 =
     match c1, c2 with
@@ -97,17 +91,13 @@ end = struct
     | Unresolved _, Top -> Top
     | Bot, Unresolved _ -> c2
     | Unresolved _, Bot -> c1
-    | Safe, Unresolved { var; eval } | Unresolved {var; eval}, Safe ->
-      Unresolved { var;
-                   eval = (fun tl -> join (eval tl) Safe);
+    | Safe, Unresolved { eval } | Unresolved { eval }, Safe ->
+      Unresolved { eval = (fun env -> join (eval env) Safe);
                  }
-    | Unresolved { var = var1; eval = eval1 },
-      Unresolved { var = var2; eval = eval2 } ->
-      let n = (List.len var1) in
-      Unresolved { var = var1@var2;
-                   eval = fun tl ->
-                     let t1,t2 = split tl n in
-                     join (eval1 t1) (eval2 t2)
+    | Unresolved { eval = eval1 },
+      Unresolved { eval = eval2 } ->
+      Unresolved {
+                   eval = fun env -> join (eval1 env) (eval2 env)
                  }
 
   let rec lessequal v1 v2 =
@@ -120,23 +110,15 @@ end = struct
     | Safe, Top -> true
     | Top, (Bot | Safe) -> false
     | Safe, Bot -> false
-    | Unresolved { var; eval }, v2 ->
-      Unresolved { var;
-                   eval = fun tl -> lessequal (eval tl) v2;
-                 }
-    | v1, Unresolved {var; eval} ->
+    | Unresolved { eval }, v2 ->
+      Unresolved { eval = fun env -> lessequal (eval env) v2;                 }
+    | v1, Unresolved { eval} ->
       Unresolved
-        { var;
-          eval = eval = fun tl -> lessequal v1 (eval tl);
+        { eval = fun env -> lessequal v1 (eval env);
         }
-    | Unresolved { var=var1; eval=eval1 },
-      Unresolved { var=var2; eval=eval2 } ->
-      let n = (List.len var1) in
-      Unresolved { var = var1@var2;
-                   eval = fun tl ->
-                     let t1,t2 = n in
-                     lessequal (eval t1) (eval t2)
-                 }
+    | Unresolved { eval=eval1 },
+      Unresolved { eval=eval2 } ->
+      Unresolved { eval = fun env -> lessequal (eval env) (eval env)              }
 
   (** abstract transformer (backward analysis) for a statement that violates the property
       but doesn't alter control flow. *)
@@ -162,13 +144,11 @@ end = struct
     | Safe, Safe -> Safe
     | Safe, t' -> t'
     | t, Safe -> t
-    | Unresolved { var = var1; eval = eval1 },
-      Unresolved { var = var2; eval = eval2 } ->
+    | Unresolved { eval = eval1 },
+      Unresolved { eval = eval2 } ->
       let n = (List.len var1) in
-      { var = var1@var2;
-        eval = fun tl ->
-          let t1,t2 = split tl n in
-          transform_return (eval1 t1) (eval2 t2);
+      { eval = fun env ->
+          transform_return (eval1 env) (eval2 env);
       }
 
   let is_not_safe = function Top -> true | Safe | Bot -> false
@@ -450,6 +430,29 @@ end = struct
     | None ->
       let func_info = Func_info.create name value annotation in
       String.Tbl.replace t name func_info
+
+  let resolve_all t =
+    let env = String.Tbl.fold (fun func_info acc ->
+      (func_info, Value.Bot)::acc)
+      t []
+    in
+    (* CR gyorsh: handle components *)
+    let rec loop env =
+      let changed = ref false in
+      let env' =
+      List.map (fun (func_info, v) ->
+          match func_info.value with
+          | Bot | Safe| Top -> func_info.value
+          | Unresolved {eval} ->
+            let v' = eval (env) in
+            if v' = v then changed := true;
+            v'
+        )
+        env
+      in
+      if !changed then loop env' else env'
+    in
+    loop env
 end
 
 (** Check one function. *)
@@ -517,6 +520,7 @@ end = struct
       Func_info.print ppf ~msg func_info
 
   let record_unit unit_info ppf =
+    Unit_info.resolve_all unit_info;
     let record (func_info : Func_info.t) =
       (match func_info.annotation with
       | None -> ()
