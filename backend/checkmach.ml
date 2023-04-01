@@ -29,11 +29,10 @@ module String = Misc.Stdlib.String
 
 module Tag = struct
   type t = N | E | D
-  let to_offset = function
-    | N -> 0
-    | E -> 1
-    | D -> 2
-  let size = 3
+  let print ppf = function
+    | N -> "nor"
+    | E -> "exn"
+    | D -> "div"
 end
 
 module Var : sig
@@ -41,32 +40,15 @@ module Var : sig
   val get : string -> Tag.t -> t
   val print : Format.formatter -> t -> unit
 end = struct
-  type t = int
-  let name2id : (name, int) Hashtbl.t = Hashtbl.create 3
-  let id2name : (name, int) Hashtbl.t = Hashtbl.create 3
-  let count = ref 0
-
-  let get_and_incr () =
-    let res = !count in
-    count := count + Tag.size;
-    res
+  type t = { name: string; tag:Tag.t }
 
   let get name tag =
-    let n =
-      match Hashtbl.find_opt name2id name with
-      | Some n ->
-        n
-      | None ->
-        let n = get_and_incr () in
-        Hashtbl.replace name2id name n;
-        Hashtbl.replace id2name n name;
-        n
-    in
-    n + Tag.to_offset tag
+    { name; tag }
 
   let print ppf t =
-    Format.fprintf ppf "%s"
+    Format.fprintf ppf "%s.%a@," name Tag.pring tag
 end
+
 
 (** Abstract value for each component of the domain. *)
 module V : sig
@@ -87,12 +69,22 @@ module V : sig
   val is_not_safe : t -> bool
 
   val print : Format.formatter -> t -> unit
+
+  val eval : t -> env:(Var.t -> t option) -> t
+
 end = struct
   type rec t =
     | Top
     | Safe
     | Bot
     | Unresolved { var : Var.t list; eval : t list -> t }
+
+  (* Split the first n elements into a one list, the rest into another list. *)
+  let split tl n =
+    let t1 = List.filteri (fun i _ -> i < n) tl in
+    let t2 = List.filteri (fun i _ -> i >= n) tl in
+    t1,t2
+
 
   let rec join c1 c2 =
     match c1, c2 with
@@ -109,12 +101,14 @@ end = struct
       Unresolved { var;
                    eval = (fun tl -> join (eval tl) Safe);
                  }
-
-  (* Split the first n elements into a one list, the rest into another list. *)
-  let split tl n =
-    let t1 = List.filteri (fun i _ -> i < n) tl in
-    let t2 = List.filteri (fun i _ -> i >= n) tl in
-    t1,t2
+    | Unresolved { var = var1; eval = eval1 },
+      Unresolved { var = var2; eval = eval2 } ->
+      let n = (List.len var1) in
+      Unresolved { var = var1@var2;
+                   eval = fun tl ->
+                     let t1,t2 = split tl n in
+                     join (eval1 t1) (eval2 t2)
+                 }
 
   let rec lessequal v1 v2 =
     match v1, v2 with
@@ -126,13 +120,6 @@ end = struct
     | Safe, Top -> true
     | Top, (Bot | Safe) -> false
     | Safe, Bot -> false
-    | Unresolved { var=var1; eval=eval1 },
-      Unresolved { var=var2; eval=eval2 } ->
-      Unresolved { var = var1@var2;
-                   eval = fun tl ->
-                     let t1,t2 = split tl (List.length var1) in
-                     lessequal (eval t1) (eval t2)
-                 }
     | Unresolved { var; eval }, v2 ->
       Unresolved { var;
                    eval = fun tl -> lessequal (eval tl) v2;
@@ -142,10 +129,18 @@ end = struct
         { var;
           eval = eval = fun tl -> lessequal v1 (eval tl);
         }
+    | Unresolved { var=var1; eval=eval1 },
+      Unresolved { var=var2; eval=eval2 } ->
+      let n = (List.len var1) in
+      Unresolved { var = var1@var2;
+                   eval = fun tl ->
+                     let t1,t2 = n in
+                     lessequal (eval t1) (eval t2)
+                 }
 
   (** abstract transformer (backward analysis) for a statement that violates the property
       but doesn't alter control flow. *)
-  let transform = function
+  let rec transform = function
     | Bot ->
       (* if a return is unreachable from the program location immediately after
          the statement, then return is unreachable from the program location
@@ -153,15 +148,9 @@ end = struct
       Bot
     | Safe | Top -> Top
     | Unresolved { var; eval } ->
-      let eval =
-        (fun tl ->
-           match eval tl with
-           | Bot -> Bot
-           | Safe | Top -> Top
-           | assert false)
-      in
-      Unresolved { var; eval }
-
+      Unresolved { var;
+                   eval = fun tl -> transform (eval tl)
+                 }
 
   (* symmetric, reflexive *)
   let rec transform_return t t' =
@@ -175,9 +164,10 @@ end = struct
     | t, Safe -> t
     | Unresolved { var = var1; eval = eval1 },
       Unresolved { var = var2; eval = eval2 } ->
+      let n = (List.len var1) in
       { var = var1@var2;
         eval = fun tl ->
-          let t1,t2 = split tl (List.len var1) in
+          let t1,t2 = split tl n in
           transform_return (eval1 t1) (eval2 t2);
       }
 
@@ -191,6 +181,16 @@ end = struct
       let pp ppf l = Format.pp_print_list Var.print ppf l in
       Format.fprintf ppf "unresolved %a@,"
          pp var
+
+  let rec eval t env =
+    match t with
+    | Bot -> Bot
+    | Safe -> Safe
+    | Top -> Top
+    | Unresolved { var; eval } ->
+
+      eval ()
+
 end
 
 (** Abstract value associated with each program location in a function. *)
