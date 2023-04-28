@@ -182,13 +182,14 @@ module Annotation : sig
 
   val report_error : exn -> Location.error option
 
-  exception
-    Invalid of
-      { a : t;
-        fun_name : string;
-        fun_dbg : Debuginfo.t;
-        property : Cmm.property
-      }
+  type a =
+    { a : t;
+      fun_name : string;
+      fun_dbg : Debuginfo.t;
+      property : Cmm.property
+    }
+
+  exception Invalid of a list
 end = struct
   (**
    ***************************************************************************
@@ -249,13 +250,14 @@ end = struct
       Misc.fatal_errorf "Unexpected duplicate annotation %a for %s"
         Debuginfo.print_compact dbg fun_name ()
 
-  exception
-    Invalid of
-      { a : t;
-        fun_name : string;
-        fun_dbg : Debuginfo.t;
-        property : Cmm.property
-      }
+  type a =
+    { a : t;
+      fun_name : string;
+      fun_dbg : Debuginfo.t;
+      property : Cmm.property
+    }
+
+  exception Invalid of a list
 
   let print_error ppf t ~fun_name ~fun_dbg ~property =
     Format.fprintf ppf "Annotation check for %s%s failed on function %s (%s)"
@@ -268,11 +270,14 @@ end = struct
       fun_name
 
   let report_error = function
-    | Invalid { a; fun_name; fun_dbg; property } ->
-      Some
-        (Location.error_of_printer ~loc:a.loc
-           (print_error ~fun_name ~fun_dbg ~property)
-           a)
+    | Invalid l ->
+      let f { a; fun_name; fun_dbg; property } =
+        Location.mkloc
+          (fun ppf -> print_error ppf a ~fun_name ~fun_dbg ~property)
+          a.loc
+      in
+      let sub = List.map f l in
+      Some (Location.error ~sub "Check failed")
     | _ -> None
 end
 
@@ -544,6 +549,7 @@ end = struct
   let record_unit unit_info ppf =
     report_unit_info ppf unit_info ~msg:"before resolve_all";
     Unit_info.resolve_all unit_info;
+    let errors = ref [] in
     let record (func_info : Func_info.t) =
       (match func_info.annotation with
       | None -> ()
@@ -558,17 +564,19 @@ end = struct
           (* CR gyorsh: we can add error recovering mode where we sets the
              expected value as the actual value and continue analysis of other
              functions. *)
-          raise
-            (Annotation.Invalid
-               { a;
-                 fun_name = func_info.name;
-                 fun_dbg = func_info.dbg;
-                 property = S.property
-               }));
+          let e =
+            { Annotation.a;
+              fun_name = func_info.name;
+              fun_dbg = func_info.dbg;
+              property = S.property
+            }
+          in
+          errors := e :: !errors);
       report_func_info ~msg:"record" ppf func_info;
       S.set_value func_info.name func_info.value
     in
-    Unit_info.iter unit_info ~f:record
+    Unit_info.iter unit_info ~f:record;
+    match !errors with [] -> () | errors -> raise (Annotation.Invalid errors)
 
   let record_unit unit_info ppf =
     Profile.record_call ~accumulate:true ("record_unit " ^ analysis_name)
