@@ -234,3 +234,5 @@ module Params = struct
   let[@zero_alloc] test13 () =
     test12 ~d:42 ()
 end
+
+let[@ocaml.warning "-197"][@zero_alloc] bar x = [x;x+1]
