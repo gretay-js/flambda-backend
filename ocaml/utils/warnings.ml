@@ -801,7 +801,7 @@ let parse_options errflag s =
 
 (* If you change these, don't forget to change them in man/ocamlc.m *)
 let defaults_w = "+a-4-7-9-27-29-30-32..42-44-45-48-50-60-66..70";;
-let defaults_warn_error = "-a+31";;
+let defaults_warn_error = "-a+31+197";;
 
 let () = ignore @@ parse_options false defaults_w;;
 let () = ignore @@ parse_options true defaults_warn_error;;
