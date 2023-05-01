@@ -87,12 +87,11 @@ module Witness = struct
   let print ppf { kind; dbg } =
     Format.fprintf ppf "%a %a" print_kind kind Debuginfo.print_compact dbg
 
-  let print_error component t : Location.msg list =
+  let print_error component t : Warnings.sub_locs =
     let mkloc pp dbg suffix =
       let loc = Debuginfo.to_location dbg in
-      Location.mkloc
-        (fun ppf ->
-          pp ppf;
+      let f =
+        (fun ppf () ->
           (* Show inlined locations. If dbg has only one item, it will already
              be shown as [loc]. *)
           if List.length t.dbg > 1
@@ -100,9 +99,10 @@ module Witness = struct
           if not (String.equal "" component)
           then Format.fprintf ppf " on a path to %s" component;
           Format.fprintf ppf "%s" suffix)
-        loc
+        in
+        loc, Format.asprintf "%s%a" pp f ()
     in
-    let pp_kind ppf = print_kind ppf t.kind in
+    let pp_kind = Format.asprintf "%a" print_kind t.kind in
     match get_alloc_dbginfo t.kind with
     | None | Some [] | Some [_] -> [mkloc pp_kind t.dbg ""]
     | Some alloc_dbginfo ->
@@ -114,8 +114,8 @@ module Witness = struct
       let details =
         List.map
           (fun (item : Debuginfo.alloc_dbginfo_item) ->
-            let pp_alloc ppf =
-              Format.fprintf ppf "allocate %d words" item.alloc_words
+            let pp_alloc =
+              Format.sprintf "allocate %d words" item.alloc_words
             in
             mkloc pp_alloc item.alloc_dbg "")
           alloc_dbginfo
@@ -357,16 +357,9 @@ module Annotation : sig
 
   val is_assume : t -> bool
 
-  val report_error : exn -> Location.error option
+  val print_warn : t -> fun_name:string -> fun_dbg:Debuginfo.t ->
+    property:Cmm.property -> witnesses:Witnesses.components -> unit
 
-  exception
-    Invalid of
-      { a : t;
-        fun_name : string;
-        fun_dbg : Debuginfo.t;
-        property : Cmm.property;
-        witnesses : Witnesses.components
-      }
 end = struct
   (**
    ***************************************************************************
@@ -425,26 +418,7 @@ end = struct
       Misc.fatal_errorf "Unexpected duplicate annotation %a for %s"
         Debuginfo.print_compact dbg fun_name ()
 
-  exception
-    Invalid of
-      { a : t;
-        fun_name : string;
-        fun_dbg : Debuginfo.t;
-        property : Cmm.property;
-        witnesses : Witnesses.components
-      }
-
-  let print_error ppf t ~fun_name ~fun_dbg ~property =
-    Format.fprintf ppf "Annotation check for %s%s failed on function %s (%s)"
-      (Printcmm.property_to_string property)
-      (if t.strict then " strict" else "")
-      (fun_dbg
-      |> List.map (fun dbg ->
-             Debuginfo.(Scoped_location.string_of_scopes dbg.dinfo_scopes))
-      |> String.concat ",")
-      fun_name
-
-  let print_witnesses w : Location.msg list =
+  let print_witnesses w : Warnings.sub_locs =
     let { Witnesses.nor; exn; div } = Witnesses.simplify w in
     let f t component =
       t |> Witnesses.elements
@@ -462,18 +436,24 @@ end = struct
     then (* don't even print the dots *)
       []
     else
-      let print_dots = Location.mknoloc (fun ppf -> Format.fprintf ppf "...") in
+      let print_dots = Location.none, "..." in
       let details, _ = Misc.Stdlib.List.split_at cutoff l in
       details @ [print_dots]
 
-  let report_error = function
-    | Invalid { a; fun_name; fun_dbg; property; witnesses } ->
-      let sub = print_witnesses witnesses in
-      Some
-        (Location.error_of_printer ~loc:a.loc ~sub
-           (print_error ~fun_name ~fun_dbg ~property)
-           a)
-    | _ -> None
+  let print_warn t ~fun_name ~fun_dbg ~property ~witnesses =
+    let sub = print_witnesses witnesses in
+    let info =
+      Printf.sprintf "Annotation check for %s%s failed on function %s (%s)"
+        (Printcmm.property_to_string property)
+        (if t.strict then " strict" else "")
+        (fun_dbg
+         |> List.map (fun dbg ->
+           Debuginfo.(Scoped_location.string_of_scopes dbg.dinfo_scopes))
+         |> String.concat ",")
+        fun_name
+    in
+    (* CR gyorsh: put sub into Warnings.reporting_information.sub_locs *)
+    Location.prerr_warning t.loc (Warnings.Check_failed (info, sub))
 end
 
 module Func_info = struct
@@ -778,14 +758,8 @@ end = struct
             Value.diff_witnesses ~expected:expected_value
               ~actual:func_info.value
           in
-          raise
-            (Annotation.Invalid
-               { a;
-                 fun_name = func_info.name;
-                 fun_dbg = func_info.dbg;
-                 property = S.property;
-                 witnesses
-               }));
+          Annotation.print_warn a ~fun_name:func_info.name ~fun_dbg:func_info.dbg
+            ~property:S.property ~witnesses);
       report_func_info ~msg:"record" ppf func_info;
       S.set_value func_info.name func_info.value
     in
@@ -1132,5 +1106,3 @@ let reset_unit_info () = Unit_info.reset unit_info
 let record_unit_info ppf_dump =
   Check_zero_alloc.record_unit unit_info ppf_dump;
   Compilenv.cache_checks (Compilenv.current_unit_infos ()).ui_checks
-
-let () = Location.register_error_of_exn Annotation.report_error
