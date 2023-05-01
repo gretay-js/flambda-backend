@@ -110,6 +110,7 @@ type t =
   | Unused_tmc_attribute                    (* 71 *)
   | Tmc_breaks_tailcall                     (* 72 *)
   | Probe_name_too_long of string           (* 190 *)
+  | Check_failed of string * sub_locs       (* 197 *)
   | Misplaced_assume_attribute of string    (* 198 *)
   | Unchecked_property_attribute of string  (* 199 *)
 ;;
@@ -195,6 +196,7 @@ let number = function
   | Unused_tmc_attribute -> 71
   | Tmc_breaks_tailcall -> 72
   | Probe_name_too_long _ -> 190
+  | Check_failed _ -> 197
   | Misplaced_assume_attribute _  -> 198
   | Unchecked_property_attribute _ -> 199
 ;;
@@ -457,6 +459,9 @@ let descriptions = [
   { number = 190;
     names = ["probe-name-too-long"];
     description = "Probe name must be at most 100 characters long." };
+  { number = 197;
+    names = ["check-failed"];
+    description = "Static check cannot show that the property holds on this function." };
   { number = 198;
     names = ["misplaced-assume-attribute"];
     description = "Assume of a property is ignored \
@@ -1068,6 +1073,7 @@ let message = function
       Printf.sprintf
         "This probe name is too long: `%s'. \
          Probe names must be at most 100 characters long." name
+  | Check_failed (info, _) -> info
   | Misplaced_assume_attribute property ->
       Printf.sprintf
         "the \"%s assume\" attribute will be ignored by the check \
@@ -1083,6 +1089,7 @@ let message = function
 ;;
 
 let sub_locs = function
+  | Check_failed (_, sub_locs) -> sub_locs
   | _ -> []
 
 let nerrors = ref 0;;
