@@ -761,11 +761,48 @@ end = struct
        the Iexit instruction is not reachable from function entry.
 
        To check divergent loops, the initial value of "div" component of all
-       Iexit labels is set to "Safe" instead of "Bot". This is conservative with
-       respect to non-recursive Icatch and Itrywith handlers. *)
-    D.analyze ~exnescape:Value.exn_escape ~init_lbl:(fun _ -> Value.diverges) ~transfer
-      body
-    |> fst
+       labels of recursive catch handlers is set to "Safe" instead of "Bot".
+       This adds another pass on the IR that can be by adapting Dataflow. *)
+    let module Int = Numbers.Int in
+    let rec find_lbls (instr : Mach.instruction) (acc : Int.Set.t) : Int.Set.t =
+      match instr.desc with
+      | Iend | Ireturn _ | Iraise _ | Iexit _
+      | Iop Itailcall_ind
+      | Iop (Itailcall_imm _) ->
+        acc
+      | Iifthenelse (_, ifso, ifnot) ->
+        acc |> find_lbls ifso |> find_lbls ifnot |> find_lbls instr.next
+      | Iswitch (_, cases) ->
+        acc
+        |> Array.fold_right (fun case acc -> find_lbls case acc) cases
+        |> find_lbls instr.next
+      | Itrywith (body, _, (_, handler)) ->
+        acc |> find_lbls body |> find_lbls handler |> find_lbls instr.next
+      | Icatch (rc, _ts, handlers, body) ->
+        acc |> find_lbls body
+        |> (fun acc ->
+             List.fold_left
+               (fun acc (n, _, h) ->
+                 find_lbls h
+                   (match rc with
+                   | Cmm.Nonrecursive -> acc
+                   | Cmm.Recursive -> Int.Set.add n acc))
+               acc handlers)
+        |> find_lbls instr.next
+      | Iop
+          ( Imove | Ispill | Ireload | Iconst_int _ | Iconst_float _
+          | Iconst_symbol _ | Icall_ind | Icall_imm _ | Iextcall _
+          | Istackoffset _ | Iload _ | Istore _ | Ialloc _ | Iintop _
+          | Iintop_imm _ | Iintop_atomic _ | Inegf | Iabsf | Iaddf | Isubf
+          | Imulf | Idivf | Icompf _ | Icsel _ | Ifloatofint | Iintoffloat
+          | Ivalueofint | Iintofvalue | Ispecific _ | Iname_for_debugger _
+          | Iprobe _ | Iprobe_is_enabled _ | Iopaque | Ibeginregion | Iendregion
+          | Ipoll _ ) ->
+        find_lbls instr.next acc
+    in
+    let lbls = find_lbls body Int.Set.empty in
+    let init_lbl n = if Int.Set.mem n lbls then Value.diverges else Value.bot in
+    D.analyze ~exnescape:Value.exn_escape ~init_lbl ~transfer body |> fst
 
   let fundecl (f : Mach.fundecl) ~future_funcnames unit_info ppf =
     let check () =
