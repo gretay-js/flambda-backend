@@ -35,3 +35,4 @@ type labelled_insn =
 val labelled_insn_end : labelled_insn
 
 val defines_label : Linear.instruction -> bool
+

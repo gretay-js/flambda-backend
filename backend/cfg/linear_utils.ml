@@ -40,3 +40,6 @@ let rec defines_label (i : Linear.instruction) =
   | Lcondbranch3 _ | Lswitch _ | Lentertrap | Lpushtrap _ | Lpoptrap | Lraise _
     ->
     false
+
+
+
