@@ -225,6 +225,15 @@ let ocamlcfg_verbose =
 let reorder_blocks_random ppf_dump cl =
   match !Flambda_backend_flags.reorder_blocks_random with
   | None -> cl
+  | Some 0 ->
+    let fun_name = (Cfg_with_layout.cfg cl).fun_name in
+    if String.equal fun_name "camlT__foo_5" then begin
+      [1;101;114;106;109;113;105;115;116;107;108]
+      |> Flambda_backend_utils.Doubly_linked_list.of_list
+      |> Cfg_with_layout.set_layout cl
+    end;
+    pass_dump_cfg_if ppf_dump Flambda_backend_flags.dump_cfg
+       "After reorder_blocks_manual" cl
   | Some seed ->
      (* Initialize random state based on user-provided seed and function name.
         Per-function random state (instead of per call to ocamlopt)
@@ -340,12 +349,12 @@ let compile_fundecl ~ppf_dump ~funcnames fd_cmm =
                     ~simplify_terminators:true)
             ++ Compiler_hooks.execute_and_pipe Compiler_hooks.Cfg
             ++ pass_dump_cfg_if ppf_dump Flambda_backend_flags.dump_cfg "After linear_to_cfg"
+            ++ Profile.record ~accumulate:true "cfg_reorder_blocks"
+                 (reorder_blocks_random ppf_dump)
             ++ Profile.record ~accumulate:true "save_cfg" save_cfg
             ++ Cfg_to_linear.run
             ++ pass_dump_linear_if ppf_dump dump_linear "Linearized code for test"
             ++ Linear_to_cfg.run ~preserve_orig_labels:false
-            ++ Profile.record ~accumulate:true "cfg_reorder_blocks"
-                 (reorder_blocks_random ppf_dump)
             ++ Profile.record ~accumulate:true "cfg_to_linear" Cfg_to_linear.run
           end else begin
             fd
