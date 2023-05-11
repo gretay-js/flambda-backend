@@ -13,6 +13,8 @@
 (*                                                                        *)
 (**************************************************************************)
 
+let verbose = true
+
 open Mach
 
 module type DOMAIN = sig
@@ -84,6 +86,11 @@ let analyze ?(exnhandler = fun x -> x) ?(exnescape = D.bot)
               let b0 = get_lbl n in
               let exnh = exn_from_trap_stack exn trap_stack in
               let b1 = before bx exnh h in
+              if verbose then begin
+                let b2 = D.join b0 b1 in
+                if not (D.lessequal b2 b1) then
+                  Misc.fatal_error "Dataflow needs join here"
+              end;
               if D.lessequal b1 b0 then changed else (set_lbl n b1; true) in
             while List.fold_left update false handlers do () done
         end;
