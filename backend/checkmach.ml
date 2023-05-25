@@ -498,9 +498,6 @@ module Func_info = struct
 end
 
 module type Spec = sig
-  (** Is the check enabled? *)
-  val enabled : unit -> bool
-
   (** [get_value_opt f] returns the value recorded for function [f] in [Compilenv],
       either because the check passed or because of user-defined "assume" annotation.
       If [f] was compiled with checks disabled, returns None.
@@ -742,7 +739,6 @@ end = struct
           (Annotation.get_loc a);
         let expected_value = Annotation.expected_value a in
         if (not (Annotation.is_assume a))
-           && S.enabled ()
            && not (Value.lessequal func_info.value expected_value)
         then
           (* CR-soon gyorsh: keeping track of all the witnesses until the end of
@@ -1039,8 +1035,6 @@ end
 (** Check that functions do not allocate on the heap (local allocations are ignored) *)
 module Spec_zero_alloc : Spec = struct
   let property = Cmm.Zero_alloc
-
-  let enabled () = !Clflags.zero_alloc_check
 
   (* Compact the mapping from function name to Value.t to reduce size of Checks
      in cmx and memory consumption Compilenv. Different components have
