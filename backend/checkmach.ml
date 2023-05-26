@@ -131,6 +131,7 @@ module Witnesses : sig
   val is_empty : t -> bool
 
   val iter : t -> f:(Witness.t -> unit) -> unit
+  val fold : t -> f:(Witness.t -> 'a -> 'a) -> init:'a -> 'a
 
   val join : t -> t -> t
 
@@ -158,6 +159,7 @@ end = struct
   let create kind dbg = singleton (Witness.create dbg kind)
 
   let iter t ~f = iter f t
+  let fold t ~f ~init = fold f t init
 
   let print ppf t = Format.pp_print_seq Witness.print ppf (to_seq t)
 
@@ -591,6 +593,8 @@ module Unit_info : sig
   val resolve_all : t -> unit
 
   val iter : t -> f:(Func_info.t -> unit) -> unit
+
+  val fold : t -> f:(Func_info.t -> 'a -> 'a) -> init:'a -> 'a
 end = struct
   (** map function name to the information about it *)
   type t = Func_info.t String.Tbl.t
@@ -650,6 +654,8 @@ end = struct
     if not (Value.lessequal new_value old_value) then propagate t func_info
 
   let iter t ~f = String.Tbl.iter (fun _ func_info -> f func_info) t
+  let fold t ~f ~init =
+    String.Tbl.fold (fun _ func_info acc -> f func_info acc) t init
 
   let resolve_all t = iter t ~f:(propagate t)
 
@@ -1152,11 +1158,12 @@ let record_unit_info ppf_dump =
   Check_zero_alloc.record_unit unit_info ppf_dump;
   Compilenv.cache_checks (Compilenv.current_unit_infos ()).ui_checks
 
-type iter_witnesses = (string -> Witnesses.components -> unit) -> unit
+type 'a witnesses = f:(fun_name:string -> Witnesses.components -> 'a -> 'a) -> init:'a -> 'a
 
-let iter_witnesses f =
-  Unit_info.iter unit_info ~f:(fun func_info ->
-      f func_info.name
-        (Value.get_witnesses func_info.value |> Witnesses.simplify))
+let fold_witnesses ~f ~init =
+  Unit_info.fold unit_info ~init ~f:(fun func_info acc ->
+      f ~fun_name:func_info.name
+        (Value.get_witnesses func_info.value |> Witnesses.simplify)
+        acc)
 
 let () = Location.register_error_of_exn Annotation.report_error

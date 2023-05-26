@@ -40,9 +40,9 @@ type _ pass =
   | Cmm : Cmm.phrase list pass
 
   | Inlining_tree : Flambda2_simplify_shared.Inlining_report.Inlining_tree.t pass
-  | Check_allocations : Checkmach.iter_witnesses pass
+  | Check_allocations : 'a Checkmach.witnesses pass
 
-type t = {
+type 'a t = {
   mutable parse_tree_intf : (Parsetree.signature -> unit) list;
   mutable parse_tree_impl : (Parsetree.structure -> unit) list;
   mutable typed_tree_intf : (Typedtree.signature -> unit) list;
@@ -67,9 +67,9 @@ type t = {
   mutable cfg : (Cfg_with_layout.t -> unit) list;
   mutable cmm : (Cmm.phrase list -> unit) list;
   mutable inlining_tree : (Flambda2_simplify_shared.Inlining_report.Inlining_tree.t -> unit) list;
-  mutable check_allocations : (Checkmach.iter_witnesses -> unit) list
+  mutable check_allocations : ('a Checkmach.witnesses -> unit) list
 }
-let hooks : t = {
+let hooks : 'a t = {
   parse_tree_intf = [];
   parse_tree_impl = [];
   typed_tree_intf = [];

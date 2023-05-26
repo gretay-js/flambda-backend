@@ -69,11 +69,13 @@ module Witness : sig
 end
 
 module Witnesses : sig
+  (** collection of [Witness.t] *)
   type t
 
   val is_empty : t -> bool
 
-  val iter : t -> f:(Witness.t -> unit) -> unit
+  (** [f] will be called once for each [Witnesses.t] in [t]. *)
+  val fold : t -> f:(Witness.t -> 'a -> 'a) -> init:'a -> 'a
 
   (** The witnesses are classified into which path they may appear on. If a witness
       appears on both a path to a normal and an excpetional return, it will only appear in
@@ -85,12 +87,12 @@ module Witnesses : sig
     }
 end
 
-(**   Iterate over all function symbols with their witnesses. This function can be called
+(**   Fold over all function symbols with their witnesses. This function can be called
       at any time, but the complete information is only available after a call to
       [record_unit_info].  To get all witnesses for all functions, and not only for
       functions annotated with [@zero_alloc], set
       [Flambda_backend_flags.checkmach_details_cutoff] to a negative value before calls to
       [fundecl].  Used by compiler_hooks. *)
-type iter_witnesses = (string -> Witnesses.components -> unit) -> unit
+type 'a witnesses = f:(fun_name:string -> Witnesses.components -> 'a -> 'a) -> init:'a -> 'a
 
-val iter_witnesses : iter_witnesses
+val fold_witnesses : 'a witnesses
