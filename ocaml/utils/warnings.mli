@@ -162,6 +162,8 @@ val mk_lazy: (unit -> 'a) -> 'a Lazy.t
     (** Like [Lazy.of_fun], but the function is applied with
         the warning/alert settings at the time [mk_lazy] is called. *)
 
+val is_active_in_state : t -> state -> bool
+
 type description =
   { number : int;
     names : string list;

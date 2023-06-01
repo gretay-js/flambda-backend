@@ -544,6 +544,9 @@ let restore x = current := x
 let is_active x =
   not !disabled && (!current).active.(number x)
 
+let is_active_in_state x state =
+  state.active.(number x)
+
 let is_error x =
   not !disabled && (!current).error.(number x)
 
