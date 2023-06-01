@@ -297,7 +297,16 @@ let get_local_attribute l =
   let attr = find_attribute is_local_attribute l in
   parse_local_attribute attr
 
-let get_property_attribute l p ~fun_attr =
+let zero_alloc_check warnings =
+  !Clflags.native_code &&
+  match warnings with
+  | None ->
+    false
+    (* Warnings.is_active (Warnings.Check_failed "") *)
+  | Some warnings ->
+    Warnings.is_active_in_state (Warnings.Check_failed ("", [])) warnings
+
+let get_property_attribute l p ~fun_attr warnings =
   let attr = find_attribute (is_property_attribute p) l in
   let res = parse_property_attribute attr p in
   (match attr, res with
@@ -306,7 +315,8 @@ let get_property_attribute l p ~fun_attr =
    | None, (Check _ | Ignore_assert_all _ ) -> assert false
    | Some _, Ignore_assert_all _ -> ()
    | Some attr, Check { assume; _ } ->
-     if !Clflags.zero_alloc_check && !Clflags.native_code then
+     if zero_alloc_check warnings
+     then
        (* The warning for unchecked functions will not trigger if the check is requested
           through the [@@@zero_alloc all] top-level annotation rather than through the
           function annotation [@zero_alloc]. *)
@@ -430,7 +440,7 @@ let add_local_attribute expr loc attributes =
     end
   | _ -> expr
 
-let add_check_attribute expr loc attributes =
+let add_check_attribute expr loc attributes warnings =
   let to_string = function
     | Zero_alloc -> "zero_alloc"
   in
@@ -444,21 +454,33 @@ let add_check_attribute expr loc attributes =
       Printf.sprintf "ignore %s" (to_string property)
     | Default_check -> assert false
   in
+  let duplicated_attribute_warning attr check =
+    match attr.check, check with
+    | Default_check, _
+    | _, Default_check -> ()
+    | (Ignore_assert_all p | Check { property = p; _ }),
+      (Ignore_assert_all p' | Check { property = p'; _ }) ->
+      if p = p' then
+        Location.prerr_warning loc
+          (Warnings.Duplicated_attribute (to_string check));
+  in
+  let append funct check =
+    let attr = { funct.attr with check } in
+    lfunction_with_attr ~attr funct
+  in
   match expr with
   | Lfunction({ attr = { stub = false } as attr; } as funct) ->
-    begin match get_property_attribute attributes Zero_alloc ~fun_attr:attr with
+    let check = get_property_attribute attributes Zero_alloc ~fun_attr:attr warnings in
+    duplicated_attribute_warning attr check;
+    begin match check with
     | Default_check -> expr
-    | (Ignore_assert_all p | Check { property = p; _ }) as check ->
-      begin match attr.check with
-      | Default_check -> ()
-      | Ignore_assert_all p'
-      | Check { property = p'; strict = _; assume = _; loc = _; } ->
-        if p = p' then
-          Location.prerr_warning loc
-            (Warnings.Duplicated_attribute (to_string check));
-      end;
-      let attr = { attr with check } in
-      lfunction_with_attr ~attr funct
+    | Ignore_assert_all _ ->
+      append funct check
+    | Check { assume } ->
+      if assume || zero_alloc_check warnings then
+        append funct check
+      else
+        expr
     end
   | expr -> expr
 
@@ -554,7 +576,7 @@ let get_tailcall_attribute e =
         Location.prerr_warning loc (Warnings.Attribute_payload (txt, msg));
         Default_tailcall
 
-let add_function_attributes lam loc attr =
+let add_function_attributes lam loc attr warnings =
   let lam =
     add_inline_attribute lam loc attr
   in
@@ -565,7 +587,7 @@ let add_function_attributes lam loc attr =
     add_local_attribute lam loc attr
   in
   let lam =
-    add_check_attribute lam loc attr
+    add_check_attribute lam loc attr warnings
   in
   let lam =
     add_loop_attribute lam loc attr

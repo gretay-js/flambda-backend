@@ -1317,7 +1317,7 @@ and transl_function ~scopes e alloc_mode param arg_mode arg_layout cases partial
          | (Texp_constraint _ | Texp_coerce _ | Texp_poly _) -> attrs)
       e.exp_attributes e.exp_extra
   in
-  Translattribute.add_function_attributes lam e.exp_loc attrs
+  Translattribute.add_function_attributes lam e.exp_loc attrs (Some warnings)
 
 (* Like transl_exp, but used when a new scope was just introduced. *)
 (* CR layouts v2: Invariant - this is only called on values.  Relax that. *)
@@ -1356,7 +1356,9 @@ and transl_let ~scopes ?(add_regions=false) ?(in_structure=false)
              with void-specific sanity check. *)
           sort_must_be_value expr.exp_loc sort;
           let lam = transl_bound_exp ~scopes ~in_structure pat expr in
-          let lam = Translattribute.add_function_attributes lam vb_loc attr in
+          let lam =
+            Translattribute.add_function_attributes lam vb_loc attr None
+          in
           let lam = if add_regions then maybe_region_exp expr lam else lam in
           let mk_body = transl rem in
           fun body ->
@@ -1377,7 +1379,7 @@ and transl_let ~scopes ?(add_regions=false) ?(in_structure=false)
         sort_must_be_value expr.exp_loc vb_sort;
         let lam = transl_bound_exp ~scopes ~in_structure vb_pat expr in
         let lam =
-          Translattribute.add_function_attributes lam vb_loc vb_attributes
+          Translattribute.add_function_attributes lam vb_loc vb_attributes None
         in
         let lam = if add_regions then maybe_region_exp expr lam else lam in
         (id, lam) in

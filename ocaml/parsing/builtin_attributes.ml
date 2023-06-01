@@ -551,7 +551,8 @@ let zero_alloc_attribute (attr : Parsetree.attribute)  =
   parse_attribute_with_ident_payload attr
     ~name:"zero_alloc" ~f:(function
       | "all" ->
-        Clflags.zero_alloc_check_assert_all := true
+        if Warnings.is_active (Warnings.Check_failed ("", [])) then
+          Clflags.zero_alloc_check_assert_all := true
       | _ ->
         warn_payload attr.attr_loc attr.attr_name.txt
           "Only 'check' and 'all' are supported")
