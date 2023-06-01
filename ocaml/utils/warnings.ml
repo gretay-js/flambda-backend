@@ -24,6 +24,8 @@ type loc = {
   loc_ghost: bool;
 }
 
+type sub_locs = (loc * string) list
+
 type field_usage_warning =
   | Unused
   | Not_read
@@ -1080,6 +1082,9 @@ let message = function
       property
 ;;
 
+let sub_locs = function
+  | _ -> []
+
 let nerrors = ref 0;;
 
 type reporting_information =
@@ -1106,7 +1111,7 @@ let report w =
        { id = id_name w;
          message = message w;
          is_error = is_error w;
-         sub_locs = [];
+         sub_locs = sub_locs w;
        }
 
 let report_alert (alert : alert) =

@@ -26,6 +26,8 @@ type loc = {
   loc_ghost: bool;
 }
 
+type sub_locs = (loc * string) list
+
 type field_usage_warning =
   | Unused
   | Not_read
@@ -138,7 +140,7 @@ type reporting_information =
   { id : string
   ; message : string
   ; is_error : bool
-  ; sub_locs : (loc * string) list;
+  ; sub_locs : sub_locs;
   }
 
 val report : t -> [ `Active of reporting_information | `Inactive ]
