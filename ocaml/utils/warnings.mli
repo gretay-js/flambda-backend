@@ -171,3 +171,5 @@ type description =
     description : string; }
 
 val descriptions : description list
+
+val print : state -> unit

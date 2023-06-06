@@ -538,6 +538,12 @@ let current =
       alert_errors = (Misc.Stdlib.String.Set.empty, true); (* all soft *)
     }
 
+let print state =
+  let pp ppf a =
+    Array.iteri (fun i enabled -> if enabled then Format.fprintf ppf "+%d" i) a
+  in
+  Format.printf "active=%a\nerror=%a\n"  pp state.active pp state.error
+
 let disabled = ref false
 
 let without_warnings f =
