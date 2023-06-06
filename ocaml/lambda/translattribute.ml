@@ -301,9 +301,15 @@ let zero_alloc_check warnings =
   !Clflags.native_code &&
   match warnings with
   | None ->
+    Printf.printf "warnings in scope not available, current is:\n";
+    Warnings.print (Warnings.backup ());
     false
     (* Warnings.is_active (Warnings.Check_failed "") *)
   | Some warnings ->
+    Printf.printf "warnings in scope:\n";
+    Warnings.print warnings;
+    Printf.printf "warnings in current:\n";
+    Warnings.print (Warnings.backup ());
     Warnings.is_active_in_state (Warnings.Check_failed ("", [])) warnings
 
 let get_property_attribute l p ~fun_attr warnings =
@@ -440,7 +446,7 @@ let add_local_attribute expr loc attributes =
     end
   | _ -> expr
 
-let add_check_attribute expr loc attributes warnings =
+let _add_check_attribute expr loc attributes warnings =
   let to_string = function
     | Zero_alloc -> "zero_alloc"
   in
@@ -482,6 +488,21 @@ let add_check_attribute expr loc attributes warnings =
       else
         expr
     end
+  | expr -> expr
+
+let add_check_attribute expr _loc _attributes warnings =
+  match expr with
+  | Lfunction({ loc; attr = { stub = false }; } as funct) ->
+    (match warnings with
+     | None -> expr
+     | Some warnings ->
+       if not (Warnings.is_active_in_state (Warnings.Check_failed_opt ("", [])) warnings)
+       then expr
+       else
+         let loc = Debuginfo.Scoped_location.to_location loc in
+         let check = Check { property = Zero_alloc; strict = false; assume = false; loc; } in
+         let attr = { funct.attr with check } in
+         lfunction_with_attr ~attr funct)
   | expr -> expr
 
 let add_loop_attribute expr loc attributes =
