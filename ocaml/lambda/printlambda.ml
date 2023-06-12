@@ -570,18 +570,18 @@ let name_of_primitive = function
   | Parray_of_iarray -> "Parray_of_iarray"
   | Parray_to_iarray -> "Parray_to_iarray"
 
+let property_to_string = function
+  | Zero_alloc -> "zero_alloc"
+
 let check_attribute ppf check =
-  let check_property = function
-    | Zero_alloc -> "zero_alloc"
-  in
   match check with
   | Default_check -> ()
   | Ignore_assert_all p ->
-    fprintf ppf "ignore assert all %s@ " (check_property p)
+    fprintf ppf "ignore assert all %s@ " (property_to_string p)
   | Check {property=p; assume; strict; loc = _} ->
     fprintf ppf "%s %s%s@ "
       (if assume then "assume" else "assert")
-      (check_property p)
+      (property_to_string p)
       (if strict then " strict" else "")
 
 let function_attribute ppf t =
