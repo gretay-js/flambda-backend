@@ -320,6 +320,56 @@ let alerts_of_str str = alerts_of_attrs (attrs_of_str str)
 let warn_payload loc txt msg =
   Location.prerr_warning loc (Warnings.Attribute_payload (txt, msg))
 
+let get_payload get_from_exp =
+  let open Parsetree in
+  function
+  | PStr [{pstr_desc = Pstr_eval (exp, [])}] -> get_from_exp exp
+  | _ -> Result.Error ()
+
+let get_optional_payload get_from_exp =
+  let open Parsetree in
+  function
+  | PStr [] -> Result.Ok None
+  | other -> Result.map Option.some (get_payload get_from_exp other)
+
+let get_ids_from_exp exp =
+  let open Parsetree in
+  (match exp with
+   | { pexp_desc = Pexp_apply (exp, args) } ->
+     get_id_from_exp exp ::
+     List.map (function
+       | (Asttypes.Nolabel, arg) -> get_id_from_exp arg
+       | (_, _) -> Result.Error ())
+       args
+   | _ -> [get_id_from_exp exp])
+  |> List.fold_left (fun acc r ->
+    match acc, r with
+    | Result.Ok ids, Ok id -> Result.Ok (id::ids)
+    | (Result.Error _ | Ok _), _ -> Result.Error ())
+    (Ok [])
+  |> Result.map List.rev
+
+
+let parse_ids_payload txt loc ~default ~empty cases payload =
+  let[@local] warn () =
+    let ( %> ) f g x = g (f x) in
+    let msg =
+      cases
+      |> List.map (fst %> String.concat " " %> Printf.sprintf "'%s'")
+      |> String.concat ", "
+      |> Printf.sprintf "It must be either %s or empty"
+    in
+    warn_payload loc txt msg;
+    default
+  in
+  match get_optional_payload get_ids_from_exp payload with
+  | Error () -> warn ()
+  | Ok None -> empty
+  | Ok (Some ids) ->
+      match List.assoc_opt (List.sort String.compare ids) cases with
+      | Some r -> r
+      | None -> warn ()
+
 let warning_attribute ?(ppwarning = true) =
   let process loc name errflag payload =
     mark_used name;
@@ -349,6 +399,26 @@ let warning_attribute ?(ppwarning = true) =
         | Some _ -> ()
         | None -> warn_payload loc txt "Invalid payload"
   in
+  let process_zero_alloc loc txt payload =
+    let off = (Warnings.Check.create Off ~strict:false ~loc txt) in
+    let on = (Warnings.Check.create On ~strict:false ~loc txt) in
+    let res : Warnigns.Check.t =
+      parse_ids_payload txt loc
+        ~default:off
+        ~empty:on
+        [
+          ["on"], on;
+          ["off"], off;
+          ["assume"], Warnings.Check.(create Assume ~strict:false ~loc txt);
+          ["strict"], Warnings.Check.(create On ~strict:true ~loc txt);
+          ["assume"; "strict"], Warnings.Check.(create Assume ~strict:true ~loc txt);
+          ["opt"], Warnings.Check.(create Opt ~strict:false ~loc txt);
+          ["opt"; "strict"], Warnings.Check.(create Opt ~strict:true ~loc txt);
+        ]
+        payload
+    in
+    Warnigns.set_check res
+  in
   function
   | {attr_name = {txt = ("ocaml.warning"|"warning"); _} as name;
      attr_loc;
@@ -377,6 +447,12 @@ let warning_attribute ?(ppwarning = true) =
      } ->
       (mark_used name;
        process_alert attr_loc name.txt attr_payload)
+  | {attr_name = {txt = ("ocaml.zero_alloc"|"zero_alloc"); _} as name;
+     attr_loc;
+     attr_payload;
+     } ->
+     (mark_used name;
+      process_zero_alloc attr_loc name.txt attr_payload)
   | _ ->
      ()
 
