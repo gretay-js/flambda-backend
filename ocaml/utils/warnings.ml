@@ -521,12 +521,41 @@ let letter = function
   | _ -> assert false
 ;;
 
+module Checks = struct
+  module State = struct
+    type t
+       | Off
+       | On
+       | Assume
+       | Opt
+
+    let to_string = function
+      | Off -> "off"
+      | On -> "on"
+      | Assume -> "assume"
+      | Opt -> "opt"
+  end
+
+  type property_name = string
+  type t = { state : State.t; strict : bool; loc : loc; }
+
+  let create state ~strict ~loc _property_name =
+    { state; strict; loc; }
+
+  let print ppf t =
+    Format.fprintf ppf "(%s %s%s)"
+      property
+      (State.to_string t.state)
+      if strict then "strict" else ""
+end
+
 type state =
   {
     active: bool array;
     error: bool array;
     alerts: (Misc.Stdlib.String.Set.t * bool); (* false:set complement *)
     alert_errors: (Misc.Stdlib.String.Set.t * bool); (* false:set complement *)
+    checks : Checks.t
   }
 
 let current =
@@ -536,13 +565,15 @@ let current =
       error = Array.make (last_warning_number + 1) false;
       alerts = (Misc.Stdlib.String.Set.empty, false); (* all enabled *)
       alert_errors = (Misc.Stdlib.String.Set.empty, true); (* all soft *)
+      checks : Checks.t
     }
 
 let print state =
   let pp ppf a =
     Array.iteri (fun i enabled -> if enabled then Format.fprintf ppf "+%d" i) a
   in
-  Format.printf "active=%a\nerror=%a\n"  pp state.active pp state.error
+  Format.printf "active=%a\nerror=%a\nchecks=%a\n" pp state.active pp state.error
+    Checks.print state.zero_alloc
 
 let disabled = ref false
 
@@ -586,6 +617,11 @@ let with_state state f =
 let mk_lazy f =
   let state = backup () in
   lazy (with_state state f)
+
+let set_checks check =
+  current := { (!current) with zero_alloc = check }
+
+let get_checks state = state.checks
 
 let set_alert ~error ~enable s =
   let upd =
