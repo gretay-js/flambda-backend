@@ -166,21 +166,12 @@ val mk_lazy: (unit -> 'a) -> 'a Lazy.t
 val is_active_in_state : t -> state -> bool
 
 module Checks : sig
-
-  module State : sig
-    type t
-       | Off
-       | On
-       | Assume
-       | Opt
-  end
-
-  type property_name = string
-  type t = private { state : State.t; strict : bool; loc : loc; }
-
-  let create : State.t -> strict:bool -> loc:loc -> property_name -> t
+  type t =
+    | On of { strict : bool; loc : loc; }
+    | Assume of { strict : bool; loc : loc; }
+    | Opt of { strict : bool; loc : loc; }
+    | Off
 end
-
 val set_checks : Checks.t -> unit
 val get_checks : state -> Checks.t
 

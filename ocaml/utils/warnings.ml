@@ -522,31 +522,25 @@ let letter = function
 ;;
 
 module Checks = struct
-  module State = struct
-    type t
-       | Off
-       | On
-       | Assume
-       | Opt
 
-    let to_string = function
-      | Off -> "off"
-      | On -> "on"
-      | Assume -> "assume"
-      | Opt -> "opt"
-  end
+  type t =
+    | On of { strict : bool; loc : loc; }
+    | Assume of { strict : bool; loc : loc; }
+    | Opt of { strict : bool; loc : loc; }
+    | Off
 
-  type property_name = string
-  type t = { state : State.t; strict : bool; loc : loc; }
+  let print ppf strict =
+    if strict then Format.fprintf ppf " strict"
 
-  let create state ~strict ~loc _property_name =
-    { state; strict; loc; }
-
-  let print ppf t =
-    Format.fprintf ppf "(%s %s%s)"
-      property
-      (State.to_string t.state)
-      if strict then "strict" else ""
+  let print ppf = function
+    | Off ->
+      Format.fprintf ppf "off"
+    | On { strict; loc = _; } ->
+      Format.fprintf ppf "on%a" print strict
+    | Opt { strict; loc = _;  } ->
+      Format.fprintf ppf "off%a" print strict
+    | Assume { strict; loc = _;  } ->
+      Format.fprintf ppf "assume%a" print strict
 end
 
 type state =
@@ -565,7 +559,7 @@ let current =
       error = Array.make (last_warning_number + 1) false;
       alerts = (Misc.Stdlib.String.Set.empty, false); (* all enabled *)
       alert_errors = (Misc.Stdlib.String.Set.empty, true); (* all soft *)
-      checks : Checks.t
+      checks = Checks.Off;
     }
 
 let print state =
@@ -573,7 +567,7 @@ let print state =
     Array.iteri (fun i enabled -> if enabled then Format.fprintf ppf "+%d" i) a
   in
   Format.printf "active=%a\nerror=%a\nchecks=%a\n" pp state.active pp state.error
-    Checks.print state.zero_alloc
+    Checks.print state.checks
 
 let disabled = ref false
 
@@ -618,8 +612,8 @@ let mk_lazy f =
   let state = backup () in
   lazy (with_state state f)
 
-let set_checks check =
-  current := { (!current) with zero_alloc = check }
+let set_checks checks =
+  current := { !current with checks }
 
 let get_checks state = state.checks
 
