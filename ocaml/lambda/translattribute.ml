@@ -460,16 +460,7 @@ let _add_check_attribute expr loc attributes warnings =
       Printf.sprintf "ignore %s" (to_string property)
     | Default_check -> assert false
   in
-  let duplicated_attribute_warning attr check =
-    match attr.check, check with
-    | Default_check, _
-    | _, Default_check -> ()
-    | (Ignore_assert_all p | Check { property = p; _ }),
-      (Ignore_assert_all p' | Check { property = p'; _ }) ->
-      if p = p' then
-        Location.prerr_warning loc
-          (Warnings.Duplicated_attribute (to_string check));
-  in
+
   let append funct check =
     let attr = { funct.attr with check } in
     lfunction_with_attr ~attr funct
@@ -490,19 +481,71 @@ let _add_check_attribute expr loc attributes warnings =
     end
   | expr -> expr
 
-let add_check_attribute expr _loc _attributes warnings =
+let duplicated_attribute_warning loc old_check new_check =
+    match old_check, new_check with
+    | Default_check, _
+    | _, Default_check -> ()
+    | (Check { property = p; assume = a; strict  = s }),
+      (Check { property = p'; assume = a'; strict = s' }) ->
+      if p = p' &&  not ( (a = a') && (s = s') ) then
+        Location.prerr_warning loc
+          (Warnings.Duplicated_attribute
+             (Printlambda.property_to_string p))
+    | Ignore_assert_all _, _
+    | _, Ignore_assert_all _ -> assert false
+
+let add_check_attribute expr floc _attributes warnings =
   match expr with
-  | Lfunction({ loc; attr = { stub = false }; } as funct) ->
+  | Lfunction({ attr = { stub = false } as attr; } as funct) ->
     (match warnings with
      | None -> expr
      | Some warnings ->
-       if not (Warnings.is_active_in_state (Warnings.Check_failed_opt ("", [])) warnings)
-       then expr
-       else
-         let loc = Debuginfo.Scoped_location.to_location loc in
-         let check = Check { property = Zero_alloc; strict = false; assume = false; loc; } in
-         let attr = { funct.attr with check } in
-         lfunction_with_attr ~attr funct)
+       let check = Warnings.get_checks warnings in
+       let property = Zero_alloc in
+       let txt = Printlambda.property_to_string property in
+       let check_if_active w strict loc =
+         if Warnings.is_active_in_state w warnings then begin
+           (* There will be no warning for misplaced or unused "zero_alloc"
+              annotations. The warning for unchecked function will only trigger when
+              correctly annotated function is optimized away. *)
+           Builtin_attributes.register_property { txt; loc };
+           Check { assume = false; property; strict; loc; }
+         end else
+           Default_check
+       in
+       let check =
+         (match check with
+          | Off -> Default_check
+          | Assume { strict; loc } ->
+            (* [attr.inline] and [attr.specialise] must be set before the
+               check for [Warnings.Misplaced_assume_attribute].
+               For attributes from the same list, it's fine because
+               [add_check_attribute] is called after
+               [add_inline_attribute] and [add_specialise_attribute].
+               The warning will spuriously fire in the following case:
+               let[@inline never][@specialise never] f =
+               fun[@zero_alloc assume] x -> ..
+            *)
+            let never_specialise =
+              if Config.flambda then
+                attr.specialise = Never_specialise
+              else
+                (* closure drops [@specialise never] and never specialises *)
+                (* flambda2 does not have specialisation support yet *)
+                true
+            in
+            if not ((attr.inline = Never_inline) && never_specialise) then
+              Location.prerr_warning loc
+                (Warnings.Misplaced_assume_attribute txt);
+            Check { assume = true; property; strict; loc; }
+          | On { strict; loc } ->
+            check_if_active (Warnings.Check_failed ("", [])) strict loc
+          | Opt { strict; loc } ->
+            check_if_active (Warnings.Check_failed_opt ("", [])) strict loc)
+       in
+       duplicated_attribute_warning floc funct.attr.check check;
+       let attr = { funct.attr with check } in
+       lfunction_with_attr ~attr funct)
   | expr -> expr
 
 let add_loop_attribute expr loc attributes =

@@ -400,6 +400,8 @@ let warning_attribute ?(ppwarning = true) =
         | None -> warn_payload loc txt "Invalid payload"
   in
   let process_zero_alloc loc txt payload =
+    (* CR gyorsh: inefficient, inline the parsing functions and simplify if possible to
+       reduce allocation *)
     let off = (Warnings.Check.create Off ~strict:false ~loc txt) in
     let on = (Warnings.Check.create On ~strict:false ~loc txt) in
     let res : Warnigns.Check.t =
