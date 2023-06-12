@@ -332,6 +332,12 @@ let get_optional_payload get_from_exp =
   | PStr [] -> Result.Ok None
   | other -> Result.map Option.some (get_payload get_from_exp other)
 
+let get_id_from_exp =
+  let open Parsetree in
+  function
+  | { pexp_desc = Pexp_ident { txt = Longident.Lident id } } -> Result.Ok id
+  | _ -> Result.Error ()
+
 let get_ids_from_exp exp =
   let open Parsetree in
   (match exp with
@@ -402,24 +408,24 @@ let warning_attribute ?(ppwarning = true) =
   let process_zero_alloc loc txt payload =
     (* CR gyorsh: inefficient, inline the parsing functions and simplify if possible to
        reduce allocation *)
-    let off = (Warnings.Check.create Off ~strict:false ~loc txt) in
-    let on = (Warnings.Check.create On ~strict:false ~loc txt) in
-    let res : Warnigns.Check.t =
+    let off = Warnings.Checks.Off in
+    let on = Warnings.Checks.On { strict = false; loc } in
+    let res : Warnings.Checks.t =
       parse_ids_payload txt loc
         ~default:off
         ~empty:on
         [
           ["on"], on;
           ["off"], off;
-          ["assume"], Warnings.Check.(create Assume ~strict:false ~loc txt);
-          ["strict"], Warnings.Check.(create On ~strict:true ~loc txt);
-          ["assume"; "strict"], Warnings.Check.(create Assume ~strict:true ~loc txt);
-          ["opt"], Warnings.Check.(create Opt ~strict:false ~loc txt);
-          ["opt"; "strict"], Warnings.Check.(create Opt ~strict:true ~loc txt);
+          ["strict"], Warnings.Checks.On { strict = true; loc; };
+          ["assume"], Warnings.Checks.Assume { strict = false; loc; };
+          ["assume"; "strict"], Warnings.Checks.Assume { strict = true; loc; };
+          ["opt"], Warnings.Checks.Opt { strict = false; loc; };
+          ["opt"; "strict"], Warnings.Checks.Opt { strict = true; loc; };
         ]
         payload
     in
-    Warnigns.set_check res
+    Warnings.set_checks res
   in
   function
   | {attr_name = {txt = ("ocaml.warning"|"warning"); _} as name;
