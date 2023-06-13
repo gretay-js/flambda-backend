@@ -90,17 +90,16 @@ module Witness = struct
   let print_error component t : Warnings.sub_locs =
     let mkloc pp dbg suffix =
       let loc = Debuginfo.to_location dbg in
-      let f =
-        (fun ppf () ->
-          (* Show inlined locations. If dbg has only one item, it will already
-             be shown as [loc]. *)
-          if List.length t.dbg > 1
-          then Format.fprintf ppf " (%a)" Debuginfo.print_compact dbg;
-          if not (String.equal "" component)
-          then Format.fprintf ppf " on a path to %s" component;
-          Format.fprintf ppf "%s" suffix)
-        in
-        loc, Format.asprintf "%s%a" pp f ()
+      let f ppf () =
+        (* Show inlined locations. If dbg has only one item, it will already be
+           shown as [loc]. *)
+        if List.length t.dbg > 1
+        then Format.fprintf ppf " (%a)" Debuginfo.print_compact dbg;
+        if not (String.equal "" component)
+        then Format.fprintf ppf " on a path to %s" component;
+        Format.fprintf ppf "%s" suffix
+      in
+      loc, Format.asprintf "%s%a" pp f ()
     in
     let pp_kind = Format.asprintf "%a" print_kind t.kind in
     match get_alloc_dbginfo t.kind with
@@ -357,9 +356,13 @@ module Annotation : sig
 
   val is_assume : t -> bool
 
-  val print_warn : t -> fun_name:string -> fun_dbg:Debuginfo.t ->
-    property:Cmm.property -> witnesses:Witnesses.components -> unit
-
+  val print_warn :
+    t ->
+    fun_name:string ->
+    fun_dbg:Debuginfo.t ->
+    property:Cmm.property ->
+    witnesses:Witnesses.components ->
+    unit
 end = struct
   (**
    ***************************************************************************
@@ -447,9 +450,9 @@ end = struct
         (Printcmm.property_to_string property)
         (if t.strict then " strict" else "")
         (fun_dbg
-         |> List.map (fun dbg ->
-           Debuginfo.(Scoped_location.string_of_scopes dbg.dinfo_scopes))
-         |> String.concat ",")
+        |> List.map (fun dbg ->
+               Debuginfo.(Scoped_location.string_of_scopes dbg.dinfo_scopes))
+        |> String.concat ",")
         fun_name
     in
     (* CR gyorsh: put sub into Warnings.reporting_information.sub_locs *)
@@ -754,8 +757,8 @@ end = struct
             Value.diff_witnesses ~expected:expected_value
               ~actual:func_info.value
           in
-          Annotation.print_warn a ~fun_name:func_info.name ~fun_dbg:func_info.dbg
-            ~property:S.property ~witnesses);
+          Annotation.print_warn a ~fun_name:func_info.name
+            ~fun_dbg:func_info.dbg ~property:S.property ~witnesses);
       report_func_info ~msg:"record" ppf func_info;
       S.set_value func_info.name func_info.value
     in
