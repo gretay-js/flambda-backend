@@ -179,6 +179,12 @@ let[@zero_alloc] test35 cond x =
     if Sys.opaque_identity cond then raise Exn
   done
 
+[@@@zero_alloc off]
+
+let foo x y = (x,y)
+
+[@@@zero_alloc on]
+
 let[@zero_alloc] test36 a i : int = a.(i)
 
 

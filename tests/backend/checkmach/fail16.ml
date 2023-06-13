@@ -1,5 +1,5 @@
 (* still do get a zero_alloc failure if we use a functor in a checked function  *)
-[@@@zero_alloc all]
+[@@@zero_alloc on]
 
 module[@inline never] F (X : sig val x : int end) =
 struct

@@ -1,4 +1,4 @@
-[@@@zero_alloc all]
+[@@@zero_alloc on]
 
 (* For duplicate attributes we get a warning and the first one takes effect, so the
    following function, which passes the relaxed test but not the strict, triggers

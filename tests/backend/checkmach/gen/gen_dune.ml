@@ -107,9 +107,9 @@ let () =
   (* Checks that the warning is printed and compilation is successful. *)
   print_test_expected_output ~cutoff:default_cutoff ~flambda_only:false ~extra_dep:None
     ~exit_code:0 "t6";
-  (* Check that entry function and functors are ignored with  [@@@zero_alloc all] *)
+  (* Check that entry function and functors are ignored with  [@@@zero_alloc on] *)
   print_test ~flambda_only:false ~deps:"t7.ml";
-  (* Check that compiler generated stubs are ignored with [@@@zero_alloc all] *)
+  (* Check that compiler generated stubs are ignored with [@@@zero_alloc on] *)
   print_test ~flambda_only:false ~deps:"test_stub_dep.ml test_stub.ml";
   (* flambda2 generates an indirect call but we don't yet have a way to exclude it
      without excluding closure. *)

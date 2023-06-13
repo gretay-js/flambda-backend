@@ -1,5 +1,5 @@
-(* Check that entry function and functors are ignored with  [@@@zero_alloc all] *)
-[@@@zero_alloc all]
+(* Check that entry function and functors are ignored with  [@@@zero_alloc on] *)
+[@@@zero_alloc on]
 
 let[@zero_alloc off] foo x = (x,x)
 

@@ -1,4 +1,4 @@
-[@@@zero_alloc all]
+[@@@zero_alloc on]
 
 let pass1 x = x + 1
 
