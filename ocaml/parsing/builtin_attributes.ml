@@ -562,14 +562,6 @@ let parse_int_payload attr =
       "A constant payload of type int was expected";
     None
 
-let parse_ident_payload attr =
-  match ident_of_payload attr.attr_payload with
-  | Some i -> Some i
-  | None ->
-    warn_payload attr.attr_loc attr.attr_name.txt
-      "A constant payload of type ident was expected";
-    None
-
 let clflags_attribute_without_payload attr ~name clflags_ref =
   when_attribute_is [name; "ocaml." ^ name] attr ~f:(fun () ->
     match parse_empty_payload attr with
@@ -625,22 +617,6 @@ let inline_attribute attr =
         Clflags.Float_arg_helper.parse s err_msg Clflags.inline_threshold
       | None -> warn_payload attr.attr_loc attr.attr_name.txt err_msg)
 
-let parse_attribute_with_ident_payload attr ~name ~f =
-  when_attribute_is [name; "ocaml." ^ name] attr ~f:(fun () ->
-    match parse_ident_payload attr with
-    | Some i -> f i
-    | None -> ())
-
-let zero_alloc_attribute (attr : Parsetree.attribute)  =
-  parse_attribute_with_ident_payload attr
-    ~name:"zero_alloc" ~f:(function
-      | "all" ->
-        if Warnings.is_active (Warnings.Check_failed ("", [])) then
-          Clflags.zero_alloc_check_assert_all := true
-      | _ ->
-        warn_payload attr.attr_loc attr.attr_name.txt
-          "Only 'check' and 'all' are supported")
-
 let afl_inst_ratio_attribute attr =
   clflags_attribute_with_int_payload attr
     ~name:"afl_inst_ratio" Clflags.afl_inst_ratio
@@ -659,8 +635,7 @@ let parse_standard_implementation_attributes attr =
   inline_attribute attr;
   afl_inst_ratio_attribute attr;
   flambda_o3_attribute attr;
-  flambda_oclassic_attribute attr;
-  zero_alloc_attribute attr
+  flambda_oclassic_attribute attr
 
 let has_local_opt attrs =
   has_attribute ["ocaml.local_opt"; "local_opt"] attrs
