@@ -1486,6 +1486,8 @@ and close_functions { backend; fenv; cenv; mutable_vars; kinds; catch_env } fun_
          (function
            | (id, Lfunction{kind; params; return; body; attr;
                             loc; mode; region}) ->
+               let loc' = Debuginfo.Scoped_location.to_location loc in
+               Translattribute.misplaced_assume_warning attr loc' "zero_alloc";
                Simplif.split_default_wrapper ~id ~kind ~params ~mode ~region
                  ~body ~attr ~loc ~return
            | _ -> assert false

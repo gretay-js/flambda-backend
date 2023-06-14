@@ -65,3 +65,5 @@ val add_function_attributes
   -> Parsetree.attributes
   -> Warnings.state option
   -> Lambda.lambda
+
+val misplaced_assume_warning : Lambda.function_attribute -> Location.t -> string -> unit
