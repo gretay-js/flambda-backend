@@ -348,6 +348,28 @@ let duplicated_attribute_warning loc old_check new_check =
     | Ignore_assert_all _, _
     | _, Ignore_assert_all _ -> assert false
 
+let _misplaced_assume_warning attr =
+  (* [attr.inline] and [attr.specialise] must be set before the
+     check for [Warnings.Misplaced_assume_attribute].
+     For attributes from the same list, it's fine because
+     [add_check_attribute] is called after
+     [add_inline_attribute] and [add_specialise_attribute].
+     The warning will spuriously fire in the following case:
+     let[@inline never][@specialise never] f =
+     fun[@zero_alloc assume] x -> ..
+  *)
+  let never_specialise =
+    if Config.flambda then
+      attr.specialise = Never_specialise
+    else
+      (* closure drops [@specialise never] and never specialises *)
+      (* flambda2 does not have specialisation support yet *)
+      true
+  in
+  if not ((attr.inline = Never_inline) && never_specialise) then
+    Location.prerr_warning loc
+      (Warnings.Misplaced_assume_attribute txt);
+
 let add_check_attribute expr floc _attributes warnings =
   match expr with
   | Lfunction({ attr = { stub = false } as attr; } as funct) ->
@@ -371,26 +393,6 @@ let add_check_attribute expr floc _attributes warnings =
          (match check with
           | Off -> Default_check
           | Assume { strict; loc } ->
-            (* [attr.inline] and [attr.specialise] must be set before the
-               check for [Warnings.Misplaced_assume_attribute].
-               For attributes from the same list, it's fine because
-               [add_check_attribute] is called after
-               [add_inline_attribute] and [add_specialise_attribute].
-               The warning will spuriously fire in the following case:
-               let[@inline never][@specialise never] f =
-               fun[@zero_alloc assume] x -> ..
-            *)
-            let never_specialise =
-              if Config.flambda then
-                attr.specialise = Never_specialise
-              else
-                (* closure drops [@specialise never] and never specialises *)
-                (* flambda2 does not have specialisation support yet *)
-                true
-            in
-            if not ((attr.inline = Never_inline) && never_specialise) then
-              Location.prerr_warning loc
-                (Warnings.Misplaced_assume_attribute txt);
             Check { assume = true; property; strict; loc; }
           | On { strict; loc } ->
             check_if_active (Warnings.Check_failed ("", [])) strict loc
