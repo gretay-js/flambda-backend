@@ -1,8 +1,7 @@
 [@@@zero_alloc on]
 
-(* For duplicate attributes we get a warning and the first one takes effect, so the
-   following function, which passes the relaxed test but not the strict, triggers
-   failure of the check of [call_loud1]. *)
-let[@inline never][@zero_alloc off][@zero_alloc assume] fails x = (x,x)
+(* For duplicate attributes we don't get a warning, but the first one takes effect, so
+   [fails] is not assumed to pass the check, and [call] fails the check. *)
+let[@inline never][@zero_alloc off][@zero_alloc assume strict] fails x = (x,x)
 
 let[@zero_alloc strict] call x = fails (x+1)
