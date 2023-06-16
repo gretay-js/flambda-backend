@@ -521,26 +521,63 @@ let letter = function
   | _ -> assert false
 ;;
 
-module Checks = struct
+module Checks : sig
+  (* CR gyorsh: remove [property] until we have at least two? *)
+  type property =
+  | Zero_alloc
 
-  type t =
-    | On of { strict : bool; loc : loc; }
-    | Assume of { strict : bool; loc : loc; }
-    | Opt of { strict : bool; loc : loc; }
+  type scope =
+    | All  (** all functions *)
+    | Toplevel  (** all top-level functions of each module *)
+    | Direct (** current function only *)
+
+  (** [strict=true] property holds on all paths.
+
+      [strict=false] if the function returns normally,
+      then the property holds (but property violations on
+      exceptional returns or divering loops are ignored).
+      This definition may not be applicable to new properties.
+
+      [opt=false] the property will be checked when either
+      Check_fail or Check_fail_opt warning is enabled.
+
+      [opt=true] the property will be checked only when
+      Check_fail_opt warning are enabled.
+
+      [never_returns_normally=true] assume that the function
+      never returns normally at all, instead of assuming that it
+      is safe on all paths to normal return.
+  *)
+  type state =
+    | On of { loc:loc; strict:bool; opt:bool }
+    | Assume of { loc:loc; strict:bool; never_returns_normally:bool }
     | Off
 
-  let print ppf strict =
-    if strict then Format.fprintf ppf " strict"
+  type t = { state; scope; property }
 
-  let print ppf = function
+  let default = { state = Off; scope = All; property = Zero_alloc }
+
+  let print_bool ppf b name =
+    if b then Format.fprintf ppf " %s" name
+
+  let print_strict ppf b = print_bool ppf b "strict"
+
+  let print_state ppf = function
     | Off ->
       Format.fprintf ppf "off"
-    | On { strict; loc = _; } ->
+    | On { strict; opt; loc = _; } ->
       Format.fprintf ppf "on%a" print strict
-    | Opt { strict; loc = _;  } ->
-      Format.fprintf ppf "off%a" print strict
-    | Assume { strict; loc = _;  } ->
-      Format.fprintf ppf "assume%a" print strict
+    | Opt { strict; never_returns_normally; loc = _;  } ->
+      Format.fprintf ppf "on%a%a" print_strict strict
+        print_bool opt "opt"
+    | Assume { strict; never_returns_normally=n; loc = _;  } ->
+      Format.fprintf ppf "assume%a%s" print_strict strict
+        print_bool n "never_returns_normally"
+
+  let print ppf { state; scope; property } =
+    Format.fprintf ppf "%a %a %a"
+      print_property property print_kind kind print_scope scope
+
 end
 
 type state =
@@ -559,7 +596,7 @@ let current =
       error = Array.make (last_warning_number + 1) false;
       alerts = (Misc.Stdlib.String.Set.empty, false); (* all enabled *)
       alert_errors = (Misc.Stdlib.String.Set.empty, true); (* all soft *)
-      checks = Checks.Off;
+      checks = Checks.default;
     }
 
 let print state =

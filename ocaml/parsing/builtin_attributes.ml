@@ -376,6 +376,54 @@ let parse_ids_payload txt loc ~default ~empty cases payload =
       | Some r -> r
       | None -> warn ()
 
+
+let parse_check_attribute_payload ids loc property =
+  let open Warnings.Checks in
+  let open Misc.Stdlib in
+  if String.Set.is_empty ids then
+    { scope = Direct;
+      kind = On { loc; strict = false; never_returns_normally = false };
+      property
+    }
+  else
+    let ids = ref ids in
+    let remove s =
+      let res = String.Set.mem s !ids in
+      ids := String.Set.remove s !ids;
+      res
+    in
+    let scope, ids =
+      if String.Set.mem "all" ids then
+        All, String.Set.remove "all" ids
+      else if String.Set.mem "toplevel" ids then
+        Toplevel, String.Set.remove "toplevel" ids
+      else
+        Direct, ids
+    in
+    let state, ids =
+      if String.Set.mem "off" ids then
+        Off, String.Set.remove "off" ids
+      else if String.Set.mem "assume" then begin
+        let ids = String.Set.remove "assume" ids
+        let strict, ids = find_bool "strict" ids in
+        let never_returns_normally, ids = find_bool "never_returns_normally" ids in
+        Assume { loc; strict; never_returns_normally }, ids
+      end else begin
+        (* "on" is the default, but if it is present explicitly, remove it. *)
+        let ids = String.Set.remove "on" ids in
+        let strict, ids = find_bool "strict" ids in
+        let opt, ids = find_bool "opt" ids in
+        On { loc; strictl opt; }
+      end
+    in
+    if String.Set.is_empty then
+      Some { scope; state; property; }
+    else begin
+      let s = ids |> String.Set.to_list |> String.concat " "
+      warn_payload loc txt "Invalid payload: "^s;
+      None
+    end
+
 let warning_attribute ?(ppwarning = true) =
   let process loc name errflag payload =
     mark_used name;
@@ -405,27 +453,20 @@ let warning_attribute ?(ppwarning = true) =
         | Some _ -> ()
         | None -> warn_payload loc txt "Invalid payload"
   in
-  let process_zero_alloc loc txt payload =
-    (* CR gyorsh: inefficient, inline the parsing functions and simplify if possible to
-       reduce allocation *)
-    let off = Warnings.Checks.Off in
-    let on = Warnings.Checks.On { strict = false; loc } in
-    let res : Warnings.Checks.t =
-      parse_ids_payload txt loc
-        ~default:off
-        ~empty:on
-        [
-          ["on"], on;
-          ["off"], off;
-          ["strict"], Warnings.Checks.On { strict = true; loc; };
-          ["assume"], Warnings.Checks.Assume { strict = false; loc; };
-          ["assume"; "strict"], Warnings.Checks.Assume { strict = true; loc; };
-          ["opt"], Warnings.Checks.Opt { strict = false; loc; };
-          ["opt"; "strict"], Warnings.Checks.Opt { strict = true; loc; };
-        ]
-        payload
-    in
-    Warnings.set_checks res
+  let process_zero_alloc loc name payload =
+    match get_optional_ids_payload with
+    | None -> warn_payload loc txt "Invalid payload"
+    | Some ids ->
+      let p = Warnings.Check.Zero_alloc in
+      match parse_check_attribute_payload ids loc p with
+      | None -> ()
+      | Some { scope = Direct; } ->
+        (* this attribute is consumed at lambda or
+           triggers an misplaced attribute warning. *)
+        ()
+      | Some { scope = All | Toplevel; } as c ->
+        mark_used name;
+        Warnings.set_checks c
   in
   function
   | {attr_name = {txt = ("ocaml.warning"|"warning"); _} as name;
@@ -455,12 +496,12 @@ let warning_attribute ?(ppwarning = true) =
      } ->
       (mark_used name;
        process_alert attr_loc name.txt attr_payload)
-  | {attr_name = {txt = ("ocaml.zero_alloc"|"zero_alloc"); _} as name;
+  | {attr_name = {txt = ("ocaml.zero_alloc"|"zero_alloc"); loc } as name;
      attr_loc;
      attr_payload;
      } ->
-     (mark_used name;
-      process_zero_alloc attr_loc name.txt attr_payload)
+     (
+      process_zero_alloc attr_loc name attr_payload)
   | _ ->
      ()
 

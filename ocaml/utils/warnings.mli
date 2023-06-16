@@ -192,12 +192,12 @@ module Checks : sig
       never returns normally at all, instead of assuming that it
       is safe on all paths to normal return.
   *)
-  type kind =
+  type state =
     | On of { loc:loc; strict:bool; opt:bool }
     | Assume of { loc:loc; strict:bool; never_returns_normally:bool }
     | Off
 
-  type t = { kind; scope; property }
+  type t = { state; scope; property }
 
   val default : t
 end
