@@ -119,6 +119,7 @@ val warning_attribute: ?ppwarning:bool -> Parsetree.attribute -> unit
       Also implement ocaml.ppwarning (unless ~ppwarning:false is
       passed).
   *)
+val check_attribute_payload: Parsetree.payload -> Location.t -> Warnings.Check.property -> Warnings.Check.t
 
 val warning_scope:
   ?ppwarning:bool ->
