@@ -166,11 +166,40 @@ val mk_lazy: (unit -> 'a) -> 'a Lazy.t
 val is_active_in_state : t -> state -> bool
 
 module Checks : sig
-  type t =
-    | On of { strict : bool; loc : loc; }
-    | Assume of { strict : bool; loc : loc; }
-    | Opt of { strict : bool; loc : loc; }
+  (* CR gyorsh: remove [property] until we have at least two? *)
+  type property =
+  | Zero_alloc
+
+  type scope =
+    | All  (** all functions *)
+    | Toplevel  (** all top-level functions of each module *)
+    | Direct (** current function only *)
+
+  (** [strict=true] property holds on all paths.
+
+      [strict=false] if the function returns normally,
+      then the property holds (but property violations on
+      exceptional returns or divering loops are ignored).
+      This definition may not be applicable to new properties.
+
+      [opt=false] the property will be checked when either
+      Check_fail or Check_fail_opt warning is enabled.
+
+      [opt=true] the property will be checked only when
+      Check_fail_opt warning are enabled.
+
+      [never_returns_normally=true] assume that the function
+      never returns normally at all, instead of assuming that it
+      is safe on all paths to normal return.
+  *)
+  type kind =
+    | On of { loc:loc; strict:bool; opt:bool }
+    | Assume of { loc:loc; strict:bool; never_returns_normally:bool }
     | Off
+
+  type t = { kind; scope; property }
+
+  val default : t
 end
 val set_checks : Checks.t -> unit
 val get_checks : state -> Checks.t

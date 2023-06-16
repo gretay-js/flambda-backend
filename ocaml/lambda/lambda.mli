@@ -316,28 +316,14 @@ type local_attribute =
   | Never_local (* [@local never] *)
   | Default_local (* [@local maybe] or no [@local] attribute *)
 
-type property =
-  | Zero_alloc
-
 type poll_attribute =
   | Error_poll (* [@poll error] *)
   | Default_poll (* no [@poll] attribute *)
 
-type check_attribute =
-  | Default_check
-  | Ignore_assert_all of property
-  | Check of { property: property;
-               strict: bool;
-               (* [strict=true] property holds on all paths.
-                  [strict=false] if the function returns normally,
-                  then the property holds (but property violations on
-                  exceptional returns or divering loops are ignored).
-                  This definition may not be applicable to new properties. *)
-               assume: bool;
-               (* [assume=true] assume without checking that the
-                  property holds *)
-               loc: Location.t;
-             }
+type check_attribute = {
+  scoped : Warnings.Checks.t;
+  in_structure : bool option;
+}
 
 type loop_attribute =
   | Always_loop (* [@loop] or [@loop always] *)
