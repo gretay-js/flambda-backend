@@ -389,41 +389,45 @@ end = struct
    *  and is subject to [Strict] requirements).
    *
    *****************************************************************************)
-
-  type t =
-    | Assume of
-        { strict : bool;  (** strict or relaxed? *)
-          opt : bool;     (** warning active in optimized builds only *)
-          loc : Location.t
-          (** Source location of the annotation, used for error messages. *)
-        }
+  type action =
+    | Assume of {
+    (** [opt] warning active in optimized builds only *)
+      opt : bool; }
     | Check of
-        { strict : bool;  (** strict or relaxed? *)
-          never_returns_normally : bool; (** there are no paths from the entry function to
+        {
+          (** there are no paths from the entry function to
                                              normal return, independently on what happens
                                              on the exceptional return according to
                                              [strict]. *)
-          loc : Location.t
-          (** Source location of the annotation, used for error messages. *)
+          never_returns_normally : bool;
         }
+
+
+  type t =
+    { loc:  Location.t;
+          (** Source location of the annotation, used for error messages. *)
+      strict : bool;  (** strict or relaxed? *)
+      action : action;
+    }
+
+  type t = Warnings.Checks.state
 
   let get_loc t = t.loc
 
   let expected_value t = if t.strict then Value.safe else Value.relaxed
 
-  let is_assume t = t.assume
+  let is_assume t =
+    match t.action with
+    | Assume _ -> true
+    | Check _ -> false
 
   let find codegen_options spec fun_name dbg =
-    let ignore_assert_all = ref false in
     let a =
       List.filter_map
         (fun (c : Cmm.codegen_option) ->
           match c with
-          | Check { property; strict; assume; loc } when property = spec ->
-            Some { strict; assume; loc }
-          | Ignore_assert_all property when property = spec ->
-            ignore_assert_all := true;
-            None
+          | Check { strict; assume; loc } when property = spec ->
+            Some { strict; loc; action = Check opt }
           | Ignore_assert_all _ | Check _ | Reduce_code_size | No_CSE
           | Use_linscan_regalloc ->
             None)

@@ -291,8 +291,7 @@ type codegen_option =
   | Reduce_code_size
   | No_CSE
   | Use_linscan_regalloc
-  | Check of { loc: Location.t; strict:bool; opt:bool }
-  | Assume of { loc: Location.t; strict:bool; never_returns_normally: bool }
+  | Check of Warnings.Checks.state
 
 type fundecl =
   { fun_name: symbol;
