@@ -36,4 +36,4 @@ val print_bigarray :
   string -> bool -> Lambda.bigarray_kind -> formatter ->
   Lambda.bigarray_layout -> unit
 val check_attribute : formatter -> check_attribute -> unit
-val property_to_string : property -> string
+

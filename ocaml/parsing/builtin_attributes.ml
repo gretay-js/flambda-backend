@@ -320,41 +320,10 @@ let alerts_of_str str = alerts_of_attrs (attrs_of_str str)
 let warn_payload loc txt msg =
   Location.prerr_warning loc (Warnings.Attribute_payload (txt, msg))
 
-let get_payload get_from_exp =
+let process_check_attribute ~direct property attr =
+  let loc = attr.attr_name.loc in
   let open Parsetree in
-  function
-  | PStr [{pstr_desc = Pstr_eval (exp, [])}] -> get_from_exp exp
-  | _ -> Result.Error ()
-
-let get_optional_payload get_from_exp =
-  let open Parsetree in
-  function
-  | PStr [] -> Result.Ok None
-  | other -> Result.map Option.some (get_payload get_from_exp other)
-
-
-let parse_ids_payload txt loc ~default ~empty cases payload =
-  let[@local] warn () =
-    let ( %> ) f g x = g (f x) in
-    let msg =
-      cases
-      |> List.map (fst %> String.concat " " %> Printf.sprintf "'%s'")
-      |> String.concat ", "
-      |> Printf.sprintf "It must be either %s or empty"
-    in
-    warn_payload loc txt msg;
-    default
-  in
-  match get_optional_payload get_ids_from_exp payload with
-  | Error () -> warn ()
-  | Ok None -> empty
-  | Ok (Some ids) ->
-      match List.assoc_opt (List.sort String.compare ids) cases with
-      | Some r -> r
-      | None -> warn ()
-
-let process_check_attribute_payload attr_loc txt loc payload property =
-  let open Parsetree in
+  let module String = Misc.Stdlib.String in
   let get_id_from_exp =
     function
     | { pexp_desc = Pexp_ident { txt = Longident.Lident id } } -> Some id
@@ -371,36 +340,34 @@ let process_check_attribute_payload attr_loc txt loc payload property =
      | _ -> [get_id_from_exp exp])
     |> List.fold_left (fun acc r ->
       match acc, r with
-      | Some ids, Some id -> Some id::ids
+      | Some ids, Some id -> Some (String.Set.add id ids)
       | None, _ | _, None -> None)
-      (Some [])
-    |> Result.map List.rev
+      (Some String.Set.empty)
   in
-  let get_ids_from_payload payload =
+  let get_ids_from_payload =
     function
-    | PStr [] -> Some []
+    | PStr [] -> Some String.Set.empty
     | PStr [{pstr_desc = Pstr_eval (exp, [])}] -> get_ids_from_exp exp
     | _ -> None
   in
-  match get_ids_from_payload payload with
+  match get_ids_from_payload attr.attr_payload with
   | None ->
-    warn_payload attr_loc txt "Invalid payload";
+    warn_payload attr.attr_loc attr.attr_name.txt "Invalid payload";
     None
   | Some ids ->
     let open Warnings.Checks in
-    let open Misc.Stdlib in
     if String.Set.is_empty ids then
       Some {
         scope = Direct;
-        kind = On { loc; strict = false; never_returns_normally = false };
+        state = On { loc; strict = false; opt = false };
         property
       }
     else begin
-      let ids = ref ids in
-      let remove s =
-        let res = String.Set.mem s !ids in
-        ids := String.Set.remove s !ids;
-        res
+      let find_bool expected_id ids =
+        if String.Set.mem expected_id ids then
+          true, String.Set.remove expected_id ids
+        else
+          false, ids
       in
       let scope, ids =
         if String.Set.mem "all" ids then
@@ -410,32 +377,42 @@ let process_check_attribute_payload attr_loc txt loc payload property =
         else
           Direct, ids
       in
-      let state, ids =
-        if String.Set.mem "off" ids then
-          Off, String.Set.remove "off" ids
-        else if String.Set.mem "assume" then begin
-          let ids = String.Set.remove "assume" ids
-          let strict, ids = find_bool "strict" ids in
-          let never_returns_normally, ids = find_bool "never_returns_normally" ids in
-          Assume { loc; strict; never_returns_normally }, ids
-        end else begin
-          (* "on" is the default, but if it is present explicitly, remove it. *)
-          let ids = String.Set.remove "on" ids in
-          let strict, ids = find_bool "strict" ids in
-          let opt, ids = find_bool "opt" ids in
-          On { loc; strictl opt; }
-        end
-      in
-      if String.Set.is_empty then
-        Some { scope; state; property; }
+      if not (Warnings.Check.is_direct scope = direct) then begin
+        (* this attribute is consumed in a different pass *)
+        None
       else begin
-        let s = ids |> String.Set.to_list |> String.concat " " in
-        warn_payload attr_loc txt "Invalid payload: "^s;
+        mark_used attr.attr_name;
+        let state, ids =
+          if String.Set.mem "off" ids then
+            Off, String.Set.remove "off" ids
+          else if String.Set.mem "assume" ids then begin
+            let ids = String.Set.remove "assume" ids in
+            let strict, ids = find_bool "strict" ids in
+            let never_returns_normally, ids = find_bool "never_returns_normally" ids in
+            Assume { loc; strict; never_returns_normally }, ids
+          end else begin
+            (* "on" is the default, but if it is present in ids explicitly, remove it. *)
+            let ids = String.Set.remove "on" ids in
+            let strict, ids = find_bool "strict" ids in
+            let opt, ids = find_bool "opt" ids in
+            On { loc; strict; opt; }, ids
+          end
+        in
+        if String.Set.is_empty ids then
+          Some { scope; state; property; }
+        else begin
+          let s = ids
+                  |> String.Set.to_seq
+                  |> List.of_seq
+                  |> List.cons "Invalid payload:"
+                  |> String.concat " " in
+          warn_payload attr.attr_loc attr.attr_name.txt s;
           None
+        end
       end
     end
 
-let warning_attribute ?(ppwarning = true) =
+let warning_attribute ?(structure_item = false) ?(ppwarning = true) =
   let process loc name errflag payload =
     mark_used name;
     match string_of_payload payload with
@@ -463,18 +440,6 @@ let warning_attribute ?(ppwarning = true) =
             warn_payload loc txt "The alert name 'all' is reserved"
         | Some _ -> ()
         | None -> warn_payload loc txt "Invalid payload"
-  in
-  let process_zero_alloc attr_loc attr_name attr_payload =
-    let p = Warnings.Check.Zero_alloc in
-    match process_check_attribute_payload attr_loc attr_name attr_payload p with
-    | None -> ()
-    | Some { scope = Direct; } ->
-      (* this attribute is consumed at lambda or
-         triggers an misplaced attribute warning. *)
-      ()
-    | Some { scope = All | Toplevel; } as c ->
-      mark_used name;
-      Warnings.set_checks c
   in
   function
   | {attr_name = {txt = ("ocaml.warning"|"warning"); _} as name;
@@ -504,12 +469,17 @@ let warning_attribute ?(ppwarning = true) =
      } ->
       (mark_used name;
        process_alert attr_loc name.txt attr_payload)
-  | {attr_name = {txt = ("ocaml.zero_alloc"|"zero_alloc"); loc };
-     attr_loc;
-     attr_payload;
-     } ->
-     (
-      process_zero_alloc attr_loc attr_name attr_payload)
+  | {attr_name = {txt = ("ocaml.zero_alloc"|"zero_alloc"); _ }; _ } as attr ->
+    if structure_item then (
+      (* Currently, only [@@@zero_alloc all ..] or [@@@zero_alloc toplevel ..]
+         are supported. Other uses of "all" and "toplevel" payload
+         will result in an unused attribute warning.
+         It may be useful to have [@zero_alloc all assume] at function scope or
+         or for subexpressions when "assume" works with inlining. *)
+      let p = Warnings.Checks.Zero_alloc in
+      match process_check_attribute ~direct:false p attr with
+      | None -> ()
+      | Some c -> Warnings.set_checks c)
   | _ ->
      ()
 
@@ -677,7 +647,7 @@ let parse_standard_interface_attributes attr =
   nolabels_attribute attr
 
 let parse_standard_implementation_attributes attr =
-  warning_attribute attr;
+  warning_attribute ~structure_item:true attr;
   principal_attribute attr;
   noprincipal_attribute attr;
   nolabels_attribute attr;

@@ -47,6 +47,9 @@ let is_poll_attribute =
 let is_loop_attribute =
   [ ["loop"; "ocaml.loop"], true ]
 
+let is_zero_alloc_attribute =
+  [ ["zero_alloc"; "ocaml.zero_alloc"], true ]
+
 let find_attribute p attributes =
   let inline_attribute = Builtin_attributes.filter_attributes p attributes in
   let attr =
@@ -371,7 +374,9 @@ let misplaced_assume_warning attr loc txt =
         (* flambda2 does not have specialisation support yet *)
         true
     in
-    if not ((attr.inline = Never_inline) && never_specialise) then
+    if not ((attr.inline = Never_inline) &&
+            never_specialise &&
+            (attr.local = Never_local) then
       Location.prerr_warning loc
         (Warnings.Misplaced_assume_attribute txt)
 
@@ -407,6 +412,82 @@ let add_check_attribute expr floc _attributes warnings =
        duplicated_attribute_warning floc funct.attr.check check;
        let attr = { funct.attr with check } in
        lfunction_with_attr ~attr funct)
+  | expr -> expr
+
+
+let parse attributes floc =
+  let f a =
+    match Builtin_attributes.process_check_attribute ~direct:true p attr with
+    | None -> None
+    | Some c -> a,c
+    match
+  in
+  let p = Warnings.Check.Zero_alloc in
+  attributes
+  |> Builtin_attributes.filter_attributes is_zero_alloc_attribute
+  |> List.filter_map f
+  |> (function
+    | [] -> None
+    | [attr,c] -> Some c
+    | attr, c :: {Parsetree.attr_name = {txt;loc}; _}, _ :: _ ->
+      Location.prerr_warning loc (Warnings.Duplicated_attribute txt);
+      Some c
+
+  (let p = Warnings.Checks.Zero_alloc in
+     match parse_check_attribute_payload attr p with
+     | None -> ()
+     | Some { scope = Direct; } ->
+       (* this attribute is consumed at lambda or
+          triggers an misplaced attribute warning. *)
+       ()
+     | Some ({ scope = All | Toplevel; } as c) ->
+       mark_used attr.attr_name;
+       Warnings.set_checks c)
+
+
+  match find_attribute attributes is_zero_alloc_attribute with
+  | Some
+
+
+
+let add_check_attribute expr ~warnings ~in_structure floc attributes =
+  let update check scoped =
+    match check.scoped.scope, new_scoped.scope with
+    | Direct, (All | Toplevel) -> assert false
+    | (All | Toplevel), Direct -> { check with scoped }
+    | Direct, Direct ->
+      (match check.scoped.state, scoped.state with
+       | Off, Off -> ()
+       | On { strict=s; opt=o; }, On { strict=s'; opt=s' } ->
+         if not (s = s' && o = o') then
+           duplicate warning
+       | Off { strict=s; never_returns_normally=
+
+        { check with scoped }
+      )
+  in
+  match expr with
+  | Lfunction({ attr = { stub = false; check; }; _ } as funct) ->
+    let check =
+      match warnings, in_structure with
+      | Some warnings, None ->
+        assert (Option.is_none check.in_structure);
+        update check (Warnings.get_checks warnings)
+      | None, Some in_structure ->
+        (match check.in_structure with
+         | None -> { check with in_structure = Some in_structure }
+         | Some b ->
+           assert (b = in_structure);
+           check);
+      | None, None | Some _, Some _ -> assert false
+    in
+    let check =
+      match parse attributes floc with
+      | None -> check
+      | Some scoped -> update check scoped
+    in
+    let attr = { attr with check } in
+    lfunction { funct with atttr }
   | expr -> expr
 
 let add_loop_attribute expr loc attributes =
@@ -501,7 +582,7 @@ let get_tailcall_attribute e =
         Location.prerr_warning loc (Warnings.Attribute_payload (txt, msg));
         Default_tailcall
 
-let add_function_attributes lam loc attr warnings =
+let add_function_attributes lam warnings loc attr =
   let lam =
     add_inline_attribute lam loc attr
   in

@@ -570,19 +570,11 @@ let name_of_primitive = function
   | Parray_of_iarray -> "Parray_of_iarray"
   | Parray_to_iarray -> "Parray_to_iarray"
 
-let property_to_string = function
-  | Zero_alloc -> "zero_alloc"
-
-let check_attribute ppf check =
-  match check with
-  | Default_check -> ()
-  | Ignore_assert_all p ->
-    fprintf ppf "ignore assert all %s@ " (property_to_string p)
-  | Check {property=p; assume; strict; loc = _} ->
-    fprintf ppf "%s %s%s@ "
-      (if assume then "assume" else "assert")
-      (property_to_string p)
-      (if strict then " strict" else "")
+let check_attribute ppf { scoped; in_structure }  =
+  Warnings.Checks.print ppf scoped;
+  match in_structure with
+  | None -> ()
+  | Some b -> fprintf ppf "in structure%b" b
 
 let function_attribute ppf t =
   if t.is_a_functor then

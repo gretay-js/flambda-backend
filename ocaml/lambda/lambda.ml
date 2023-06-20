@@ -433,21 +433,14 @@ type local_attribute =
   | Never_local (* [@local never] *)
   | Default_local (* [@local maybe] or no [@local] attribute *)
 
-type property =
-  | Zero_alloc
-
 type poll_attribute =
   | Error_poll (* [@poll error] *)
   | Default_poll (* no [@poll] attribute *)
 
-type check_attribute =
-  | Default_check
-  | Ignore_assert_all of property
-  | Check of { property: property;
-               strict: bool;
-               assume: bool;
-               loc: Location.t;
-             }
+type check_attribute = {
+  scoped : Warnings.Checks.t;
+  in_structure : bool option;
+}
 
 type loop_attribute =
   | Always_loop (* [@loop] or [@loop always] *)
@@ -641,7 +634,7 @@ let default_function_attribute = {
   inline = Default_inline;
   specialise = Default_specialise;
   local = Default_local;
-  check = Default_check ;
+  check = { scoped = Warnings.Checks.default; in_structure = None; };
   poll = Default_poll;
   loop = Default_loop;
   is_a_functor = false;
@@ -650,7 +643,7 @@ let default_function_attribute = {
 }
 
 let default_stub_attribute =
-  { default_function_attribute with stub = true; check = Ignore_assert_all Zero_alloc }
+  { default_function_attribute with stub = true; }
 
 (* Build sharing keys *)
 (*

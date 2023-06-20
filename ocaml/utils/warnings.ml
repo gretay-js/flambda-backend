@@ -521,7 +521,7 @@ let letter = function
   | _ -> assert false
 ;;
 
-module Checks : sig
+module Checks = struct
   (* CR gyorsh: remove [property] until we have at least two? *)
   type property =
   | Zero_alloc
@@ -553,30 +553,40 @@ module Checks : sig
     | Assume of { loc:loc; strict:bool; never_returns_normally:bool }
     | Off
 
-  type t = { state; scope; property }
+  type t = { state:state; scope:scope; property:property }
 
   let default = { state = Off; scope = All; property = Zero_alloc }
 
-  let print_bool ppf b name =
+  let is_direct = function
+    | Direct -> true
+    | All -> false
+    | Toplevel -> false
+
+  let property_to_string = function
+    | Zero_alloc -> "zero_alloc"
+
+  let print_bool name ppf b =
     if b then Format.fprintf ppf " %s" name
 
-  let print_strict ppf b = print_bool ppf b "strict"
+  let print_strict ppf b = print_bool "strict" ppf b
 
   let print_state ppf = function
     | Off ->
       Format.fprintf ppf "off"
     | On { strict; opt; loc = _; } ->
-      Format.fprintf ppf "on%a" print strict
-    | Opt { strict; never_returns_normally; loc = _;  } ->
-      Format.fprintf ppf "on%a%a" print_strict strict
-        print_bool opt "opt"
+      Format.fprintf ppf "on%a%a" print_strict strict (print_bool "opt") opt
     | Assume { strict; never_returns_normally=n; loc = _;  } ->
-      Format.fprintf ppf "assume%a%s" print_strict strict
-        print_bool n "never_returns_normally"
+      Format.fprintf ppf "assume%a%a" print_strict strict
+        (print_bool "never_returns_normally") n
+
+  let scope_to_string = function
+    | All -> "all"
+    | Toplevel -> "toplevel"
+    | Direct -> ""
 
   let print ppf { state; scope; property } =
-    Format.fprintf ppf "%a %a %a"
-      print_property property print_kind kind print_scope scope
+    Format.fprintf ppf "%s %s %a@ "
+      (property_to_string property) (scope_to_string scope) print_state state
 
 end
 
@@ -1161,7 +1171,7 @@ let message = function
       Printf.sprintf
         "the \"%s assume\" attribute will be ignored by the check \
          when the function is inlined or specialised.\n\
-         Mark this function as [@inline never][@specialise never]."
+         Mark this function as [@inline never][@specialise never][@local never]."
       property
   | Unchecked_property_attribute property ->
       Printf.sprintf "the %S attribute cannot be checked.\n\
