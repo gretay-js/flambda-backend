@@ -437,10 +437,7 @@ type poll_attribute =
   | Error_poll (* [@poll error] *)
   | Default_poll (* no [@poll] attribute *)
 
-type check_attribute = {
-  scoped : Warnings.Checks.t;
-  in_structure : bool option;
-}
+type check_attribute = Warnings.Checks.t
 
 type loop_attribute =
   | Always_loop (* [@loop] or [@loop always] *)

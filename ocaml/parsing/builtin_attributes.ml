@@ -377,10 +377,16 @@ let process_check_attribute ~direct property attr =
         else
           Direct, ids
       in
-      if not (Warnings.Check.is_direct scope = direct) then begin
+      let is_current_scope_direct =
+        match scope with
+        | Direct -> true
+        | All -> false
+        | Toplevel -> false
+      in
+      if not (is_current_scope_direct = direct) then begin
         (* this attribute is consumed in a different pass *)
         None
-      else begin
+      end else begin
         mark_used attr.attr_name;
         let state, ids =
           if String.Set.mem "off" ids then

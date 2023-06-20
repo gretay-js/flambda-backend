@@ -200,8 +200,6 @@ module Checks : sig
   type t = { state:state; scope:scope; property:property }
 
   val default : t
-
-  val is_direct : t -> bool
   val property_to_string : property -> string
   val print : Format.formatter -> t -> unit
 end

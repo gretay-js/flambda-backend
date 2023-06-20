@@ -557,11 +557,6 @@ module Checks = struct
 
   let default = { state = Off; scope = All; property = Zero_alloc }
 
-  let is_direct = function
-    | Direct -> true
-    | All -> false
-    | Toplevel -> false
-
   let property_to_string = function
     | Zero_alloc -> "zero_alloc"
 
