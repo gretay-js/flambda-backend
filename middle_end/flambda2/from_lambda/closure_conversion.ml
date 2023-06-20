@@ -1998,7 +1998,7 @@ let wrap_partial_application acc env apply_continuation (apply : IR.apply)
       { inline = Default_inline;
         specialise = Default_specialise;
         local = Default_local;
-        check = Default_check;
+        check = Warnings.Checks.default;
         loop = Default_loop;
         is_a_functor = false;
         stub = true;

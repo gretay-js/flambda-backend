@@ -123,8 +123,8 @@ val warning_attribute: ?structure_item:bool -> ?ppwarning:bool ->
       [structure_item] indicates whether the attribute is a top-level item.
   *)
 
-val process_check_attribute: direct:bool -> Warnings.Checks.property ->
-  Parsetree.attribute -> Warnings.Checks.t option
+val process_check_attribute: direct:bool -> Parsetree.attribute ->
+  Warnings.Checks.t option
 
 val warning_scope:
   ?ppwarning:bool ->

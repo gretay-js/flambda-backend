@@ -416,9 +416,8 @@ let add_check_attribute expr _floc attributes ~in_structure warnings =
           check
       | None, None | Some _, Some _ -> assert false
     in
-    let p = Warnings.Checks.Zero_alloc in
     let f a =
-      match Builtin_attributes.process_check_attribute ~direct:true p a with
+      match Builtin_attributes.process_check_attribute ~direct:true a with
       | None -> None
       | Some c -> Some (a,c)
     in

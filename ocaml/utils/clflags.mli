@@ -285,5 +285,3 @@ val print_arguments : string -> unit
 (* [reset_arguments ()] clear all declared arguments *)
 val reset_arguments : unit -> unit
 
-val zero_alloc_check_assert_all : bool ref
-

@@ -166,9 +166,6 @@ val mk_lazy: (unit -> 'a) -> 'a Lazy.t
 val is_active_in_state : t -> state -> bool
 
 module Checks : sig
-  (* CR gyorsh: remove [property] until we have at least two? *)
-  type property =
-  | Zero_alloc
 
   type scope =
     | All  (** all functions *)
@@ -197,11 +194,11 @@ module Checks : sig
     | Assume of { loc:loc; strict:bool; never_returns_normally:bool }
     | Off
 
-  type t = { state:state; scope:scope; property:property }
+  type t = { state:state; scope:scope; }
 
   val default : t
-  val property_to_string : property -> string
   val print : Format.formatter -> t -> unit
+  val equal : t -> t -> bool
 end
 val set_checks : Checks.t -> unit
 val get_checks : state -> Checks.t

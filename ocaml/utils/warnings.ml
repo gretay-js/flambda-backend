@@ -522,9 +522,6 @@ let letter = function
 ;;
 
 module Checks = struct
-  (* CR gyorsh: remove [property] until we have at least two? *)
-  type property =
-  | Zero_alloc
 
   type scope =
     | All  (** all functions *)
@@ -553,12 +550,9 @@ module Checks = struct
     | Assume of { loc:loc; strict:bool; never_returns_normally:bool }
     | Off
 
-  type t = { state:state; scope:scope; property:property }
+  type t = { state:state; scope:scope; }
 
-  let default = { state = Off; scope = All; property = Zero_alloc }
-
-  let property_to_string = function
-    | Zero_alloc -> "zero_alloc"
+  let default = { state = Off; scope = All; }
 
   let print_bool name ppf b =
     if b then Format.fprintf ppf " %s" name
@@ -579,10 +573,11 @@ module Checks = struct
     | Toplevel -> "toplevel"
     | Direct -> ""
 
-  let print ppf { state; scope; property } =
-    Format.fprintf ppf "%s %s %a@ "
-      (property_to_string property) (scope_to_string scope) print_state state
+  let print ppf { state; scope; } =
+    Format.fprintf ppf "zero_alloc %s %a@ "
+      (scope_to_string scope) print_state state
 
+  let equal x y = x = y
 end
 
 type state =

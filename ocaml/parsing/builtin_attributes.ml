@@ -320,7 +320,7 @@ let alerts_of_str str = alerts_of_attrs (attrs_of_str str)
 let warn_payload loc txt msg =
   Location.prerr_warning loc (Warnings.Attribute_payload (txt, msg))
 
-let process_check_attribute ~direct property attr =
+let process_check_attribute ~direct attr =
   let loc = attr.attr_name.loc in
   let open Parsetree in
   let module String = Misc.Stdlib.String in
@@ -360,7 +360,6 @@ let process_check_attribute ~direct property attr =
       Some {
         scope = Direct;
         state = On { loc; strict = false; opt = false };
-        property
       }
     else begin
       let find_bool expected_id ids =
@@ -405,7 +404,7 @@ let process_check_attribute ~direct property attr =
           end
         in
         if String.Set.is_empty ids then
-          Some { scope; state; property; }
+          Some { scope; state; }
         else begin
           let s = ids
                   |> String.Set.to_seq
@@ -482,8 +481,7 @@ let warning_attribute ?(structure_item = false) ?(ppwarning = true) =
          will result in an unused attribute warning.
          It may be useful to have [@zero_alloc all assume] at function scope or
          or for subexpressions when "assume" works with inlining. *)
-      let p = Warnings.Checks.Zero_alloc in
-      match process_check_attribute ~direct:false p attr with
+      match process_check_attribute ~direct:false attr with
       | None -> ()
       | Some c -> Warnings.set_checks c)
   | _ ->

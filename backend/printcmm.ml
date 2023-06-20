@@ -377,12 +377,8 @@ let codegen_option = function
   | Reduce_code_size -> "reduce_code_size"
   | No_CSE -> "no_cse"
   | Use_linscan_regalloc -> "linscan"
-  | Ignore_assert_all property ->
-    Printf.sprintf "ignore %s" (property_to_string property)
-  | Check { property; strict; assume; loc = _ } ->
-    Printf.sprintf "%s %s%s"
-      (if assume then "assume" else "assert")
-      (property_to_string property)
+  | Check { strict; opt; loc = _ } ->
+    Printf.sprintf "(assert zero_alloc%s%s"
       (if strict then " strict" else "")
 
 let print_codegen_options ppf l =
