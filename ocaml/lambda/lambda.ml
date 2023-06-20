@@ -631,7 +631,7 @@ let default_function_attribute = {
   inline = Default_inline;
   specialise = Default_specialise;
   local = Default_local;
-  check = { scoped = Warnings.Checks.default; in_structure = None; };
+  check = Warnings.Checks.default;
   poll = Default_poll;
   loop = Default_loop;
   is_a_functor = false;

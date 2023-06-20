@@ -570,11 +570,8 @@ let name_of_primitive = function
   | Parray_of_iarray -> "Parray_of_iarray"
   | Parray_to_iarray -> "Parray_to_iarray"
 
-let check_attribute ppf { scoped; in_structure }  =
-  Warnings.Checks.print ppf scoped;
-  match in_structure with
-  | None -> ()
-  | Some b -> fprintf ppf "in structure%b" b
+let check_attribute ppf c =
+  Warnings.Checks.print ppf c
 
 let function_attribute ppf t =
   if t.is_a_functor then
