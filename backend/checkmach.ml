@@ -276,6 +276,10 @@ module Value : sig
 
   val relaxed : t
 
+  val safe_never_returns_normally : t
+
+  val relaxed_never_returns_normally : t
+
   val print : witnesses:bool -> Format.formatter -> t -> unit
 
   val transform : Witnesses.t -> t -> t
@@ -333,6 +337,11 @@ end = struct
 
   let safe = { nor = V.Safe; exn = V.Safe; div = V.Safe }
 
+  let safe_never_returns_normally = { nor = V.Bot; exn = V.Safe; div = V.Safe }
+
+  let relaxed_never_returns_normally =
+    { nor = V.Bot; exn = V.Top Witnesses.empty; div = V.Top Witnesses.empty }
+
   let top w = { nor = V.Top w; exn = V.Top w; div = V.Top w }
 
   let relaxed =
@@ -382,11 +391,21 @@ end = struct
    *****************************************************************************)
 
   type t =
-    { strict : bool;  (** strict or relaxed? *)
-      assume : bool;
-      loc : Location.t
+    | Assume of
+        { strict : bool;  (** strict or relaxed? *)
+          opt : bool;     (** warning active in optimized builds only *)
+          loc : Location.t
           (** Source location of the annotation, used for error messages. *)
-    }
+        }
+    | Check of
+        { strict : bool;  (** strict or relaxed? *)
+          never_returns_normally : bool; (** there are no paths from the entry function to
+                                             normal return, independently on what happens
+                                             on the exceptional return according to
+                                             [strict]. *)
+          loc : Location.t
+          (** Source location of the annotation, used for error messages. *)
+        }
 
   let get_loc t = t.loc
 

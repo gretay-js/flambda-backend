@@ -380,6 +380,7 @@ let codegen_option = function
   | Check { strict; opt; loc = _ } ->
     Printf.sprintf "(assert zero_alloc%s%s"
       (if strict then " strict" else "")
+      (if opt then " opt" else "")
 
 let print_codegen_options ppf l =
   List.iter (fun c -> fprintf ppf " %s" (codegen_option c)) l
