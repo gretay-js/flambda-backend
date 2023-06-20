@@ -389,27 +389,6 @@ end = struct
    *  and is subject to [Strict] requirements).
    *
    *****************************************************************************)
-  type action =
-    | Assume of {
-    (** [opt] warning active in optimized builds only *)
-      opt : bool; }
-    | Check of
-        {
-          (** there are no paths from the entry function to
-                                             normal return, independently on what happens
-                                             on the exceptional return according to
-                                             [strict]. *)
-          never_returns_normally : bool;
-        }
-
-
-  type t =
-    { loc:  Location.t;
-          (** Source location of the annotation, used for error messages. *)
-      strict : bool;  (** strict or relaxed? *)
-      action : action;
-    }
-
   type t = Warnings.Checks.state
 
   let get_loc t = t.loc
@@ -426,15 +405,13 @@ end = struct
       List.filter_map
         (fun (c : Cmm.codegen_option) ->
           match c with
-          | Check { strict; assume; loc } when property = spec ->
-            Some { strict; loc; action = Check opt }
-          | Ignore_assert_all _ | Check _ | Reduce_code_size | No_CSE
-          | Use_linscan_regalloc ->
+          | Check of state -> Some state
+          | Reduce_code_size | No_CSE | Use_linscan_regalloc ->
             None)
         codegen_options
     in
     match a with
-    | [] -> None
+    | [] -> Warnings.Checks.Off
     | [p] -> Some p
     | _ :: _ ->
       Misc.fatal_errorf "Unexpected duplicate annotation %a for %s"

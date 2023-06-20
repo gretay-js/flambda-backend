@@ -4170,12 +4170,7 @@ let cmm_arith_size (e : Cmm.expression) =
     None
 
 let transl_attrib (a : Lambda.check_attribute) : Cmm.codegen_option list =
-  match a.state with
-  | Off -> []
-  | On { loc; strict; opt } ->
-    [ Check { loc; strict; opt } ]
-  | Assume { loc; strict; never_returns_normally; } ->
-    [ Assume { loc; strict; never_returns_normally; } ]
+  Checkmach a.state
 
 let kind_of_layout (layout : Lambda.layout) =
   match layout with
