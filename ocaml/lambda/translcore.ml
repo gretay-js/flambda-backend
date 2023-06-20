@@ -922,7 +922,7 @@ and transl_exp0 ~in_new_scope ~scopes e =
         { inline = Never_inline;
           specialise = Always_specialise;
           local = Never_local;
-          check = Default_check;
+          check = Warnings.Checks.default;
           loop = Never_loop;
           is_a_functor = false;
           stub = false;
@@ -1318,7 +1318,7 @@ and transl_function ~scopes e alloc_mode param arg_mode arg_layout cases partial
       e.exp_attributes e.exp_extra
   in
   Translattribute.add_function_attributes lam e.exp_loc attrs
-    ~warnings:(Some warnings) ~in_structure:None
+    ~in_structure:None (Some warnings)
 
 (* Like transl_exp, but used when a new scope was just introduced. *)
 (* CR layouts v2: Invariant - this is only called on values.  Relax that. *)
@@ -1358,8 +1358,8 @@ and transl_let ~scopes ?(add_regions=false) ?(in_structure=false)
           sort_must_be_value expr.exp_loc sort;
           let lam = transl_bound_exp ~scopes ~in_structure pat expr in
           let lam =
-            Translattribute.add_function_attributes lam vb_loc attr None
-              ~in_structure:(Some instructure)
+            Translattribute.add_function_attributes lam vb_loc attr
+              ~in_structure:(Some in_structure) None
           in
           let lam = if add_regions then maybe_region_exp expr lam else lam in
           let mk_body = transl rem in
@@ -1381,8 +1381,8 @@ and transl_let ~scopes ?(add_regions=false) ?(in_structure=false)
         sort_must_be_value expr.exp_loc vb_sort;
         let lam = transl_bound_exp ~scopes ~in_structure vb_pat expr in
         let lam =
-          Translattribute.add_function_attributes lam vb_loc vb_attributes None
-            ~in_structure:(Some instructure)
+          Translattribute.add_function_attributes lam vb_loc vb_attributes
+            ~in_structure:(Some in_structure) None
         in
         let lam = if add_regions then maybe_region_exp expr lam else lam in
         (id, lam) in

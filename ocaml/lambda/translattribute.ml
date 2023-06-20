@@ -366,81 +366,75 @@ let misplaced_assume_warning fun_attr loc txt =
       Location.prerr_warning loc
         (Warnings.Misplaced_assume_attribute txt)
 
-let add_check_attribute expr ~warnings ~in_structure floc attributes =
-  let update ~direct (check : Warnings.Checks.t) (new_check : Warnings.Checks.t) =
-    (* Expected transitions are: (All).(All|Toplevel).(Direct)?
-       where Direct is optional. *)
-    match check.scope, new_check.scope with
-    | All, All
-    | All, Toplevel
-    | All, Direct ->
-      assert (not direct);
+let add_check_attribute expr _floc attributes ~in_structure warnings =
+  (* Expected transitions are: (All).(All|Toplevel).(Direct)?
+     where Direct is optional. *)
+  (* For each function, this is expected to be first called once with
+     [warnings=(Some warnings), in_structure=None]
+     and then at least once with
+     [warnings=None, in_structure=Some b].
+     If called more than once with [in_structure=Some b] for a given function,
+     then [b] must be the same on all calls and [attributes] may include
+     at most "direct" annotation. *)
+  let update (check : Warnings.Checks.t) (new_check : Warnings.Checks.t)
+        (attr : Parsetree.attribute) =
+    assert (Warnings.Checks.Direct = new_check.scope);
+    if not (Warnings.Checks.Direct = check.scope) then
       new_check
-    | Toplevel, Direct ->
-      assert direct;
-      new_check
-    | Direct, Direct ->
-      assert direct;
+    else (
       (* This case is possible when both the function and the [let]
          are annotated, for example:
          let[@zero_alloc] f x = fun[@zero_alloc] y -> (x,y) *)
-      (match check.state, new_check.state with
-       | Off, Off -> ()
-       | On { strict=s; opt=o; },
-         On { strict=s'; opt=o' }
-       | Assume { strict=s; never_returns_normally=o },
-         Assume { strict=s'; never_returns_normally=o'; loc } ->
-         if not (s = s' && o = o') then
-           Location.prerr_warning loc (Warnings.Duplicated_attribute txt));
-      check
-    | Toplevel, (All | Toplevel) -> assert false
-    | Direct, (All | Toplevel) -> assert false
-  in
-  let is_toplevel c =
-    match c.scope with
-    | Direct -> false
-    | All -> false
-    | Toplevel -> true
+      let warn =
+        match check.state, new_check.state with
+        | Off, Off -> false
+        | On { strict=s; opt=o; },
+          On { strict=s'; opt=o'; }
+        | Assume { strict=s; never_returns_normally=o },
+          Assume { strict=s'; never_returns_normally=o'; } ->
+          not (s = s' && o = o')
+        | (Off | On _ | Assume _), _ -> true
+      in
+      if warn then (
+        let { txt; loc } = attr.attr_name in
+        Location.prerr_warning loc (Warnings.Duplicated_attribute txt));
+      check)
   in
   match expr with
-  | Lfunction({ attr = { stub = false; check; }; _ } as funct) ->
+  | Lfunction({ attr = { stub = false; check; } as attr; _ } as funct) ->
     let check =
-      (* For each function, this is expected to be first called once with
-         [warnings=(Some warnings), in_structure=None]
-         and then at least once with
-         [warnings=None, in_structure=Some b].
-         If called more than once with [in_structure=Some b] for a given function,
-         then [b] must be the same on all calls and [attributes] may include
-         at most "direct" annotation. *)
       match warnings, in_structure with
       | Some warnings, None ->
-        update ~direct:false check (Warnings.get_checks warnings)
+        let new_check = Warnings.get_checks warnings in
+        assert (Warnings.Checks.All =  check.scope);
+        assert (not (Warnings.Checks.Direct = new_check.scope));
+        new_check
       | None, Some in_structure ->
-        if (not in_structure) && Warnings.Checks.is_toplevel check then
-          Warnings.Check.default
+        if (not in_structure) && Warnings.Checks.Toplevel = check.scope then
+          Warnings.Checks.default
         else
           check
       | None, None | Some _, Some _ -> assert false
     in
+    let p = Warnings.Checks.Zero_alloc in
     let f a =
-      match Builtin_attributes.process_check_attribute ~direct:true p attr with
+      match Builtin_attributes.process_check_attribute ~direct:true p a with
       | None -> None
       | Some c -> Some (a,c)
     in
-    let p = Warnings.Check.Zero_alloc in
     let check =
       attributes
       |> Builtin_attributes.filter_attributes is_zero_alloc_attribute
       |> List.filter_map f
       |> (function
         | [] -> check
-        | [attr, c] -> update ~direct:true check c
-        | attr, c :: {Parsetree.attr_name = {txt;loc}; _}, _ :: _ ->
+        | [attr, c] -> update check c attr
+        | (attr, c) :: ({Parsetree.attr_name = {txt;loc}; _}, _) :: _ ->
           Location.prerr_warning loc (Warnings.Duplicated_attribute txt);
-          update ~direct:true check c)
+          update check c attr)
     in
     let attr = { attr with check } in
-    lfunction { funct with atttr }
+    lfunction_with_attr ~attr funct
   | expr -> expr
 
 let add_loop_attribute expr loc attributes =
@@ -535,7 +529,7 @@ let get_tailcall_attribute e =
         Location.prerr_warning loc (Warnings.Attribute_payload (txt, msg));
         Default_tailcall
 
-let add_function_attributes lam warnings loc attr =
+let add_function_attributes lam loc attr ~in_structure warnings =
   let lam =
     add_inline_attribute lam loc attr
   in
@@ -546,7 +540,7 @@ let add_function_attributes lam warnings loc attr =
     add_local_attribute lam loc attr
   in
   let lam =
-    add_check_attribute lam loc attr warnings
+    add_check_attribute lam loc attr ~in_structure warnings
   in
   let lam =
     add_loop_attribute lam loc attr

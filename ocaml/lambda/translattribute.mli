@@ -61,10 +61,10 @@ val get_tailcall_attribute
 
 val add_function_attributes
   : Lambda.lambda
-  -> warnings:Warnings.state option
-  -> in_structure:bool option
   -> Location.t
   -> Parsetree.attributes
+  -> in_structure:bool option
+  -> Warnings.state option
   -> Lambda.lambda
 
 val misplaced_assume_warning : Lambda.function_attribute -> Location.t -> string -> unit
