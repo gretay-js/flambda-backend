@@ -414,57 +414,30 @@ let add_check_attribute expr floc _attributes warnings =
        lfunction_with_attr ~attr funct)
   | expr -> expr
 
-
-let parse attributes floc =
-  let f a =
-    match Builtin_attributes.process_check_attribute ~direct:true p attr with
-    | None -> None
-    | Some c -> a,c
-    match
-  in
-  let p = Warnings.Check.Zero_alloc in
-  attributes
-  |> Builtin_attributes.filter_attributes is_zero_alloc_attribute
-  |> List.filter_map f
-  |> (function
-    | [] -> None
-    | [attr,c] -> Some c
-    | attr, c :: {Parsetree.attr_name = {txt;loc}; _}, _ :: _ ->
-      Location.prerr_warning loc (Warnings.Duplicated_attribute txt);
-      Some c
-
-  (let p = Warnings.Checks.Zero_alloc in
-     match parse_check_attribute_payload attr p with
-     | None -> ()
-     | Some { scope = Direct; } ->
-       (* this attribute is consumed at lambda or
-          triggers an misplaced attribute warning. *)
-       ()
-     | Some ({ scope = All | Toplevel; } as c) ->
-       mark_used attr.attr_name;
-       Warnings.set_checks c)
-
-
-  match find_attribute attributes is_zero_alloc_attribute with
-  | Some
-
-
-
 let add_check_attribute expr ~warnings ~in_structure floc attributes =
   let update check scoped =
+    (* Expected transitions are: (All).(All|Toplevel).(Direct)?
+       where Direct is optional. *)
     match check.scoped.scope, new_scoped.scope with
-    | Direct, (All | Toplevel) -> assert false
-    | (All | Toplevel), Direct -> { check with scoped }
+    | All, All
+    | All, Toplevel
+    | All, Direct
+    | Toplevel, Direct ->
+      { check with scoped }
     | Direct, Direct ->
+      (* This case is possible when both the function and the [let]
+         are annotated, for example:
+         let[@zero_alloc] f x = fun[@zero_alloc] y -> (x,y) *)
       (match check.scoped.state, scoped.state with
        | Off, Off -> ()
-       | On { strict=s; opt=o; }, On { strict=s'; opt=s' } ->
+       | On { strict=s; opt=o; }, On { strict=s'; opt=o' }
+       | Off { strict=s; never_returns_normally=o },
+         Off { strict=s'; never_returns_normally=o' } ->
          if not (s = s' && o = o') then
-           duplicate warning
-       | Off { strict=s; never_returns_normally=
-
-        { check with scoped }
-      )
+           Location.prerr_warning loc (Warnings.Duplicated_attribute txt);
+         check)
+    | Toplevel, (All | Toplevel) -> assert false
+    | Direct, (All | Toplevel) -> assert false
   in
   match expr with
   | Lfunction({ attr = { stub = false; check; }; _ } as funct) ->
@@ -481,10 +454,22 @@ let add_check_attribute expr ~warnings ~in_structure floc attributes =
            check);
       | None, None | Some _, Some _ -> assert false
     in
+    let f a =
+      match Builtin_attributes.process_check_attribute ~direct:true p attr with
+      | None -> None
+      | Some c -> a,c
+    in
+    let p = Warnings.Check.Zero_alloc in
     let check =
-      match parse attributes floc with
-      | None -> check
-      | Some scoped -> update check scoped
+      attributes
+      |> Builtin_attributes.filter_attributes is_zero_alloc_attribute
+      |> List.filter_map f
+      |> (function
+        | [] -> check
+        | [attr, c] -> update check c
+        | attr, c :: {Parsetree.attr_name = {txt;loc}; _}, _ :: _ ->
+          Location.prerr_warning loc (Warnings.Duplicated_attribute txt);
+          update check c
     in
     let attr = { attr with check } in
     lfunction { funct with atttr }
