@@ -291,7 +291,7 @@ type codegen_option =
   | Reduce_code_size
   | No_CSE
   | Use_linscan_regalloc
-  | Check of Warnings.Checks.state
+  | Check of Warnings.Checks.State.t
 
 type fundecl =
   { fun_name: symbol;

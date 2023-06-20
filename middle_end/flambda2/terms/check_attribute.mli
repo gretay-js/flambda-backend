@@ -10,7 +10,7 @@
 (*                                                                        *)
 (**************************************************************************)
 (** Annotations on function declaration (not call sites) *)
-type t = Warnings.Checks.t
+type t = Warnings.Checks.State.t
 
 val print : Format.formatter -> t -> unit
 

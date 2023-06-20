@@ -189,16 +189,20 @@ module Checks : sig
       never returns normally at all, instead of assuming that it
       is safe on all paths to normal return.
   *)
-  type state =
-    | On of { loc:loc; strict:bool; opt:bool }
-    | Assume of { loc:loc; strict:bool; never_returns_normally:bool }
-    | Off
+  module State : sig
+    type t =
+      | On of { loc:loc; strict:bool; opt:bool }
+      | Assume of { loc:loc; strict:bool; never_returns_normally:bool }
+      | Off
+    val print : Format.formatter -> t -> unit
+    val equal : t -> t -> bool
+    val default : t
+  end
 
-  type t = { state:state; scope:scope; }
+  type t = { state:State.t; scope:scope; }
 
   val default : t
   val print : Format.formatter -> t -> unit
-  val equal : t -> t -> bool
 end
 val set_checks : Checks.t -> unit
 val get_checks : state -> Checks.t

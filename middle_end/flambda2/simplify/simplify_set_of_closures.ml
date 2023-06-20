@@ -499,8 +499,7 @@ let simplify_function context ~outer_dacc function_slot code_id
   let code_ids_to_never_delete_this_set =
     let code_metadata = Code_or_metadata.code_metadata code_or_metadata in
     let never_delete =
-      let check = Code_metadata.check code_metadata in
-      match check.state with
+      match Code_metadata.check code_metadata with
       | Off -> false
       | Assume _ -> false
       | On _ -> true

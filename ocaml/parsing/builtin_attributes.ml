@@ -389,18 +389,18 @@ let process_check_attribute ~direct attr =
         mark_used attr.attr_name;
         let state, ids =
           if String.Set.mem "off" ids then
-            Off, String.Set.remove "off" ids
+            State.Off, String.Set.remove "off" ids
           else if String.Set.mem "assume" ids then begin
             let ids = String.Set.remove "assume" ids in
             let strict, ids = find_bool "strict" ids in
             let never_returns_normally, ids = find_bool "never_returns_normally" ids in
-            Assume { loc; strict; never_returns_normally }, ids
+            State.Assume { loc; strict; never_returns_normally }, ids
           end else begin
             (* "on" is the default, but if it is present in ids explicitly, remove it. *)
             let ids = String.Set.remove "on" ids in
             let strict, ids = find_bool "strict" ids in
             let opt, ids = find_bool "opt" ids in
-            On { loc; strict; opt; }, ids
+            State.On { loc; strict; opt; }, ids
           end
         in
         if String.Set.is_empty ids then

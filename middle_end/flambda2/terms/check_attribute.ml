@@ -10,14 +10,14 @@
 (*                                                                        *)
 (**************************************************************************)
 
-type t = Warnings.Checks.t
+type t = Warnings.Checks.State.t
 
-let print ppf t = Warnings.Checks.print ppf t
+let print ppf t = Warnings.Checks.State.print ppf t
 
-let from_lambda t = t
+let from_lambda (c : Lambda.check_attribute)  = c.state
 
-let equal x y = Warnings.Checks.equal x y
+let equal x y = Warnings.Checks.State.equal x y
 
-let default = Warnings.Checks.default
+let default = Warnings.Checks.State.default
 
-let is_default t = (t = Warnings.Checks.default)
+let is_default t = (equal t default)

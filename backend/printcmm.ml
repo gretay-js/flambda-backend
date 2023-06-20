@@ -377,10 +377,9 @@ let codegen_option = function
   | Reduce_code_size -> "reduce_code_size"
   | No_CSE -> "no_cse"
   | Use_linscan_regalloc -> "linscan"
-  | Check { strict; opt; loc = _ } ->
-    Printf.sprintf "(assert zero_alloc%s%s"
-      (if strict then " strict" else "")
-      (if opt then " opt" else "")
+  | Check Off -> ""
+  | Check s ->
+    Format.asprintf "%a" Warnings.Checks.State.print s
 
 let print_codegen_options ppf l =
   List.iter (fun c -> fprintf ppf " %s" (codegen_option c)) l

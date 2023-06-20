@@ -523,6 +523,31 @@ let letter = function
 
 module Checks = struct
 
+  module State = struct
+    type t =
+      | On of { loc:loc; strict:bool; opt:bool }
+      | Assume of { loc:loc; strict:bool; never_returns_normally:bool }
+      | Off
+
+    let print_bool name ppf b =
+      if b then Format.fprintf ppf " %s" name
+
+    let print_strict ppf b = print_bool "strict" ppf b
+
+    let print ppf = function
+      | Off ->
+        Format.fprintf ppf "off"
+      | On { strict; opt; loc = _; } ->
+        Format.fprintf ppf "on%a%a" print_strict strict (print_bool "opt") opt
+      | Assume { strict; never_returns_normally=n; loc = _;  } ->
+        Format.fprintf ppf "assume%a%a" print_strict strict
+          (print_bool "never_returns_normally") n
+
+    let equal x y = x = y
+
+    let default = Off
+  end
+
   type scope =
     | All  (** all functions *)
     | Toplevel  (** all top-level functions of each module *)
@@ -545,28 +570,9 @@ module Checks = struct
       never returns normally at all, instead of assuming that it
       is safe on all paths to normal return.
   *)
-  type state =
-    | On of { loc:loc; strict:bool; opt:bool }
-    | Assume of { loc:loc; strict:bool; never_returns_normally:bool }
-    | Off
+  type t = { state:State.t; scope:scope; }
 
-  type t = { state:state; scope:scope; }
-
-  let default = { state = Off; scope = All; }
-
-  let print_bool name ppf b =
-    if b then Format.fprintf ppf " %s" name
-
-  let print_strict ppf b = print_bool "strict" ppf b
-
-  let print_state ppf = function
-    | Off ->
-      Format.fprintf ppf "off"
-    | On { strict; opt; loc = _; } ->
-      Format.fprintf ppf "on%a%a" print_strict strict (print_bool "opt") opt
-    | Assume { strict; never_returns_normally=n; loc = _;  } ->
-      Format.fprintf ppf "assume%a%a" print_strict strict
-        (print_bool "never_returns_normally") n
+  let default = { state = State.default; scope = All; }
 
   let scope_to_string = function
     | All -> "all"
@@ -575,9 +581,7 @@ module Checks = struct
 
   let print ppf { state; scope; } =
     Format.fprintf ppf "zero_alloc %s %a@ "
-      (scope_to_string scope) print_state state
-
-  let equal x y = x = y
+      (scope_to_string scope) State.print state
 end
 
 type state =

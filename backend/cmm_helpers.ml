@@ -4170,7 +4170,7 @@ let cmm_arith_size (e : Cmm.expression) =
     None
 
 let transl_attrib (a : Lambda.check_attribute) : Cmm.codegen_option list =
-  Checkmach a.state
+  [Check a.state]
 
 let kind_of_layout (layout : Lambda.layout) =
   match layout with

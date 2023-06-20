@@ -354,24 +354,13 @@ end
 
 (**  Representation of user-provided annotations as abstract values *)
 module Annotation : sig
-  type t
-
-  val get_loc : t -> Location.t
+  type t = Warnings.Checks.State.t
 
   val find :
-    Cmm.codegen_option list -> Cmm.property -> string -> Debuginfo.t -> t option
+    Cmm.codegen_option list -> Cmm.property -> string -> Debuginfo.t -> t
 
   val expected_value : t -> Value.t
 
-  val is_assume : t -> bool
-
-  val print_warn :
-    t ->
-    fun_name:string ->
-    fun_dbg:Debuginfo.t ->
-    property:Cmm.property ->
-    witnesses:Witnesses.components ->
-    unit
 end = struct
   (**
    ***************************************************************************
@@ -389,70 +378,36 @@ end = struct
    *  and is subject to [Strict] requirements).
    *
    *****************************************************************************)
-  type t = Warnings.Checks.state
+  type t = Warnings.Checks.State.t
 
-  let get_loc t = t.loc
+  let expected_value t =
+    match (t : t) with
+    | Off -> Value.top Witnesses.empty
+    | On { strict; _ } ->
+      if strict then Value.safe else Value.relaxed
+    | Assume { strict; never_returns_normally; _ } ->
+      match strict, never_returns_normally with
+      | true, false -> Value.safe
+      | false, false -> Value.relaxed
+      | true, true -> Value.safe_never_returns_normally
+      | false, true -> Value.relaxed_never_returns_normally
 
-  let expected_value t = if t.strict then Value.safe else Value.relaxed
-
-  let is_assume t =
-    match t.action with
-    | Assume _ -> true
-    | Check _ -> false
-
-  let find codegen_options spec fun_name dbg =
+  let find codegen_options _spec fun_name dbg =
     let a =
       List.filter_map
         (fun (c : Cmm.codegen_option) ->
           match c with
-          | Check of state -> Some state
+          | Check state -> Some state
           | Reduce_code_size | No_CSE | Use_linscan_regalloc ->
             None)
         codegen_options
     in
     match a with
-    | [] -> Warnings.Checks.Off
-    | [p] -> Some p
+    | [] -> Warnings.Checks.State.Off
+    | [p] -> p
     | _ :: _ ->
       Misc.fatal_errorf "Unexpected duplicate annotation %a for %s"
         Debuginfo.print_compact dbg fun_name ()
-
-  let print_witnesses w : Warnings.sub_locs =
-    let { Witnesses.nor; exn; div } = Witnesses.simplify w in
-    let f t component =
-      t |> Witnesses.elements
-      |> List.map (Witness.print_error component)
-      |> List.concat
-    in
-    let l =
-      List.concat [f div "diverge"; f nor ""; f exn "exceptional return"]
-    in
-    let cutoff = !Flambda_backend_flags.checkmach_details_cutoff in
-    let len = List.length l in
-    if cutoff < 0 || len < cutoff
-    then l
-    else if cutoff = 0
-    then (* don't even print the dots *)
-      []
-    else
-      let print_dots = Location.none, "..." in
-      let details, _ = Misc.Stdlib.List.split_at cutoff l in
-      details @ [print_dots]
-
-  let print_warn t ~fun_name ~fun_dbg ~property ~witnesses =
-    let sub = print_witnesses witnesses in
-    let info =
-      Printf.sprintf "Annotation check for %s%s failed on function %s (%s)"
-        (Printcmm.property_to_string property)
-        (if t.strict then " strict" else "")
-        (fun_dbg
-        |> List.map (fun dbg ->
-               Debuginfo.(Scoped_location.string_of_scopes dbg.dinfo_scopes))
-        |> String.concat ",")
-        fun_name
-    in
-    (* CR gyorsh: put sub into Warnings.reporting_information.sub_locs *)
-    Location.prerr_warning t.loc (Warnings.Check_failed (info, sub))
 end
 
 module Func_info = struct
@@ -543,7 +498,7 @@ module Unit_info : sig
   val cleanup_deps : t -> string -> unit
 
   val record_annotation :
-    t -> string -> Debuginfo.t -> Annotation.t option -> unit
+    t -> string -> Debuginfo.t -> Annotation.t -> unit
 
   val resolve_all : t -> unit
 
@@ -621,7 +576,7 @@ end = struct
     if Option.is_some func_info.annotation
     then Misc.fatal_errorf "Duplicate symbol %s" name;
     func_info.dbg <- dbg;
-    func_info.annotation <- annotation
+    func_info.annotation <- Some annotation
 
   let record_deps t ~caller ~callees =
     let func_info = get_exn t caller in
@@ -727,18 +682,59 @@ end = struct
       let msg = Printf.sprintf "%s %s:" analysis_name msg in
       Func_info.print ~witnesses:true ppf ~msg func_info
 
+  let print_witnesses w : Warnings.sub_locs =
+    let { Witnesses.nor; exn; div } = Witnesses.simplify w in
+    let f t component =
+      t |> Witnesses.elements
+      |> List.map (Witness.print_error component)
+      |> List.concat
+    in
+    let l =
+      List.concat [f div "diverge"; f nor ""; f exn "exceptional return"]
+    in
+    let cutoff = !Flambda_backend_flags.checkmach_details_cutoff in
+    let len = List.length l in
+    if cutoff < 0 || len < cutoff
+    then l
+    else if cutoff = 0
+    then (* don't even print the dots *)
+      []
+    else
+      let print_dots = Location.none, "..." in
+      let details, _ = Misc.Stdlib.List.split_at cutoff l in
+      details @ [print_dots]
+
+  let print_warn ~loc ~strict ~opt ~fun_name ~fun_dbg ~property ~witnesses =
+    let sub = print_witnesses witnesses in
+    let info =
+      Printf.sprintf "Annotation check for %s%s failed on function %s (%s)"
+        (Printcmm.property_to_string property)
+        (if strict then " strict" else "")
+        (fun_dbg
+         |> List.map (fun dbg ->
+           Debuginfo.(Scoped_location.string_of_scopes dbg.dinfo_scopes))
+         |> String.concat ",")
+        fun_name
+    in
+    let w =
+      if opt then
+        Warnings.Check_failed_opt (info, sub)
+      else
+        Warnings.Check_failed (info, sub)
+    in
+    Location.prerr_warning loc w
+
   let record_unit unit_info ppf =
     report_unit_info ppf unit_info ~msg:"before resolve_all";
     Unit_info.resolve_all unit_info;
     let record (func_info : Func_info.t) =
       (match func_info.annotation with
-      | None -> ()
-      | Some a ->
-        Builtin_attributes.mark_property_checked analysis_name
-          (Annotation.get_loc a);
+      | None -> assert false
+      | Some (Off | Assume _) -> ()
+      | Some (On { loc; strict; opt; } as a)  ->
+        Builtin_attributes.mark_property_checked analysis_name loc;
         let expected_value = Annotation.expected_value a in
-        if (not (Annotation.is_assume a))
-           && not (Value.lessequal func_info.value expected_value)
+        if not (Value.lessequal func_info.value expected_value)
         then
           (* CR-soon gyorsh: keeping track of all the witnesses until the end of
              the compilation unit will be expensive. For functions that do not
@@ -753,7 +749,7 @@ end = struct
             Value.diff_witnesses ~expected:expected_value
               ~actual:func_info.value
           in
-          Annotation.print_warn a ~fun_name:func_info.name
+          print_warn ~loc ~strict ~opt ~fun_name:func_info.name
             ~fun_dbg:func_info.dbg ~property:S.property ~witnesses);
       report_func_info ~msg:"record" ppf func_info;
       S.set_value func_info.name func_info.value
@@ -1017,12 +1013,12 @@ end = struct
         report_unit_info ppf unit_info ~msg:"after cleanup_deps"
       in
       match a with
-      | Some a when Annotation.is_assume a ->
+      | Assume _ ->
         let expected_value = Annotation.expected_value a in
         report t expected_value ~msg:"assumed" ~desc:"fundecl" f.fun_dbg;
         Unit_info.join_value unit_info fun_name expected_value
-      | None -> really_check ~keep_witnesses:false
-      | Some a ->
+      | Off -> really_check ~keep_witnesses:false
+      | On _ ->
         let expected_value = Annotation.expected_value a in
         report t expected_value ~msg:"assert" ~desc:"fundecl" f.fun_dbg;
         (* Only keep witnesses for functions that need checking. *)
