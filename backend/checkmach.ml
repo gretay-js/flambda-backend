@@ -713,6 +713,8 @@ end = struct
       String.Set.iter (cleanup_deps t) changed_callers)
 end
 
+let disable_checking = ref false
+
 (** Check one function. *)
 module Analysis (S : Spec) : sig
   val fundecl :
@@ -791,7 +793,7 @@ end = struct
           (Annotation.get_loc a);
         let expected_value = Annotation.expected_value a in
         if (not (Annotation.is_assume a))
-           && S.enabled ()
+           && S.enabled () && (not !disable_checking)
            && not (Value.lessequal func_info.value expected_value)
         then
           (* CR-soon gyorsh: keeping track of all the witnesses until the end of
@@ -1172,3 +1174,5 @@ let iter_witnesses f =
         (Value.get_witnesses func_info.value |> Witnesses.simplify))
 
 let () = Location.register_error_of_exn Annotation.report_error
+
+let disable_checking () = disable_checking := true

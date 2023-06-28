@@ -94,3 +94,7 @@ end
 type iter_witnesses = (string -> Witnesses.components -> unit) -> unit
 
 val iter_witnesses : iter_witnesses
+
+(** Compute summaries, but turn off all checking regardess of user annotation or flags.
+    Intended for IR visualizaition and debugging. *)
+val disable_checking : unit -> unit
