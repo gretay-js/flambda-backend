@@ -272,3 +272,5 @@ let print_compact ppf { dbg; } = print_compact ppf dbg
 let to_list { dbg; } = dbg
 
 let length { dbg; } = List.length dbg
+
+let assume_zero_alloc t = t.assume_zero_alloc
