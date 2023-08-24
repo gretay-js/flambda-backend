@@ -309,4 +309,11 @@ let to_list { dbg; } = dbg
 
 let length { dbg; } = List.length dbg
 
+
 let assume_zero_alloc t = t.assume_zero_alloc
+
+let merge { dbg = dbg1; assume_zero_alloc = a1; } { dbg = _dbg2; assume_zero_alloc = a2 } =
+  { dbg = dbg1;
+    assume_zero_alloc = a1 && a2
+  }
+

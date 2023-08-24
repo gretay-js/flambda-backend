@@ -101,4 +101,8 @@ val to_list : t -> item list
 
 val length : t -> int
 
+
 val assume_zero_alloc : t -> bool
+
+val merge : t -> t -> t
+
