@@ -14,7 +14,7 @@
 
 [@@@ocaml.warning "+a-4-30-40-41-42"]
 
-let is_activated = ref false
+let is_activated = ref true
 
 let activate_tracking () = is_activated := true
 let deactivate_tracking () = is_activated := false

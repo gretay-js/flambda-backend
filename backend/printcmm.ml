@@ -23,6 +23,8 @@ module VP = Backend_var.With_provenance
 open Location_tracker_formatter
 
 let with_location_mapping ?label ~dbg ppf f =
+  if (not (Debuginfo.is_none dbg)) && !Clflags.locations then
+    fprintf ppf "((%s))" (Debuginfo.to_string dbg);
   with_location_mapping ?label ~loc:(Debuginfo.to_location dbg) ppf f
 
 let rec_flag ppf = function

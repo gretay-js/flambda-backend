@@ -69,6 +69,7 @@ end
 type static_handler =
   { regs: Reg.t array list;
     regions: Region_stack.t;
+    dbg : Debuginfo.t;
     traps_ref : trap_stack_info ref }
 
 type environment =
@@ -87,11 +88,12 @@ let env_add ?(mut=Asttypes.Immutable) var regs env =
   let var = VP.var var in
   { env with vars = V.Map.add var (regs, provenance, mut) env.vars }
 
-let env_add_static_exception id v env =
+let env_add_static_exception id v env dbg =
   let r = ref Unreachable in
   let s : static_handler =
     { regs = v;
       regions = env.regions;
+      dbg;
       traps_ref = r }
   in
   { env with static_exceptions = Int.Map.add id s env.static_exceptions }, r
@@ -117,7 +119,7 @@ let env_find_static_exception id env =
 let env_enter_trywith env kind =
   match kind with
   | Regular -> { env with trap_stack = Generic_trap env.trap_stack; }
-  | Delayed id -> let env, _ = env_add_static_exception id [] env in env
+  | Delayed id -> let env, _ = env_add_static_exception id [] env Debuginfo.none in env
 
 let env_set_trap_stack env trap_stack =
   { env with trap_stack; }
@@ -779,9 +781,18 @@ method insert_move env src dst =
   if src.stamp <> dst.stamp then
     self#insert env (Iop Imove) [|src|] [|dst|]
 
+method insert_move_debug env src dst dbg =
+  if src.stamp <> dst.stamp then
+    self#insert_debug env (Iop Imove) dbg [|src|] [|dst|]
+
 method insert_moves env src dst =
   for i = 0 to min (Array.length src) (Array.length dst) - 1 do
     self#insert_move env src.(i) dst.(i)
+  done
+
+method insert_moves_debug env src dst dbg =
+  for i = 0 to min (Array.length src) (Array.length dst) - 1 do
+    self#insert_move_debug env src.(i) dst.(i) dbg
   done
 
 (* Insert moves and stack offsets for function arguments and results *)
@@ -1042,7 +1053,7 @@ method emit_expr_aux (env:environment) exp :
            the same environment is used for translating both the handlers and
            the body. *)
         List.fold_left (fun (env, map) (nfail, ids, rs, e2, dbg) ->
-            let env, r = env_add_static_exception nfail rs env in
+            let env, r = env_add_static_exception nfail rs env dbg in
             env, Int.Map.add nfail (r, (ids, rs, e2, dbg)) map)
           (env, Int.Map.empty) handlers
       in
@@ -1119,10 +1130,10 @@ method emit_expr_aux (env:environment) exp :
               let tmp_regs = Reg.createv_like src in
               (* Ccatch registers must not contain out of heap pointers *)
               Array.iter (fun reg -> assert(reg.typ <> Addr)) src;
-              self#insert_moves env src tmp_regs ;
-              self#insert_moves env tmp_regs (Array.concat handler.regs) ;
+              self#insert_moves_debug env src tmp_regs handler.dbg;
+              self#insert_moves_debug env tmp_regs (Array.concat handler.regs) handler.dbg;
               self#insert_endregions_until env ~suffix:handler.regions env.regions;
-              self#insert env (Iexit (nfail, traps)) [||] [||];
+              self#insert_debug env (Iexit (nfail, traps)) handler.dbg [||] [||];
               set_traps nfail handler.traps_ref env.trap_stack traps;
               None
           | Return_lbl ->
@@ -1516,7 +1527,7 @@ method emit_tail (env:environment) exp =
           handlers in
       let env, handlers_map =
         List.fold_left (fun (env, map) (nfail, ids, rs, e2, dbg) ->
-            let env, r = env_add_static_exception nfail rs env in
+            let env, r = env_add_static_exception nfail rs env dbg in
             env, Int.Map.add nfail (r, (ids, rs, e2, dbg)) map)
           (env, Int.Map.empty) handlers in
       let s_body = self#emit_tail_sequence env e1 in
