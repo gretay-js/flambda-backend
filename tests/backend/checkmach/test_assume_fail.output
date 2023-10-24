@@ -1,0 +1,24 @@
+File "test_assume_fail.ml", line 5, characters 11-21:
+Warning 53 [misplaced-attribute]: the "zero_alloc" attribute cannot appear in this context
+File "test_assume_fail.ml", line 9, characters 23-33:
+Warning 53 [misplaced-attribute]: the "zero_alloc" attribute cannot appear in this context
+File "test_assume_fail.ml", line 8, characters 5-15:
+Error: Annotation check for zero_alloc failed on function Test_assume_fail.test49 (camlTest_assume_fail__test49_HIDE_STAMP)
+File "test_assume_fail.ml", line 9, characters 14-67:
+  allocate 24 bytes (test_assume_fail.ml:9,14--67;test_assume_fail.ml:2,83--88)
+File "test_assume_fail.ml", line 9, characters 74-81:
+  allocate 24 bytes
+File "test_assume_fail.ml", line 9, characters 71-82:
+  allocate 24 bytes
+File "test_assume_fail.ml", line 9, characters 74-82:
+  allocate 24 bytes
+File "test_assume_fail.ml", line 4, characters 5-15:
+Error: Annotation check for zero_alloc strict failed on function Test_assume_fail.test48 (camlTest_assume_fail__test48_HIDE_STAMP)
+File "test_assume_fail.ml", line 5, characters 2-55:
+  allocate 24 bytes (test_assume_fail.ml:5,2--55;test_assume_fail.ml:2,83--88)
+File "test_assume_fail.ml", line 5, characters 2-55:
+  direct call camlCamlinternalFormat__make_printf_120_401_code (test_assume_fail.ml:5,2--55;test_assume_fail.ml:2,54--77;printf.ml:47,18--43;printf.ml:45,2--31) on a path to exceptional return
+File "test_assume_fail.ml", line 5, characters 2-55:
+  allocate 24 bytes (test_assume_fail.ml:5,2--55;test_assume_fail.ml:2,45--77;stdlib.ml:34,22--33) on a path to exceptional return
+File "test_assume_fail.ml", line 5, characters 2-55:
+  indirect call (test_assume_fail.ml:5,2--55;test_assume_fail.ml:2,54--77) on a path to exceptional return

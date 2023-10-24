@@ -635,4 +635,3 @@
  (enabled_if (= %{context_name} "main"))
  (deps test_assume_fail.output test_assume_fail.output.corrected)
  (action (diff test_assume_fail.output test_assume_fail.output.corrected)))
-
