@@ -12,3 +12,21 @@ Error: Unexpected direct call camlCamlinternalFormat.make_printf_120_401_code (t
 
 File "test_assume_fail.ml", line 12, characters 33-39:
 Error: Unexpected indirect call (test_assume_fail.ml:12,33--39;test_assume_fail.ml:9,25--53) on a path to exceptional return
+
+File "test_assume_fail.ml", line 16, characters 5-15:
+Error: Annotation check for zero_alloc strict failed on function Test_assume_fail.test48 (camlTest_assume_fail.test48_HIDE_STAMP)
+
+File "test_assume_fail.ml", line 17, characters 2-55:
+Error: Unexpected direct call camlCamlinternalFormat.make_printf_120_401_code (test_assume_fail.ml:17,2--55;test_assume_fail.ml:14,54--77;printf.ml:47,18--43;printf.ml:45,2--31) on a path to exceptional return
+
+File "test_assume_fail.ml", line 20, characters 5-15:
+Error: Annotation check for zero_alloc failed on function Test_assume_fail.test49 (camlTest_assume_fail.test49_HIDE_STAMP)
+
+File "test_assume_fail.ml", line 21, characters 74-81:
+Error: Unexpected allocation of 24 bytes
+
+File "test_assume_fail.ml", line 21, characters 71-82:
+Error: Unexpected allocation of 24 bytes
+
+File "test_assume_fail.ml", line 21, characters 74-82:
+Error: Unexpected allocation of 24 bytes
