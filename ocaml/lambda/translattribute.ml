@@ -262,7 +262,7 @@ let parse_property_attribute attr property =
           Assume { property; strict = true; never_returns_normally = false; loc; };
           ["assume"; "never_returns_normally"],
           Assume { property; strict = false; never_returns_normally = true; loc; };
-          ["assume"; "strict"; "never_returns_normally"],
+          ["assume"; "never_returns_normally"; "strict";],
           Assume { property; strict = true; never_returns_normally = true; loc; };
           ["ignore"], Ignore_assert_all property
         ]
@@ -417,11 +417,27 @@ let add_local_attribute expr loc attributes =
   | _ -> expr
 
 let assume_zero_alloc attributes =
-  match get_property_attribute attributes Zero_alloc with
-  | Default_check -> false
-  | Ignore_assert_all _ -> false
-  | Assume { property = Zero_alloc; _ } -> true
-  | Check { property = Zero_alloc; _ } -> false
+  let p = Zero_alloc in
+  let attr = find_attribute (is_property_attribute p) attributes in
+  let res = parse_property_attribute attr p in
+  match attr, res with
+  | None, Default_check -> false
+  | _, Default_check -> false
+  | None, (Check _ | Assume _ | Ignore_assert_all _) -> assert false
+  | Some _, Ignore_assert_all _ -> false
+  | Some _, Assume { strict=false; never_returns_normally=false; } ->
+    true
+  | Some attr, Assume { loc }
+  | Some attr, Check { loc; _ } ->
+    let name = attr.attr_name.txt in
+    let msg = "Only the following combinations are supported in this context: \
+               'zero_alloc assume', \
+               `zero_alloc assume strict`, \
+               `zero_alloc assume never_returns_normally`,\
+               `zero_alloc assume never_returns_normally strict`."
+    in
+    Location.prerr_warning loc (Warnings.Attribute_payload (name, msg));
+    false
 
 let get_assume_zero_alloc ~with_warnings attributes =
   if with_warnings then
