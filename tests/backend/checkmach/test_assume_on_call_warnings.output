@@ -1,0 +1,21 @@
+File "test_assume_on_call_warnings.ml", line 4, characters 8-18:
+Warning 47 [attribute-payload]: illegal payload for attribute 'zero_alloc'.
+Only 'zero_alloc assume' is supported in this context.
+File "test_assume_on_call_warnings.ml", line 7, characters 8-18:
+Warning 47 [attribute-payload]: illegal payload for attribute 'zero_alloc'.
+Only 'zero_alloc assume' is supported in this context.
+File "test_assume_on_call_warnings.ml", line 10, characters 8-18:
+Warning 47 [attribute-payload]: illegal payload for attribute 'zero_alloc'.
+Only 'zero_alloc assume' is supported in this context.
+File "test_assume_on_call_warnings.ml", line 3, characters 5-15:
+Error: Annotation check for zero_alloc failed on function Test_assume_on_call_warnings.test1 (camlTest_assume_on_call_warnings__test1_HIDE_STAMP)
+File "test_assume_on_call_warnings.ml", line 4, characters 2-22:
+  allocate 24 bytes (test_assume_on_call_warnings.ml:4,2--22;test_assume_on_call_warnings.ml:1,28--33)
+File "test_assume_on_call_warnings.ml", line 9, characters 5-15:
+Error: Annotation check for zero_alloc failed on function Test_assume_on_call_warnings.test3 (camlTest_assume_on_call_warnings__test3_HIDE_STAMP)
+File "test_assume_on_call_warnings.ml", line 10, characters 2-52:
+  allocate 24 bytes (test_assume_on_call_warnings.ml:10,2--52;test_assume_on_call_warnings.ml:1,28--33)
+File "test_assume_on_call_warnings.ml", line 6, characters 5-15:
+Error: Annotation check for zero_alloc failed on function Test_assume_on_call_warnings.test2 (camlTest_assume_on_call_warnings__test2_HIDE_STAMP)
+File "test_assume_on_call_warnings.ml", line 7, characters 2-36:
+  allocate 24 bytes (test_assume_on_call_warnings.ml:7,2--36;test_assume_on_call_warnings.ml:1,28--33)
