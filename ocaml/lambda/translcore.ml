@@ -384,22 +384,34 @@ and transl_exp0 ~in_new_scope ~scopes sort e =
         let tailcall = Translattribute.get_tailcall_attribute funct in
         let inlined = Translattribute.get_inlined_attribute funct in
         let specialised = Translattribute.get_specialised_attribute funct in
+        let assume_zero_alloc =
+          Translattribute.get_assume_zero_alloc ~with_warnings:true
+            funct.exp_attributes
+        in
         let position = transl_apply_position pos in
         let mode = transl_locality_mode ap_mode in
         let result_layout = layout_exp sort e in
         event_after ~scopes e
-          (transl_apply ~scopes ~tailcall ~inlined ~specialised ~position ~mode
+          (transl_apply ~scopes ~tailcall ~inlined ~specialised
+             ~assume_zero_alloc
+             ~position ~mode
              ~result_layout lam extra_args (of_location ~scopes e.exp_loc))
       end
   | Texp_apply(funct, oargs, position, ap_mode) ->
       let tailcall = Translattribute.get_tailcall_attribute funct in
       let inlined = Translattribute.get_inlined_attribute funct in
       let specialised = Translattribute.get_specialised_attribute funct in
+      let assume_zero_alloc =
+        Translattribute.get_assume_zero_alloc ~with_warnings:true
+          funct.exp_attributes
+      in
       let result_layout = layout_exp sort e in
       let position = transl_apply_position position in
       let mode = transl_locality_mode ap_mode in
       event_after ~scopes e
-        (transl_apply ~scopes ~tailcall ~inlined ~specialised ~result_layout
+        (transl_apply ~scopes ~tailcall ~inlined ~specialised
+           ~assume_zero_alloc
+           ~result_layout
            ~position ~mode (transl_exp ~scopes Jkind.Sort.for_function funct)
            oargs (of_location ~scopes e.exp_loc))
   | Texp_match(arg, arg_sort, pat_expr_list, partial) ->
@@ -1037,6 +1049,7 @@ and transl_apply ~scopes
       ?(tailcall=Default_tailcall)
       ?(inlined = Default_inlined)
       ?(specialised = Default_specialise)
+      ?(assume_zero_alloc = false)
       ?(position=Rc_normal)
       ?(mode=alloc_heap)
       ~result_layout
@@ -1067,6 +1080,18 @@ and transl_apply ~scopes
           {ap with ap_args = ap.ap_args @ args; ap_loc = loc;
                    ap_region_close = pos; ap_mode = mode; ap_result_layout = result_layout }
     | lexp, _ ->
+      (* CR gyorsh: [assume_zero_alloc] is not used in the cases above but
+         Misplaced_attribute won't be reported for it.
+         Same for [@inlined] [@specialized] and tailcall.
+         It's fine for [Lsend] cases because [assume_zero_alloc] is
+         always false currently for them. I am not sure about Lapply case
+         above. Also not sure about inlined etc in the Lsend case.  *)
+        let loc =
+          if assume_zero_alloc then
+            map_scopes set_assume_zero_alloc loc
+          else
+            loc
+        in
         Lapply {
           ap_loc=loc;
           ap_func=lexp;
@@ -1805,7 +1830,7 @@ let transl_scoped_exp ~scopes sort exp =
 let transl_apply
       ~scopes ?tailcall ?inlined ?specialised ?position ?mode ~result_layout fn args loc =
   maybe_region_layout result_layout (transl_apply
-      ~scopes ?tailcall ?inlined ?specialised ?position ?mode ~result_layout fn args loc)
+      ~scopes ?tailcall ?inlined ?specialised ~assume_zero_alloc:false ?position ?mode ~result_layout fn args loc)
 
 (* Error report *)
 
