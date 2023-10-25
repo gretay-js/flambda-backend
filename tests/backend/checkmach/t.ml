@@ -258,3 +258,15 @@ module Opt = struct
   let[@zero_alloc opt] test x = x,x
   let[@zero_alloc opt strict] test x = x,x
 end
+
+
+let[@inline always] test42 x = (x,x)
+
+let[@zero_alloc] test43 x =
+  (test42[@zero_alloc assume]) x
+
+
+let[@inline never] test44 x = (x,x)
+
+let[@zero_alloc] test45 x =
+  (test44[@zero_alloc assume]) x
