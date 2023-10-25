@@ -1061,8 +1061,9 @@ let message = function
         "This probe name is too long: `%s'. \
          Probe names must be at most 100 characters long." name
   | Unchecked_property_attribute property ->
-      Printf.sprintf "the %S attribute cannot be checked.\n\
-      The function it is attached to was optimized away. \n\
+    Printf.sprintf "the %S attribute cannot be checked.\n\
+      The attribute cannot appear in this context with this payload, or\n\
+      the function it is attached to was optimized away. \n\
       You can try to mark this function as [@inline never] \n\
       or move the attribute to the relevant callers of this function."
       property
