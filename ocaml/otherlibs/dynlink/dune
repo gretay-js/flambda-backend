@@ -92,6 +92,7 @@
     cmi_format
     persistent_env
     env
+    assume_info
     debuginfo
     lambda
     runtimedef
@@ -183,6 +184,7 @@
 (copy_files ../../file_formats/cmi_format.ml)
 (copy_files ../../typing/persistent_env.ml)
 (copy_files ../../typing/env.ml)
+(copy_files ../../lambda/assume_info.ml)
 (copy_files ../../lambda/debuginfo.ml)
 (copy_files ../../lambda/lambda.ml)
 (copy_files ../../lambda/runtimedef.ml)
@@ -246,6 +248,7 @@
 (copy_files ../../file_formats/cmi_format.mli)
 (copy_files ../../typing/persistent_env.mli)
 (copy_files ../../typing/env.mli)
+(copy_files ../../lambda/assume_info.mli)
 (copy_files ../../lambda/debuginfo.mli)
 (copy_files ../../lambda/lambda.mli)
 (copy_files ../../lambda/runtimedef.mli)
