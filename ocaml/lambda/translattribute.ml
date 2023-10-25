@@ -417,9 +417,7 @@ let add_local_attribute expr loc attributes =
   | _ -> expr
 
 let assume_zero_alloc attributes =
-  let p = Zero_alloc in
-  let attr = find_attribute (is_property_attribute p) attributes in
-  match parse_property_attribute attr p with
+  match get_property_attribute attributes Zero_alloc with
   | Default_check -> false
   | Ignore_assert_all _ -> false
   | Assume { property = Zero_alloc; _ } -> true
