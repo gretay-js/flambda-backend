@@ -215,11 +215,6 @@ let rec regalloc ~ppf_dump round fd =
 
 let (++) x f = f x
 
-let ocamlcfg_verbose =
-  match Sys.getenv_opt "OCAMLCFG_VERBOSE" with
-  | Some "1" -> true
-  | Some _ | None -> false
-
 let reorder_blocks_random ppf_dump cl =
   match !Flambda_backend_flags.reorder_blocks_random with
   | None -> cl
@@ -234,14 +229,6 @@ let reorder_blocks_random ppf_dump cl =
      Cfg_with_layout.reorder_blocks_random ~random_state cl;
      pass_dump_cfg_if ppf_dump Flambda_backend_flags.dump_cfg
        "After reorder_blocks_random" cl
-
-let cfgize (f : Mach.fundecl) : Cfg_with_layout.t =
-  if ocamlcfg_verbose then begin
-    Format.eprintf "Asmgen.cfgize on function %s...\n%!" f.Mach.fun_name;
-  end;
-  Cfgize.fundecl
-    f
-    ~before_register_allocation:true
 
 type register_allocator =
   | Upstream
@@ -288,7 +275,8 @@ let compile_fundecl ~ppf_dump ~funcnames fd_cmm =
       ++ Profile.record ~accumulate:true "cfg" (fun fd ->
         let cfg =
           fd
-          ++ Profile.record ~accumulate:true "cfgize" cfgize
+          ++ Profile.record ~accumulate:true "cfgize"
+               (Cfgize.fundecl ~before_register_allocation:true)
           ++ Cfg_with_infos.make
           ++ Profile.record ~accumulate:true "cfg_deadcode" Cfg_deadcode.run
         in
@@ -343,8 +331,7 @@ let compile_fundecl ~ppf_dump ~funcnames fd_cmm =
         ++ pass_dump_if ppf_dump Flambda_backend_flags.davail
              "Register availability analysis"
         ++ Profile.record ~accumulate:true "cfgize"
-             (Cfgize.fundecl
-                ~before_register_allocation:false)
+             (Cfgize.fundecl ~before_register_allocation:false)
         ++ Compiler_hooks.execute_and_pipe Compiler_hooks.Cfg
         ++ pass_dump_cfg_if ppf_dump Flambda_backend_flags.dump_cfg "After cfgize"
         ++ Profile.record ~accumulate:true "save_cfg" save_cfg
