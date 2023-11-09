@@ -34,29 +34,29 @@ module type Forward_transfer = sig
   val terminator : domain -> Cfg.terminator Cfg.instruction -> image
 end
 
-module type Forward_S = sig
-  type domain
-
-  (** Perform the dataflow analysis on the passed CFG, returning [OK _] if a
-      fix-point has been reached and [Error _] otherwise, where the nested value
-      is a partial map from labels to the domain values at the start of the
-      corresponding blocks. If [Error _] is returned then the contents of the
-      map is not guaranteed to be sound.
-
-      A fix-point is not reached if there is still pending work after
-      [max_iteration] (defaulting to [max_int]) have been executed, and
-      iteration being the processing of one element from the working set. The
-      [init] value is the initial value of entry points. *)
-  val run :
-    Cfg.t ->
-    ?max_iteration:int ->
-    init:domain ->
-    unit ->
-    (domain Label.Tbl.t, unit) result
-end
-
-module Forward (D : Domain_S) (_ : Forward_transfer with type domain = D.t) :
-  Forward_S with type domain = D.t
+(* module type Forward_S = sig
+ *   type domain
+ *
+ *   (** Perform the dataflow analysis on the passed CFG, returning [OK _] if a
+ *       fix-point has been reached and [Error _] otherwise, where the nested value
+ *       is a partial map from labels to the domain values at the start of the
+ *       corresponding blocks. If [Error _] is returned then the contents of the
+ *       map is not guaranteed to be sound.
+ *
+ *       A fix-point is not reached if there is still pending work after
+ *       [max_iteration] (defaulting to [max_int]) have been executed, and
+ *       iteration being the processing of one element from the working set. The
+ *       [init] value is the initial value of entry points. *)
+ *   val run :
+ *     Cfg.t ->
+ *     ?max_iteration:int ->
+ *     init:domain ->
+ *     unit ->
+ *     (domain Label.Tbl.t, unit) result
+ * end
+ *
+ * module Forward (D : Domain_S) (_ : Forward_transfer with type domain = D.t) :
+ *   Forward_S with type domain = D.t *)
 
 module type Backward_transfer = sig
   type domain

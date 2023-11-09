@@ -283,91 +283,91 @@ module type Forward_transfer = sig
   val terminator : domain -> Cfg.terminator Cfg.instruction -> image
 end
 
-module type Forward_S = sig
-  type domain
-
-  val run :
-    Cfg.t ->
-    ?max_iteration:int ->
-    init:domain ->
-    unit ->
-    (domain Label.Tbl.t, unit) result
-end
-
-module Forward (D : Domain_S) (T : Forward_transfer with type domain = D.t) :
-  Forward_S with type domain = D.t = struct
-  module Direction :
-    Dataflow_direction_S
-      with type Transfer_domain.t = D.t
-       and type instr_domain = D.t = struct
-    module Transfer_domain : Transfer_domain_S with type t = D.t = struct
-      include D
-    end
-
-    type transfer_image = T.image =
-      { normal : D.t;
-        exceptional : D.t
-      }
-
-    type instr_domain = D.t
-
-    let edges_out : Cfg.basic_block -> Label.t Seq.t =
-     fun block ->
-      (* CR-soon azewierzejew for xclerc: Add something to [Cfg] interface to
-         make this function (and the one in [Backward]) more efficient. *)
-      Cfg.successor_labels ~normal:true ~exn:true block |> Label.Set.to_seq
-
-    let join_result :
-        old_value:Transfer_domain.t ->
-        transfer_result:transfer_image ->
-        predecessor:Cfg.basic_block ->
-        current:Cfg.basic_block ->
-        Transfer_domain.t =
-     fun ~old_value ~transfer_result ~predecessor:_ ~current ->
-      if current.is_trap_handler
-      then D.join old_value transfer_result.exceptional
-      else D.join old_value transfer_result.normal
-
-    let transfer_block :
-        update_instr:(int -> instr_domain -> unit) ->
-        Transfer_domain.t ->
-        Cfg.basic_block ->
-        transfer_image =
-     fun ~update_instr value block ->
-      let transfer f g acc (instr : _ Cfg.instruction) =
-        let res = f acc instr in
-        update_instr instr.id (g res);
-        res
-      in
-      transfer T.terminator
-        (fun { normal; exceptional = _ } -> normal)
-        (DLL.fold_left block.body ~init:value
-           ~f:(transfer T.basic (fun d -> d)))
-        block.terminator
-  end
-
-  module Dataflow_impl = Make_dataflow (Direction)
-
-  type domain = D.t
-
-  let run :
-      Cfg.t ->
-      ?max_iteration:int ->
-      init:domain ->
-      unit ->
-      (domain Label.Tbl.t, unit) result =
-   fun cfg ?(max_iteration = max_int) ~init () ->
-    let work_state =
-      Dataflow_impl.create cfg
-        ~init:(fun block ->
-          if Label.equal block.start cfg.entry_label || block.is_trap_handler
-          then Some init
-          else None)
-        ~store_instr:false
-    in
-    Dataflow_impl.run ~max_iteration work_state
-    |> Result.map (fun () -> Dataflow_impl.get_res_block work_state)
-end
+(* module type Forward_S = sig
+ *   type domain
+ *
+ *   val run :
+ *     Cfg.t ->
+ *     ?max_iteration:int ->
+ *     init:domain ->
+ *     unit ->
+ *     (domain Label.Tbl.t, unit) result
+ * end
+ *
+ * module Forward (D : Domain_S) (T : Forward_transfer with type domain = D.t) :
+ *   Forward_S with type domain = D.t = struct
+ *   module Direction :
+ *     Dataflow_direction_S
+ *       with type Transfer_domain.t = D.t
+ *        and type instr_domain = D.t = struct
+ *     module Transfer_domain : Transfer_domain_S with type t = D.t = struct
+ *       include D
+ *     end
+ *
+ *     type transfer_image = T.image =
+ *       { normal : D.t;
+ *         exceptional : D.t
+ *       }
+ *
+ *     type instr_domain = D.t
+ *
+ *     let edges_out : Cfg.basic_block -> Label.t Seq.t =
+ *      fun block ->
+ *       (* CR-soon azewierzejew for xclerc: Add something to [Cfg] interface to
+ *          make this function (and the one in [Backward]) more efficient. *)
+ *       Cfg.successor_labels ~normal:true ~exn:true block |> Label.Set.to_seq
+ *
+ *     let join_result :
+ *         old_value:Transfer_domain.t ->
+ *         transfer_result:transfer_image ->
+ *         predecessor:Cfg.basic_block ->
+ *         current:Cfg.basic_block ->
+ *         Transfer_domain.t =
+ *      fun ~old_value ~transfer_result ~predecessor:_ ~current ->
+ *       if current.is_trap_handler
+ *       then D.join old_value transfer_result.exceptional
+ *       else D.join old_value transfer_result.normal
+ *
+ *     let transfer_block :
+ *         update_instr:(int -> instr_domain -> unit) ->
+ *         Transfer_domain.t ->
+ *         Cfg.basic_block ->
+ *         transfer_image =
+ *      fun ~update_instr value block ->
+ *       let transfer f g acc (instr : _ Cfg.instruction) =
+ *         let res = f acc instr in
+ *         update_instr instr.id (g res);
+ *         res
+ *       in
+ *       transfer T.terminator
+ *         (fun { normal; exceptional = _ } -> normal)
+ *         (DLL.fold_left block.body ~init:value
+ *            ~f:(transfer T.basic (fun d -> d)))
+ *         block.terminator
+ *   end
+ *
+ *   module Dataflow_impl = Make_dataflow (Direction)
+ *
+ *   type domain = D.t
+ *
+ *   let run :
+ *       Cfg.t ->
+ *       ?max_iteration:int ->
+ *       init:domain ->
+ *       unit ->
+ *       (domain Label.Tbl.t, unit) result =
+ *    fun cfg ?(max_iteration = max_int) ~init () ->
+ *     let work_state =
+ *       Dataflow_impl.create cfg
+ *         ~init:(fun block ->
+ *           if Label.equal block.start cfg.entry_label || block.is_trap_handler
+ *           then Some init
+ *           else None)
+ *         ~store_instr:false
+ *     in
+ *     Dataflow_impl.run ~max_iteration work_state
+ *     |> Result.map (fun () -> Dataflow_impl.get_res_block work_state)
+ * end *)
 
 module Dataflow_result = struct
   type ('a, 'e) t =
