@@ -132,7 +132,7 @@ let save_cfg f =
 let save_mach_as_cfg pass f =
   if should_save_ir_after pass && (not !start_from_emit) then begin
     let cfg =
-      Cfgize.fundecl f ~before_register_allocation:false ~preserve_orig_labels:false ~simplify_terminators:true
+      Cfgize.fundecl f ~before_register_allocation:false
     in
     let cfg_unit_info = Compiler_pass_map.find pass pass_to_cfg in
     cfg_unit_info.items <- Cfg_format.(Cfg cfg) :: cfg_unit_info.items
@@ -242,8 +242,6 @@ let cfgize (f : Mach.fundecl) : Cfg_with_layout.t =
   Cfgize.fundecl
     f
     ~before_register_allocation:true
-    ~preserve_orig_labels:false
-    ~simplify_terminators:true
 
 type register_allocator =
   | Upstream
@@ -346,9 +344,7 @@ let compile_fundecl ~ppf_dump ~funcnames fd_cmm =
              "Register availability analysis"
         ++ Profile.record ~accumulate:true "cfgize"
              (Cfgize.fundecl
-                ~before_register_allocation:false
-                ~preserve_orig_labels:false
-                ~simplify_terminators:true)
+                ~before_register_allocation:false)
         ++ Compiler_hooks.execute_and_pipe Compiler_hooks.Cfg
         ++ pass_dump_cfg_if ppf_dump Flambda_backend_flags.dump_cfg "After cfgize"
         ++ Profile.record ~accumulate:true "save_cfg" save_cfg

@@ -46,10 +46,6 @@ let block_is_dead cfg_with_layout (block : C.basic_block) =
    eliminate the dead cycles mentioned above. *)
 let rec eliminate_dead_blocks cfg_with_layout =
   let cfg = CL.cfg cfg_with_layout in
-  if CL.preserve_orig_labels cfg_with_layout
-  then
-    Misc.fatal_error
-      "Won't eliminate dead blocks when [preserve_orig_labels] is set";
   let found_dead =
     Label.Tbl.fold
       (fun label block found ->

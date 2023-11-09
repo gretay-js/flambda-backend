@@ -690,11 +690,8 @@ end
 let fundecl :
     Mach.fundecl ->
     before_register_allocation:bool ->
-    preserve_orig_labels:bool ->
-    simplify_terminators:bool ->
     Cfg_with_layout.t =
- fun fundecl ~before_register_allocation ~preserve_orig_labels
-     ~simplify_terminators ->
+ fun fundecl ~before_register_allocation ->
   let { Mach.fun_name;
         fun_args;
         fun_body;
@@ -840,7 +837,6 @@ let fundecl :
     Cfg.register_predecessors_for_all_blocks cfg;
   let cfg_with_layout =
     Cfg_with_layout.create cfg ~layout:(State.get_layout state)
-      ~preserve_orig_labels ~new_labels:Label.Set.empty
   in
   (* note: the simplification of terminators is necessary for the equality. The
      other code path simplifies e.g. a switch with three branches into an
@@ -849,9 +845,9 @@ let fundecl :
      terminator simplification. *)
   Profile.record ~accumulate:true "optimizations"
     (fun () ->
-      if simplify_terminators then Merge_straightline_blocks.run cfg_with_layout;
+      Merge_straightline_blocks.run cfg_with_layout;
       Eliminate_dead_code.run_dead_block cfg_with_layout;
-      if simplify_terminators then Simplify_terminator.run cfg)
+      Simplify_terminator.run cfg)
     ();
   Cfg_with_layout.reorder_blocks
     ~comparator:(fun label1 label2 ->

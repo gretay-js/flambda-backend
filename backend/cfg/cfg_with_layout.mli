@@ -32,17 +32,11 @@ type layout = Label.t Flambda_backend_utils.Doubly_linked_list.t
 val create :
   Cfg.t ->
   layout:layout ->
-  preserve_orig_labels:bool ->
-  new_labels:Label.Set.t ->
   t
 
 val cfg : t -> Cfg.t
 
 val layout : t -> layout
-
-val preserve_orig_labels : t -> bool
-
-val new_labels : t -> Label.Set.t
 
 val set_layout : t -> layout -> unit
 

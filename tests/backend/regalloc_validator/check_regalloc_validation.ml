@@ -114,8 +114,7 @@ module Cfg_desc = struct
                suc.is_trap_handler <- true))
       cfg.blocks;
     let cfg_layout =
-      Cfg_with_layout.create ~layout:(DLL.make_empty ())
-        ~preserve_orig_labels:true ~new_labels:Label.Set.empty cfg
+      Cfg_with_layout.create ~layout:(DLL.make_empty ()) cfg
     in
     (if not remove_locs
     then
@@ -197,8 +196,7 @@ let entry_label =
          };
        let cfg =
          cfg
-         |> Cfg_with_layout.create ~layout:[] ~preserve_orig_labels:true
-              ~new_labels:Label.Set.empty
+         |> Cfg_with_layout.create ~layout:[]
        in
        assert (made_cfg = cfg);
        ()
