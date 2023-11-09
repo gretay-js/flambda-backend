@@ -835,18 +835,8 @@ let fundecl :
   let cfg_with_layout =
     Cfg_with_layout.create cfg ~layout:(State.get_layout state)
   in
-  (* note: the simplification of terminators is necessary for the equality. The
-     other code path simplifies e.g. a switch with three branches into an
-     integer test. This simplification should happen *after* the one about
-     straightline blocks because merging blocks creates more opportunities for
-     terminator simplification. *)
   Profile.record ~accumulate:true "optimizations"
-    (fun () ->
-      Eliminate_fallthrough_blocks.run cfg_with_layout;
-      Merge_straightline_blocks.run cfg_with_layout;
-      Eliminate_dead_code.run_dead_block cfg_with_layout;
-      Simplify_terminator.run cfg)
-    ();
+     Cfg_simplify.run cfg_with_layout;
   Cfg_with_layout.reorder_blocks
     ~comparator:(fun label1 label2 ->
       let block1 = Cfg.get_block_exn cfg label1 in
