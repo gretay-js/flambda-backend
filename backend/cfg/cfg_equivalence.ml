@@ -546,8 +546,7 @@ let check_basic_block : State.t -> Cfg.basic_block -> Cfg.basic_block -> unit =
   if not (Bool.equal expected.can_raise result.can_raise)
   then different location "can_raise";
   if not (Bool.equal expected.is_trap_handler result.is_trap_handler)
-  then different location "is_trap_handler";
-  if not (Bool.equal expected.dead result.dead) then different location "dead"
+  then different location "is_trap_handler"
 
 let rec explore_cfg : State.t -> Cfg.t -> Cfg.t -> unit =
  fun state expected result ->

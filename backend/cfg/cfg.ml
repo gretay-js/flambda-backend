@@ -41,7 +41,6 @@ type basic_block =
     mutable exn : Label.t option;
     mutable can_raise : bool;
     mutable is_trap_handler : bool;
-    mutable dead : bool;
     mutable cold : bool
   }
 

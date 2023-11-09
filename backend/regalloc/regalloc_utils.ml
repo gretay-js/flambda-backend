@@ -586,7 +586,6 @@ let insert_block :
           exn = None;
           can_raise = false;
           is_trap_handler = false;
-          dead = predecessor_block.dead;
           cold = predecessor_block.cold
         }
       in

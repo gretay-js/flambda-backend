@@ -465,7 +465,6 @@ let rec add_blocks :
           can_raise;
           (* See [update_trap_handler_blocks] *)
           is_trap_handler = false;
-          dead = false;
           cold = is_cold
         }
   in
@@ -682,9 +681,10 @@ module Stack_offset_and_exn = struct
   let update_cfg : Cfg.t -> unit =
    fun cfg ->
     update_block cfg cfg.entry_label ~stack_offset:0 ~traps:[];
-    Cfg.iter_blocks cfg ~f:(fun _ block ->
-        if block.stack_offset = invalid_stack_offset then block.dead <- true;
-        assert (not (block.is_trap_handler && block.dead)))
+    if debug then
+      Cfg.iter_blocks cfg ~f:(fun _ block ->
+        if block.stack_offset = invalid_stack_offset then
+          assert (not block.is_trap_handler))
 end
 
 let fundecl :
@@ -780,7 +780,6 @@ let fundecl :
             exn = None;
             can_raise = false;
             is_trap_handler = false;
-            dead = false;
             cold = false
           };
       next_label, last_naming_op_instr
@@ -807,7 +806,6 @@ let fundecl :
         exn = None;
         can_raise = false;
         is_trap_handler = false;
-        dead = false;
         cold = false
       };
   State.add_block state ~label:tailrec_label
@@ -823,7 +821,6 @@ let fundecl :
         exn = None;
         can_raise = false;
         is_trap_handler = false;
-        dead = false;
         cold = false
       };
   add_blocks fun_body state ~start:start_label ~next:fallthrough_label
