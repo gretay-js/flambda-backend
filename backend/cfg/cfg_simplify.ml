@@ -215,15 +215,16 @@ end = struct
                Printf.printf "block at %d has single successor %d\n" label
                  target_label;
              Disconnect_block.disconnect cfg_with_layout label;
-             label :: found)
-        cfg.blocks []
+             Label.Set.add label found)
+        cfg.blocks Label.Set.empty
     in
-    let len = List.length found in
-    if len > 0
+    if not (Label.Set.is_empty found)
     then (
       if !C.verbose
       then
-        Printf.printf "%s: disconnected fallthrough blocks: %d\n" cfg.fun_name len;
+        Printf.printf "%s: disconnected fallthrough blocks: %d\n" cfg.fun_name
+          (Label.Set.cardinal found);
+      Cfg_with_layout.remove_blocks cfg_with_layout found;
       disconnect_fallthrough_blocks cfg_with_layout)
 
   let run cfg_with_layout =
@@ -246,7 +247,6 @@ end = struct
     let len = Label.Tbl.length cfg.blocks in
     if !C.verbose then CL.save_as_dot cfg_with_layout "before_elim_ft";
     disconnect_fallthrough_blocks cfg_with_layout;
-    Eliminate_dead_code.run cfg_with_layout;
     let new_len = Label.Tbl.length cfg.blocks in
     if !C.verbose
     then (
