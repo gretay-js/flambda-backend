@@ -154,10 +154,6 @@
   cfg_dominators
   cfg_loop_infos
   cfg_to_linear_desc
-  eliminate_dead_code
-  disconnect_block
-  eliminate_fallthrough_blocks
-  merge_straightline_blocks
   extra_debug
   label
   linear_utils
