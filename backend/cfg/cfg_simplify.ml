@@ -190,6 +190,7 @@ end = struct
     || block.is_trap_handler
     || (not (DLL.is_empty block.body))
     || not (C.is_pure_terminator block.terminator.desc)
+    || C.can_raise_terminator block.terminator.desc
     then None
     else
       let successors = C.successor_labels ~normal:true ~exn:false block in
