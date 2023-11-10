@@ -113,54 +113,6 @@ module Eliminate_dead_code : sig
   val run : Cfg_with_layout.t -> unit
 end = struct
 
-
-  (* CR-someday gyorsh: Eliminate dead cycles. *)
-  (* In-place removal of dead blocks in a CFG. *)
-  let block_is_dead cfg_with_layout (block : C.basic_block) =
-    let cfg = CL.cfg cfg_with_layout in
-    Label.Set.is_empty block.predecessors
-    (* CR-someday gyorsh: Predecessors already contains all live handlers. Remove
-       is_trap_handler check when CFG is updated to use trap stacks instead of
-       pushtrap/poptrap instructions in CFG. *)
-    && (not block.is_trap_handler)
-    && not (Label.equal cfg.entry_label block.start)
-
-  (* CR-someday xclerc: not to say the implementation should change any time soon,
-     but since it was mentioned the other day: with support for generic data flow
-     analysis, a trivial analysis would identify all live/dead blocks in one go
-     and the function below would no longer be recursive. This would also
-     eliminate the dead cycles mentioned above. *)
-  let rec eliminate_dead_blocks cfg_with_layout =
-    let cfg = CL.cfg cfg_with_layout in
-    let found_dead =
-      Label.Tbl.fold
-        (fun label block found ->
-           if block_is_dead cfg_with_layout block then label :: found else found)
-        cfg.blocks []
-    in
-    if List.compare_length_with found_dead 0 > 0
-    then (
-      List.iter (Disconnect_block.disconnect cfg_with_layout) found_dead;
-      if !C.verbose
-      then (
-        (* CR xclerc for xclerc: temporary. *)
-        let _ = assert false in
-        Printf.printf "Found and eliminated %d dead blocks in function %s.\n"
-          (List.length found_dead) cfg.fun_name;
-        Printf.printf "Eliminated blocks are:";
-        List.iter (Printf.printf "\n%d") found_dead;
-        Printf.printf "\n");
-      (* Termination: the number of remaining blocks is strictly smaller in each
-         recursive call. *)
-      eliminate_dead_blocks cfg_with_layout)
-  (* else
-   *   (* check that no blocks are left that are marked as dead *)
-   *   C.iter_blocks cfg ~f:(fun label block ->
-   *       if block.dead
-   *       then
-   *         Misc.fatal_errorf "Block %d in %s marked as dead but not eliminated\n"
-   *           label cfg.fun_name) *)
-
   module Domain = struct
     type t =
       | Reachable
@@ -226,8 +178,6 @@ end = struct
            block.exn <- None)
         unreachable_labels;
       Cfg_with_layout.remove_blocks cfg_with_layout unreachable_labels;
-      (* CR xclerc for xclerc: temporary. *)
-      eliminate_dead_blocks cfg_with_layout
 end
 
 module Eliminate_fallthrough_blocks : sig
@@ -250,12 +200,6 @@ end = struct
         then None (* self-loop *)
         else Some target_label
       else None
-
-  (* CR-someday mshinwell: The logic below looks similar in structure to
-     [Eliminate_dead_code.eliminate_dead_blocks].
-     I think it would be worth trying to factor that out
-     (into a functor) -- this would presumably form the starting point for a
-     generic traversal / rewrite mechanism in the future. *)
 
   let rec disconnect_fallthrough_blocks cfg_with_layout =
     let cfg = CL.cfg cfg_with_layout in
