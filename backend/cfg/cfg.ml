@@ -155,10 +155,37 @@ let add_block_exn t block =
       block.start;
   Label.Tbl.add t.blocks block.start block
 
+let remove_trap_instructions t removed_trap_handlers =
+  let remove_trap_instr _ b =
+    DLL.iter_cell b.body ~f:(fun cell ->
+      let i = DLL.value cell in
+      match i.desc with
+      | Pushtrap { lbl_handler }
+      (* | Poptrap  { } do the same *)
+        ->
+        if Label.Set.mem lbl_handler removed_trap_handlers then
+          DLL.delete_curr cell
+     | Poptrap
+     | Op _
+     | Reloadretaddr
+     | Prologue -> ()
+    )
+  in
+  if not (Label.Set.is_empty removed_trap_handlers) then
+    (* remove Lpushtrap and Lpoptrap instructions that refer to dead labels. *)
+    Label.Tbl.iter remove_trap_instr t.blocks
+
 let remove_blocks t labels_to_remove =
+  let removed_trap_handlers = ref Label.Set.empty in
   Label.Tbl.filter_map_inplace
-    (fun l b -> if Label.Set.mem l labels_to_remove then None else Some b)
-    t.blocks
+    (fun l b ->
+       if Label.Set.mem l labels_to_remove then
+         (if b.is_trap_handler then
+            removed_trap_handlers := Label.Set.add l !removed_trap_handlers;
+          None)
+       else Some b)
+    t.blocks;
+  remove_trap_instructions t !removed_trap_handlers
 
 let get_block t label = Label.Tbl.find_opt t.blocks label
 
