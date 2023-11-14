@@ -344,7 +344,9 @@ let check_basic : State.t -> location -> Cfg.basic -> Cfg.basic -> unit =
   | ( Pushtrap { lbl_handler = expected_lbl_handler },
       Pushtrap { lbl_handler = result_lbl_handler } ) ->
     State.add_to_explore state expected_lbl_handler result_lbl_handler
-  | Poptrap, Poptrap -> ()
+  | Poptrap { lbl_handler = expected_lbl_handler } ,
+    Poptrap { lbl_handler = result_lbl_handler } ->
+    State.add_to_explore state expected_lbl_handler result_lbl_handler
   | Prologue, Prologue -> ()
   | _ -> different location "basic"
  [@@ocaml.warning "-4"]
@@ -398,7 +400,7 @@ let check_basic_instruction :
     | Op _ -> true
     | Reloadretaddr -> true
     | Pushtrap _ -> false
-    | Poptrap -> false
+    | Poptrap _ -> false
     | Prologue -> false
   in
   check_instruction ~check_live ~check_dbg ~check_arg:true idx location expected

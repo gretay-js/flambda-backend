@@ -5,7 +5,7 @@ let from_basic (basic : basic) : Linear.instruction_desc =
   | Prologue -> Lprologue
   | Reloadretaddr -> Lreloadretaddr
   | Pushtrap { lbl_handler } -> Lpushtrap { lbl_handler }
-  | Poptrap -> Lpoptrap
+  | Poptrap { lbl_handler = _ } -> Lpoptrap
   | Op op ->
     let op : Mach.operation =
       match op with

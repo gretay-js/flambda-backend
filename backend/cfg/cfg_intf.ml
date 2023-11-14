@@ -168,7 +168,7 @@ module S = struct
             special hidden register. It can use standard registers for that
             purpose. They are defined in [Proc.destroyed_at_reloadretaddr]. *)
     | Pushtrap of { lbl_handler : Label.t }
-    | Poptrap
+    | Poptrap of { lbl_handler : Label.t }
     | Prologue
 
   type 'a with_label_after =

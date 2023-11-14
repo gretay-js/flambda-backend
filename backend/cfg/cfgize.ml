@@ -427,14 +427,17 @@ let rec add_blocks :
   let { instrs; last; terminator } = extract_block_info state instr in
   let terminate_block ~trap_actions terminator =
     let body = instrs in
+    (* CR gyorsh: not needed ? *)
     List.iter
       (fun trap_action ->
-        let instr =
+       let instr =
           match trap_action with
           | Cmm.Push handler_id ->
             let lbl_handler = State.get_catch_handler state ~handler_id in
             make_instruction state ~desc:(Cfg.Pushtrap { lbl_handler })
-          | Cmm.Pop _ -> make_instruction state ~desc:Cfg.Poptrap
+          | Cmm.Pop handler_id ->
+            let lbl_handler = State.get_catch_handler state ~handler_id in
+            make_instruction state ~desc:(Cfg.Poptrap { lbl_handler })
         in
         DLL.add_end body instr)
       trap_actions;
@@ -618,13 +621,19 @@ module Stack_offset_and_exn = struct
     | Pushtrap { lbl_handler } ->
       update_block cfg lbl_handler ~stack_offset ~traps;
       stack_offset, lbl_handler :: traps
-    | Poptrap -> (
+    | Poptrap { lbl_handler } -> (
       match traps with
       | [] ->
         Misc.fatal_error
           "Cfgize.Stack_offset_and_exn.process_basic: trying to pop from an \
            empty stack"
-      | _ :: traps -> stack_offset, traps)
+      | top_trap :: traps ->
+        if not (Label.equal top_trap lbl_handler) then
+          Misc.fatal_errorf
+            "Cfgize.Stack_offset_and_exn.process_basic: \
+             unexpected handler label: Poptrap %d does not
+            match top of trap_stack %d" lbl_handler top_trap;
+        stack_offset, traps)
     | Op (Stackoffset n) -> stack_offset + n, traps
     | Op
         ( Move | Spill | Reload | Const_int _ | Const_float _ | Const_symbol _

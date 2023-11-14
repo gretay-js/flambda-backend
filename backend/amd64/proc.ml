@@ -501,7 +501,7 @@ let destroyed_at_basic (basic : Cfg_intf.S.basic) =
                   | Isextend32 | Izextend32 | Ipause
                   | Iprefetch _ | Ilfence | Isfence | Imfence)
        | Name_for_debugger _ | Dls_get)
-  | Poptrap | Prologue ->
+  | Poptrap _ | Prologue ->
     if fp then [| rbp |] else [||]
 
 (* note: keep this function in sync with `destroyed_at_oper` above,

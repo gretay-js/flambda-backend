@@ -161,17 +161,17 @@ let remove_trap_instructions t removed_trap_handlers =
       let i = DLL.value cell in
       match i.desc with
       | Pushtrap { lbl_handler }
-      (* | Poptrap  { } do the same *)
+      | Poptrap  { lbl_handler }
         ->
         if Label.Set.mem lbl_handler removed_trap_handlers then
           DLL.delete_curr cell
-     | Poptrap
      | Op _
      | Reloadretaddr
      | Prologue -> ()
     )
   in
   if not (Label.Set.is_empty removed_trap_handlers) then
+    assert (Config.flambda2);
     (* remove Lpushtrap and Lpoptrap instructions that refer to dead labels. *)
     Label.Tbl.iter remove_trap_instr t.blocks
 
@@ -310,7 +310,7 @@ let dump_basic ppf (basic : basic) =
   | Op op -> dump_op ppf op
   | Reloadretaddr -> fprintf ppf "Reloadretaddr"
   | Pushtrap { lbl_handler } -> fprintf ppf "Pushtrap handler=%d" lbl_handler
-  | Poptrap -> fprintf ppf "Poptrap"
+  | Poptrap { lbl_handler } -> fprintf ppf "Poptrap handler=%d" lbl_handler;
   | Prologue -> fprintf ppf "Prologue"
 
 let dump_terminator' ?(print_reg = Printmach.reg) ?(res = [||]) ?(args = [||])
@@ -517,7 +517,7 @@ let is_pure_basic : basic -> bool = function
        wouldn't be. Saying it's not pure doesn't decrease the generated code
        quality and is future-proof.*)
     false
-  | Pushtrap _ | Poptrap ->
+  | Pushtrap _ | Poptrap _ ->
     (* Those instructions modify the trap stack which actually modifies the
        stack pointer. *)
     false
@@ -555,7 +555,7 @@ let is_noop_move instr =
       | Floatofint | Intoffloat | Opaque | Valueofint | Intofvalue
       | Scalarcast _ | Probe_is_enabled _ | Specific _ | Name_for_debugger _
       | Begin_region | End_region | Dls_get | Poll | Alloc _ )
-  | Reloadretaddr | Pushtrap _ | Poptrap | Prologue ->
+  | Reloadretaddr | Pushtrap _ | Poptrap _ | Prologue ->
     false
 
 let set_stack_offset (instr : _ instruction) stack_offset =
