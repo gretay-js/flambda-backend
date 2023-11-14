@@ -77,10 +77,6 @@ let assign_blocks_to_section t labels name =
 
 let get_section t label = Hashtbl.find_opt t.sections label
 
-let remove_block t label =
-  Cfg.remove_block_exn t.cfg label;
-  DLL.remove_first t.layout ~f:(fun l -> Label.equal l label)
-
 let remove_blocks t labels_to_remove =
   let num_to_remove = Label.Set.cardinal labels_to_remove in
   if num_to_remove > 0

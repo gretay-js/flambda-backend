@@ -155,12 +155,6 @@ let add_block_exn t block =
       block.start;
   Label.Tbl.add t.blocks block.start block
 
-let remove_block_exn t label =
-  match Label.Tbl.find t.blocks label with
-  | exception Not_found ->
-    Misc.fatal_errorf "Cfg.remove_block_exn: block %d not found" label
-  | _ -> Label.Tbl.remove t.blocks label
-
 let remove_blocks t labels_to_remove =
   Label.Tbl.filter_map_inplace
     (fun l b -> if Label.Set.mem l labels_to_remove then None else Some b)

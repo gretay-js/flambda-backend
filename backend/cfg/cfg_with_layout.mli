@@ -48,8 +48,6 @@ val assign_blocks_to_section : t -> Label.t list -> string -> unit
 val get_section : t -> Label.t -> string option
 
 (** Remove from cfg, layout, and other data-structures that track labels. *)
-val remove_block : t -> Label.t -> unit
-
 val remove_blocks : t -> Label.Set.t -> unit
 
 val is_trap_handler : t -> Label.t -> bool
