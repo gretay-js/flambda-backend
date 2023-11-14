@@ -31,7 +31,7 @@ module CL = Cfg_with_layout
 module DLL = Flambda_backend_utils.Doubly_linked_list
 
 module Eliminate_dead_code : sig
-  val run : Cfg_with_layout.t -> unit
+  val run : Cfg_with_layout.t -> Label.Set.t
 end = struct
 
   module Domain = struct
@@ -69,7 +69,7 @@ end = struct
 
   module Dataflow = Cfg_dataflow.Forward (Domain) (Transfer)
 
-  let run : Cfg_with_layout.t -> unit =
+  let run : Cfg_with_layout.t -> Label.Set.t =
     fun cfg_with_layout ->
     let cfg = Cfg_with_layout.cfg cfg_with_layout in
     match Dataflow.run cfg ~init:Reachable () with
@@ -98,11 +98,11 @@ end = struct
            block.terminator <- { block.terminator with desc = Cfg_intf.S.Never };
            block.exn <- None)
         unreachable_labels;
-      Cfg_with_layout.remove_blocks cfg_with_layout unreachable_labels;
+      unreachable_labels
 end
 
 module Eliminate_fallthrough_blocks : sig
-  val run : Cfg_with_layout.t -> unit
+  val run : Cfg_with_layout.t -> Label.Set.t
 end = struct
 
   let is_fallthrough_block cfg_with_layout (block : C.basic_block) =
@@ -123,7 +123,7 @@ end = struct
         else Some target_label
       else None
 
-  let rec disconnect_fallthrough_blocks cfg_with_layout =
+  let rec disconnect_fallthrough_blocks cfg_with_layout dead_labels =
     let cfg = CL.cfg cfg_with_layout in
     let found =
       Label.Tbl.fold
@@ -161,8 +161,10 @@ end = struct
       then
         Printf.printf "%s: disconnected fallthrough blocks: %d\n" cfg.fun_name
           (Label.Set.cardinal found);
-      Cfg_with_layout.remove_blocks cfg_with_layout found;
-      disconnect_fallthrough_blocks cfg_with_layout)
+      let dead_labels = Label.Set.union found dead_labels in
+      disconnect_fallthrough_blocks cfg_with_layout dead_labels)
+    else
+      dead_labels
 
   let run cfg_with_layout =
     let cfg = CL.cfg cfg_with_layout in
@@ -181,20 +183,18 @@ end = struct
     (* CR-someday xclerc: I am not positive it should be changed, but we
      * should not need a fix point here: `is_fallthrough_block` could
      * return the next non-fallthrough block rather than the next block. *)
-    let len = Label.Tbl.length cfg.blocks in
     if !C.verbose then CL.save_as_dot cfg_with_layout "before_elim_ft";
-    disconnect_fallthrough_blocks cfg_with_layout;
-    let new_len = Label.Tbl.length cfg.blocks in
+    let dead_labels = disconnect_fallthrough_blocks cfg_with_layout Label.Set.empty in
     if !C.verbose
     then (
       Printf.printf "%s: eliminated %d block that were dead or fallthrough.\n"
-        cfg.fun_name (len - new_len);
-      CL.save_as_dot cfg_with_layout "after_elim_ft")
-
+        cfg.fun_name (Label.Set.cardinal dead_labels);
+      CL.save_as_dot cfg_with_layout "after_elim_ft");
+    dead_labels
 end
 
 module Merge_straightline_blocks : sig
-  val run : Cfg_with_layout.t -> unit
+  val run : Cfg_with_layout.t -> Label.Set.t
 end = struct
 
   (* Two blocks `b1` and `b2` can be merged if:
@@ -269,18 +269,19 @@ end = struct
     then merge_blocks (Label.Set.union new_removed removed) cfg_with_layout
     else removed
 
-  let run (cfg_with_layout : Cfg_with_layout.t) : unit =
+  let run (cfg_with_layout : Cfg_with_layout.t) : Label.Set.t =
     merge_blocks Label.Set.empty cfg_with_layout
-    |> Cfg_with_layout.remove_blocks cfg_with_layout
-
 end
 
 let run cfg_with_layout =
  (* note: This simplification should happen *after* the one about
      straightline blocks because merging blocks creates more opportunities for
      terminator simplification. *)
-  Eliminate_fallthrough_blocks.run cfg_with_layout;
-  Merge_straightline_blocks.run cfg_with_layout;
-  Eliminate_dead_code.run cfg_with_layout;
+  let dead_labels = ref Label.Set.empty in
+  let acc s = dead_labels := Label.Set.union s !dead_labels in
+  Eliminate_fallthrough_blocks.run cfg_with_layout |> acc;
+  Merge_straightline_blocks.run cfg_with_layout |> acc;
+  Eliminate_dead_code.run cfg_with_layout |> acc;
+  Cfg_with_layout.remove_blocks cfg_with_layout !dead_labels;
   Simplify_terminator.run (Cfg_with_layout.cfg cfg_with_layout)
 
