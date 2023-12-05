@@ -416,18 +416,17 @@ let add_local_attribute expr loc attributes =
     end
   | _ -> expr
 
-let assume_zero_alloc attributes =
+let assume_zero_alloc attributes : Assume_info.t =
   let p = Zero_alloc in
   let attr = find_attribute (is_property_attribute p) attributes in
   let res = parse_property_attribute attr p in
   match attr, res with
-  | None, Default_check -> false
-  | _, Default_check -> false
+  | None, Default_check -> No_assume
+  | _, Default_check -> No_assume
   | None, (Check _ | Assume _ | Ignore_assert_all _) -> assert false
-  | Some _, Ignore_assert_all _ -> false
-  | Some _, Assume { strict=false; never_returns_normally=false; } ->
-    true
-  | Some attr, Assume { loc }
+  | Some _, Ignore_assert_all _ -> No_assume
+  | Some _, Assume { strict; never_returns_normally; } ->
+    Assume { strict; never_returns_normally }
   | Some attr, Check { loc; _ } ->
     let name = attr.attr_name.txt in
     let msg = "Only the following combinations are supported in this context: \
@@ -437,7 +436,7 @@ let assume_zero_alloc attributes =
                `zero_alloc assume never_returns_normally strict`."
     in
     Location.prerr_warning loc (Warnings.Attribute_payload (name, msg));
-    false
+    No_assume
 
 let get_assume_zero_alloc ~with_warnings attributes =
   if with_warnings then

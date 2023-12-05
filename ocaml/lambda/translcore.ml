@@ -1094,7 +1094,7 @@ and transl_apply ~scopes
       ?(tailcall=Default_tailcall)
       ?(inlined = Default_inlined)
       ?(specialised = Default_specialise)
-      ?(assume_zero_alloc = false)
+      ?(assume_zero_alloc = Assume_info.No_assume)
       ?(position=Rc_normal)
       ?(mode=alloc_heap)
       ~result_layout
@@ -1132,10 +1132,7 @@ and transl_apply ~scopes
          always false currently for them. I am not sure about Lapply case
          above. Also not sure about inlined etc in the Lsend case.  *)
         let loc =
-          if assume_zero_alloc then
-            map_scopes set_assume_zero_alloc loc
-          else
-            loc
+          map_scopes (join_assume_zero_alloc ~assume_zero_alloc) loc
         in
         Lapply {
           ap_loc=loc;
@@ -1391,10 +1388,8 @@ and transl_function ~in_new_scope ~scopes e alloc_mode param arg_mode arg_sort r
     Translattribute.get_assume_zero_alloc ~with_warnings:false attrs
   in
   let scopes =
-    if in_new_scope then begin
-      if assume_zero_alloc then set_assume_zero_alloc ~scopes
-      else scopes
-    end
+    if in_new_scope then
+      join_assume_zero_alloc ~scopes ~assume_zero_alloc
     else enter_anonymous_function ~scopes ~assume_zero_alloc
   in
   let arg_layout =
@@ -1866,7 +1861,7 @@ let transl_scoped_exp ~scopes sort exp =
 let transl_apply
       ~scopes ?tailcall ?inlined ?specialised ?position ?mode ~result_layout fn args loc =
   maybe_region_layout result_layout (transl_apply
-      ~scopes ?tailcall ?inlined ?specialised ~assume_zero_alloc:false ?position ?mode ~result_layout fn args loc)
+      ~scopes ?tailcall ?inlined ?specialised ~assume_zero_alloc:Assume_info.No_assume ?position ?mode ~result_layout fn args loc)
 
 (* Error report *)
 

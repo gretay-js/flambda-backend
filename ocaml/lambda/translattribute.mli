@@ -65,4 +65,7 @@ val add_function_attributes
   -> Parsetree.attributes
   -> Lambda.lambda
 
-val get_assume_zero_alloc : with_warnings:bool ->  Parsetree.attributes -> bool
+val get_assume_zero_alloc
+  : with_warnings:bool
+  ->  Parsetree.attributes
+  -> Assume_info.t

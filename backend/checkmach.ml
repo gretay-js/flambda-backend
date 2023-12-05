@@ -297,6 +297,7 @@ module Value : sig
   val get_witnesses : t -> Witnesses.components
 
   val diff_witnesses : expected:t -> actual:t -> Witnesses.components
+
 end = struct
   (** Lifts V to triples  *)
   type t =
@@ -351,8 +352,7 @@ end = struct
 
   let top w = { nor = V.Top w; exn = V.Top w; div = V.Top w }
 
-  let relaxed w =
-    { nor = V.Safe; exn = V.Top w; div = V.Top w }
+  let relaxed w = { nor = V.Safe; exn = V.Top w; div = V.Top w }
 
   let print ~witnesses ppf { nor; exn; div } =
     let pp = V.print ~witnesses in
@@ -368,11 +368,16 @@ module Annotation : sig
   val find :
     Cmm.codegen_option list -> Cmm.property -> string -> Debuginfo.t -> t option
 
-  val expected_value : t -> Value.t
+  val expected_value : t -> Witnesses.t -> Value.t
 
   val is_assume : t -> bool
 
   val is_strict : t -> bool
+
+  val of_metadata :
+    Debuginfo.t -> can_raise:bool -> t
+
+
 end = struct
   (**
    ***************************************************************************
@@ -395,15 +400,41 @@ end = struct
     { strict : bool;  (** strict or relaxed? *)
       assume : bool;
       never_returns_normally : bool;
+      can_raise : bool;
       loc : Location.t
           (** Source location of the annotation, used for error messages. *)
     }
 
+  let default =
+    { assume = false;
+      strict = false;
+      never_returns_normally = false;
+      can_raise = true;
+      loc = Location.none;
+    }
+
   let get_loc t = t.loc
 
-  let expected_value t =
-    let res = if t.strict then Value.safe else Value.relaxed Witnesses.empty in
-    if t.never_returns_normally then { res with nor = V.Bot } else res
+  let expected_value t w =
+    let res = if t.strict then Value.safe else Value.relaxed w in
+    let res = if t.never_returns_normally then { res with nor = V.Bot } else res in
+    let res = if t.can_raise then res else { res with exn = V.Bot } in
+    res
+
+  let of_metadata dbg ~can_raise =
+    (* [loc] can be obtained by [Debuginfo.to_location dbg],
+        For now just return [Location.none] because it is not used. *)
+    match Debuginfo.assume_zero_alloc dbg with
+    | No_assume ->
+      (* CR-someday gyorsh: propage assert of arbitrary expressions. *)
+      default
+    | Assume { strict; never_returns_normally; } ->
+      { assume = true;
+        strict;
+        never_returns_normally;
+        can_raise;
+        loc = Location.none;
+      }
 
   let is_assume t = t.assume
 
@@ -416,10 +447,10 @@ end = struct
         (fun (c : Cmm.codegen_option) ->
           match c with
           | Check { property; strict; loc } when property = spec ->
-            Some { strict; assume = false; never_returns_normally = false; loc }
+            Some { strict; assume = false; never_returns_normally = false; can_raise = true; loc }
           | Assume { property; strict; never_returns_normally; loc }
             when property = spec ->
-            Some { strict; assume = true; never_returns_normally; loc }
+            Some { strict; assume = true; never_returns_normally; loc; can_raise = true; }
           | Ignore_assert_all property when property = spec ->
             ignore_assert_all := true;
             None
@@ -436,6 +467,7 @@ end = struct
           { strict = false;
             assume = false;
             never_returns_normally = false;
+            can_raise = true;
             loc = Debuginfo.to_location dbg
           }
       else None
@@ -826,7 +858,7 @@ end = struct
       | Some a ->
         Builtin_attributes.mark_property_checked analysis_name
           (Annotation.get_loc a);
-        let expected_value = Annotation.expected_value a in
+        let expected_value = Annotation.expected_value a Witnesses.empty in
         if (not (Annotation.is_assume a))
            && S.enabled ()
            && not (Value.lessequal func_info.value expected_value)
@@ -954,7 +986,10 @@ end = struct
 
   let transform_top t ~next ~exn w desc dbg =
     let effect =
-      if Debuginfo.assume_zero_alloc dbg then Value.relaxed w else Value.top w
+      let a = Annotation.of_metadata dbg ~can_raise:true in
+      match Annotation.is_assume a with
+      | true -> Annotation.expected_value a w
+      | false -> Value.top w
     in
     transform t ~next ~exn ~effect desc dbg
 
@@ -962,9 +997,10 @@ end = struct
     report t next ~msg:"transform_call next" ~desc dbg;
     report t exn ~msg:"transform_call exn" ~desc dbg;
     let effect =
-      if Debuginfo.assume_zero_alloc dbg
-      then Value.relaxed w
-      else
+      let a = Annotation.of_metadata dbg ~can_raise:true in
+      match Annotation.is_assume a with
+      | true -> Annotation.expected_value a w
+      | false ->
         let callee_value, new_dep = find_callee t callee dbg in
         update_deps t callee_value new_dep w desc dbg;
         (* Abstract witnesses of a call to the single witness for the callee
@@ -1015,14 +1051,20 @@ end = struct
     | Ialloc { mode = Alloc_local; _ } ->
       assert (not (Mach.operation_can_raise op));
       next
-    | Ialloc { mode = Alloc_heap; bytes; dbginfo } ->
-      assert (not (Mach.operation_can_raise op));
-      if Debuginfo.assume_zero_alloc dbg
-      then next
-      else
-        let w = create_witnesses t (Alloc { bytes; dbginfo }) dbg in
-        let r = Value.transform w next in
-        check t r "heap allocation" dbg
+    | Ialloc { mode = Alloc_heap; bytes; dbginfo } -> (
+        assert (not (Mach.operation_can_raise op));
+        let a = Annotation.of_metadata dbg ~can_raise:false in
+        match Annotation.is_assume a with
+        | true ->
+          (* [never_returns_normally] is intended for calls only and therefore ignored on
+             Alloc instructions. This is sound but may be overly-conservative and
+             counter-intuitive to the user if a function annotated with [assume
+             never_returns_normally] is inlined and does not end with a call. *)
+          next
+        | false ->
+          let w = create_witnesses t (Alloc { bytes; dbginfo }) dbg in
+          let r = Value.transform w next in
+          check t r "heap allocation" dbg)
     | Iprobe { name; handler_code_sym; enabled_at_init = __ } ->
       let desc = Printf.sprintf "probe %s handler %s" name handler_code_sym in
       let w = create_witnesses t (Probe { name; handler_code_sym }) dbg in
@@ -1058,16 +1100,10 @@ end = struct
     | Ispecific s ->
       let effect =
         let w = create_witnesses t Arch_specific dbg in
-        if Debuginfo.assume_zero_alloc dbg
-        then
-          (* Conservatively assume that operation can return normally. *)
-          let nor = V.Safe in
-          let exn = if Arch.operation_can_raise s then V.Top w else V.Bot in
-          (* Assume that the operation does not diverge. *)
-          let div = V.Bot in
-          { Value.nor; exn; div }
-        else
-          S.transform_specific w s
+        let a = Annotation.of_metadata dbg ~can_raise:(Arch.operation_can_raise s) in
+        match Annotation.is_assume a with
+        | true -> Annotation.expected_value a w
+        | false -> S.transform_specific w s
       in
       transform t ~next ~exn ~effect "Arch.specific_operation" dbg
 
@@ -1145,12 +1181,12 @@ end = struct
       in
       match a with
       | Some a when Annotation.is_assume a ->
-        let expected_value = Annotation.expected_value a in
+        let expected_value = Annotation.expected_value a Witnesses.empty in
         report t expected_value ~msg:"assumed" ~desc:"fundecl" f.fun_dbg;
         Unit_info.join_value unit_info fun_name expected_value
       | None -> really_check ~keep_witnesses:false
       | Some a ->
-        let expected_value = Annotation.expected_value a in
+        let expected_value = Annotation.expected_value a Witnesses.empty in
         report t expected_value ~msg:"assert" ~desc:"fundecl" f.fun_dbg;
         (* Only keep witnesses for functions that need checking. *)
         really_check ~keep_witnesses:true
