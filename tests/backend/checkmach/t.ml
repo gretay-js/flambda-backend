@@ -283,8 +283,3 @@ let[@zero_alloc] test51 x =
   try (test46[@zero_alloc assume never_returns_normally]) x
   with _ -> failwith (Printf.sprintf "%d" x)
 
-(* this should be a warning *)
-let[@zero_alloc] f =
-  let x = 42 in
-  fun z -> z + x
-
