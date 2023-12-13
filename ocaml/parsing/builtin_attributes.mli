@@ -150,7 +150,7 @@ val has_attribute : string list -> Parsetree.attributes -> bool
     handle this by taking a bool, rather than simply passing fewer nms in those
     cases, to support misplaced attribute warnings - the attribute should not
     count as misplaced if the compiler could use it in some configuration. *)
-val filter_attributes :
+val filter_attributes : ?mark:bool ->
   (string list * bool) list -> Parsetree.attributes -> Parsetree.attributes
 
 val warn_on_literal_pattern: Parsetree.attributes -> bool
