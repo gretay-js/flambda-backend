@@ -434,11 +434,11 @@ let has_attribute nms attrs =
        else false)
     attrs
 
-let filter_attributes nms_and_conds attrs =
+let filter_attributes ?(mark=true) nms_and_conds attrs =
   List.filter (fun a ->
     List.exists (fun (nms, cond) ->
       if List.mem a.attr_name.txt nms
-      then (mark_used a.attr_name; cond)
+      then (if mark then mark_used a.attr_name; cond)
       else false)
       nms_and_conds
   ) attrs

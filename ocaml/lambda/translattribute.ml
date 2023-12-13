@@ -50,8 +50,8 @@ let is_poll_attribute =
 let is_loop_attribute =
   [ ["loop"; "ocaml.loop"], true ]
 
-let find_attribute p attributes =
-  let inline_attribute = Builtin_attributes.filter_attributes p attributes in
+let find_attribute ?mark_used p attributes =
+  let inline_attribute = Builtin_attributes.filter_attributes ?mark:mark_used p attributes in
   let attr =
     match inline_attribute with
     | [] -> None
@@ -416,9 +416,9 @@ let add_local_attribute expr loc attributes =
     end
   | _ -> expr
 
-let assume_zero_alloc attributes : Assume_info.t =
+let assume_zero_alloc ?mark_used attributes : Assume_info.t =
   let p = Zero_alloc in
-  let attr = find_attribute (is_property_attribute p) attributes in
+  let attr = find_attribute ?mark_used (is_property_attribute p) attributes in
   let res = parse_property_attribute attr p in
   match attr, res with
   | None, Default_check -> No_assume
@@ -446,7 +446,7 @@ let get_assume_zero_alloc ~with_warnings attributes =
      that affect [Scoped_location] settings before translation
      of expressions in that scope.
      Warnings will be produced by [add_check_attribute]. *)
-    Warnings.without_warnings (fun () -> assume_zero_alloc attributes)
+    Warnings.without_warnings (fun () -> assume_zero_alloc ~mark_used:false attributes)
 
 let add_check_attribute expr loc attributes =
   let to_string = function
