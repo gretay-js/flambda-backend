@@ -297,7 +297,6 @@ module Value : sig
   val get_witnesses : t -> Witnesses.components
 
   val diff_witnesses : expected:t -> actual:t -> Witnesses.components
-
 end = struct
   (** Lifts V to triples  *)
   type t =
@@ -374,10 +373,7 @@ module Annotation : sig
 
   val is_strict : t -> bool
 
-  val of_metadata :
-    Debuginfo.t -> can_raise:bool -> t
-
-
+  val of_metadata : Debuginfo.t -> can_raise:bool -> t
 end = struct
   (**
    ***************************************************************************
@@ -410,30 +406,32 @@ end = struct
       strict = false;
       never_returns_normally = false;
       can_raise = true;
-      loc = Location.none;
+      loc = Location.none
     }
 
   let get_loc t = t.loc
 
   let expected_value t w =
     let res = if t.strict then Value.safe else Value.relaxed w in
-    let res = if t.never_returns_normally then { res with nor = V.Bot } else res in
+    let res =
+      if t.never_returns_normally then { res with nor = V.Bot } else res
+    in
     let res = if t.can_raise then res else { res with exn = V.Bot } in
     res
 
   let of_metadata dbg ~can_raise =
-    (* [loc] can be obtained by [Debuginfo.to_location dbg],
-        For now just return [Location.none] because it is not used. *)
+    (* [loc] can be obtained by [Debuginfo.to_location dbg], For now just return
+       [Location.none] because it is not used. *)
     match Debuginfo.assume_zero_alloc dbg with
     | No_assume ->
       (* CR-someday gyorsh: propage assert of arbitrary expressions. *)
       default
-    | Assume { strict; never_returns_normally; } ->
+    | Assume { strict; never_returns_normally } ->
       { assume = true;
         strict;
         never_returns_normally;
         can_raise;
-        loc = Location.none;
+        loc = Location.none
       }
 
   let is_assume t = t.assume
@@ -447,10 +445,22 @@ end = struct
         (fun (c : Cmm.codegen_option) ->
           match c with
           | Check { property; strict; loc } when property = spec ->
-            Some { strict; assume = false; never_returns_normally = false; can_raise = true; loc }
+            Some
+              { strict;
+                assume = false;
+                never_returns_normally = false;
+                can_raise = true;
+                loc
+              }
           | Assume { property; strict; never_returns_normally; loc }
             when property = spec ->
-            Some { strict; assume = true; never_returns_normally; loc; can_raise = true; }
+            Some
+              { strict;
+                assume = true;
+                never_returns_normally;
+                loc;
+                can_raise = true
+              }
           | Ignore_assert_all property when property = spec ->
             ignore_assert_all := true;
             None
@@ -1052,19 +1062,20 @@ end = struct
       assert (not (Mach.operation_can_raise op));
       next
     | Ialloc { mode = Alloc_heap; bytes; dbginfo } -> (
-        assert (not (Mach.operation_can_raise op));
-        let a = Annotation.of_metadata dbg ~can_raise:false in
-        match Annotation.is_assume a with
-        | true ->
-          (* [never_returns_normally] is intended for calls only and therefore ignored on
-             Alloc instructions. This is sound but may be overly-conservative and
-             counter-intuitive to the user if a function annotated with [assume
-             never_returns_normally] is inlined and does not end with a call. *)
-          next
-        | false ->
-          let w = create_witnesses t (Alloc { bytes; dbginfo }) dbg in
-          let r = Value.transform w next in
-          check t r "heap allocation" dbg)
+      assert (not (Mach.operation_can_raise op));
+      let a = Annotation.of_metadata dbg ~can_raise:false in
+      match Annotation.is_assume a with
+      | true ->
+        (* [never_returns_normally] is intended for calls only and therefore
+           ignored on Alloc instructions. This is sound but may be
+           overly-conservative and counter-intuitive to the user if a function
+           annotated with [assume never_returns_normally] is inlined and does
+           not end with a call. *)
+        next
+      | false ->
+        let w = create_witnesses t (Alloc { bytes; dbginfo }) dbg in
+        let r = Value.transform w next in
+        check t r "heap allocation" dbg)
     | Iprobe { name; handler_code_sym; enabled_at_init = __ } ->
       let desc = Printf.sprintf "probe %s handler %s" name handler_code_sym in
       let w = create_witnesses t (Probe { name; handler_code_sym }) dbg in
@@ -1100,7 +1111,9 @@ end = struct
     | Ispecific s ->
       let effect =
         let w = create_witnesses t Arch_specific dbg in
-        let a = Annotation.of_metadata dbg ~can_raise:(Arch.operation_can_raise s) in
+        let a =
+          Annotation.of_metadata dbg ~can_raise:(Arch.operation_can_raise s)
+        in
         match Annotation.is_assume a with
         | true -> Annotation.expected_value a w
         | false -> S.transform_specific w s
