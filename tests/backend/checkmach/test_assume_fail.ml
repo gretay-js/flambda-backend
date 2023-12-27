@@ -16,7 +16,9 @@ let[@inline always] test46 x = if x > 0 then failwith (Printf.sprintf "%d" x) el
 let[@zero_alloc strict] test48 x =
   (test46[@zero_alloc assume never_returns_normally]) x
 
-(* This example shows that  never_returns_normally only works on calls, not on allocation. *)
+(* Perhaps confusingly, never_returns_normally works on allocations not only
+   on calls. This is needed for analysis to give the same results regardess
+   of inlining of expressions annotated with "assume".  *)
 let[@zero_alloc] test49 x =
   try let y = (test46[@zero_alloc assume never_returns_normally]) x in [y;(x,x+1)]
   with _ -> failwith (Printf.sprintf "%d" x)
