@@ -18,3 +18,15 @@ Error: Annotation check for zero_alloc strict failed on function Test_assume_fai
 
 File "test_assume_fail.ml", line 17, characters 2-55:
 Error: Unexpected direct call camlCamlinternalFormat.make_printf_120_401_code (test_assume_fail.ml:17,2--55;test_assume_fail.ml:14,54--77;printf.ml:47,18--43;printf.ml:45,2--31) on a path to exceptional return
+
+File "test_assume_fail.ml", line 29, characters 5-15:
+Error: Annotation check for zero_alloc strict failed on function Test_assume_fail.test51 (camlTest_assume_fail.test51_HIDE_STAMP)
+
+File "test_assume_fail.ml", line 29, characters 35-43:
+Error: Unexpected allocation of 24 bytes (test_assume_fail.ml:29,35--43;test_assume_fail.ml:27,74--80) on a path to diverge
+
+File "test_assume_fail.ml", line 33, characters 5-15:
+Error: Annotation check for zero_alloc strict failed on function Test_assume_fail.test53 (camlTest_assume_fail.test53_HIDE_STAMP)
+
+File "test_assume_fail.ml", line 33, characters 35-43:
+Error: Unexpected direct tailcall camlTest_assume_fail.test52_HIDE_STAMP on a path to exceptional return
