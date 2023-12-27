@@ -1095,16 +1095,12 @@ end = struct
     | Ialloc { mode = Alloc_heap; bytes; dbginfo } -> (
       assert (not (Mach.operation_can_raise op));
       let a = Annotation.of_metadata dbg ~can_raise:false in
+      let w = create_witnesses t (Alloc { bytes; dbginfo }) dbg in
       match Annotation.is_assume a with
       | true ->
-        (* [never_returns_normally] is intended for calls only and therefore
-           ignored on Alloc instructions. This is sound but may be
-           overly-conservative and counter-intuitive to the user if a function
-           annotated with [assume never_returns_normally] is inlined and does
-           not end with a call. *)
-        next
+        let effect = Annotation.expected_value a w in
+        transform t ~next ~exn ~effect "heap allocation" dbg
       | false ->
-        let w = create_witnesses t (Alloc { bytes; dbginfo }) dbg in
         let r = Value.transform w next in
         check t r "heap allocation" dbg)
     | Iprobe { name; handler_code_sym; enabled_at_init = __ } ->
