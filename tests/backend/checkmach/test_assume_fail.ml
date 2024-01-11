@@ -49,3 +49,16 @@ let[@zero_alloc strict] test59 x = test58 x
 let[@inline never][@zero_alloc assume never_returns_normally strict] test60 x = (x, x)
 
 let[@zero_alloc strict] test61 x = test60 x
+
+(* allocations on the path to a call labeled [@zero_alloc assume never_returns_normally]
+   do not count for the normal check, but do count for the strict check *)
+
+let[@inline never] test62 x = [x;x]
+
+let[@zero_alloc] test63 x =
+  let p = [x;x+1] in
+  (test62[@zero_alloc assume never_returns_normally]) p
+
+let[@zero_alloc strict] test64 x =
+  let p = [x;x+1] in
+  (test62[@zero_alloc assume never_returns_normally]) p
