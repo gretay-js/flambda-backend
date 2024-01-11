@@ -35,7 +35,7 @@ let join t1 t2 =
     t1
 
 let meet t1 t2 =
-  (* mix of rank *)
+  (* min of rank *)
   if Int.compare (rank t1) (rank t2) < 0 then
     t1
   else
