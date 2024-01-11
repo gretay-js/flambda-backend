@@ -15,9 +15,17 @@ let equal t1 t2 = Int.equal (rank t1) (rank t2)
 let to_string = function
   | No_assume -> ""
   | Assume { strict; never_returns_normally } ->
-    Printf.sprintf "(assume zero_alloc%s%s)"
-      (if strict then "_strict" else "")
-      (if never_returns_normally then "_never_returns_normally" else "")
+      Printf.sprintf "(assume zero_alloc%s%s)"
+        ( if strict then
+          "_strict"
+        else
+          ""
+        )
+        ( if never_returns_normally then
+          "_never_returns_normally"
+        else
+          ""
+        )
 
 let join t1 t2 =
   (* max of rank *)
@@ -32,6 +40,3 @@ let meet t1 t2 =
     t1
   else
     t2
-
-
-
