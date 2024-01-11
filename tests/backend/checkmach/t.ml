@@ -284,3 +284,9 @@ let[@zero_alloc strict] test50 x =
 let[@zero_alloc] test51 x =
   try (test46[@zero_alloc assume never_returns_normally]) x
   with _ -> failwith (Printf.sprintf "%d" x)
+
+let[@zero_alloc] test52 x =
+  (test42[@zero_alloc assume strict]) x
+
+let[@zero_alloc] test53 x =
+  (test42[@zero_alloc assume never_returns_normally]) x
