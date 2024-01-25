@@ -466,12 +466,12 @@ let assume_zero_alloc ?mark_used attributes : Assume_info.t =
   let attr = find_attribute ?mark_used (is_property_attribute p) attributes in
   let res = parse_property_attribute attr p in
   match attr, res with
-  | None, Default_check -> No_assume
-  | _, Default_check -> No_assume
+  | None, Default_check -> Assume_info.none
+  | _, Default_check -> Assume_info.none
   | None, (Check _ | Assume _ | Ignore_assert_all _) -> assert false
-  | Some _, Ignore_assert_all _ -> No_assume
+  | Some _, Ignore_assert_all _ -> Assume_info.none
   | Some _, Assume { strict; never_returns_normally; } ->
-    Assume { strict; never_returns_normally }
+    Assume_info.create ~strict ~never_returns_normally
   | Some attr, Check { loc; _ } ->
     let name = attr.attr_name.txt in
     let msg = "Only the following combinations are supported in this context: \
@@ -481,7 +481,7 @@ let assume_zero_alloc ?mark_used attributes : Assume_info.t =
                `zero_alloc assume never_returns_normally strict`."
     in
     Location.prerr_warning loc (Warnings.Attribute_payload (name, msg));
-    No_assume
+    Assume_info.none
 
 let get_assume_zero_alloc ~with_warnings attributes =
   if with_warnings then

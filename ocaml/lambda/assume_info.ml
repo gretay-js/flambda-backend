@@ -1,6 +1,3 @@
-type t =
-  | No_assume
-  | Assume of { strict : bool; never_returns_normally : bool }
 (*
 
    The meaning of keywords [strict] and [never_returns_normally]
@@ -32,6 +29,9 @@ type t =
    directly, instead of the weird compare function that abstracts them? Perhaps we
    should translate "strict" and "never_returns_normally" directly into (nor,exn,div)
 *)
+type t =
+  | No_assume
+  | Assume of { strict : bool; never_returns_normally : bool }
 
 let[@inline always] rank = function
   | No_assume -> 0
@@ -71,3 +71,23 @@ let meet t1 t2 =
     t1
   else
     t2
+
+let none = No_assume
+
+let create ~strict ~never_returns_normally =
+  Assume { strict; never_returns_normally }
+
+let strict t =
+  match t with
+  | No_assume -> None
+  | Assume { strict; _ } -> Some strict
+
+let never_returns_normally t =
+  match t with
+  | No_assume -> None
+  | Assume { never_returns_normally; _ } -> Some never_returns_normally
+
+let is_none t =
+  match t with
+  | No_assume -> true
+  | Assume _ -> false

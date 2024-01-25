@@ -75,15 +75,15 @@ module Scoped_location = struct
   let enter_compilation_unit ~scopes cu =
     let name = Compilation_unit.name_as_string cu in
     cons scopes Sc_module_definition (dot scopes name) name
-      ~assume_zero_alloc:No_assume
+      ~assume_zero_alloc:Assume_info.none
 
   let enter_module_definition ~scopes id =
     cons scopes Sc_module_definition (dot scopes (Ident.name id)) (Ident.name id)
-      ~assume_zero_alloc:No_assume
+      ~assume_zero_alloc:Assume_info.none
 
   let enter_class_definition ~scopes id =
     cons scopes Sc_class_definition (dot scopes (Ident.name id)) (Ident.name id)
-      ~assume_zero_alloc:No_assume
+      ~assume_zero_alloc:Assume_info.none
 
   let enter_method_definition ~scopes (s : Asttypes.label) =
     let str =
@@ -91,14 +91,14 @@ module Scoped_location = struct
       | Cons {item = Sc_class_definition; _} -> dot ~sep:"#" scopes s
       | _ -> dot scopes s
     in
-    cons scopes Sc_method_definition str s ~assume_zero_alloc:No_assume
+    cons scopes Sc_method_definition str s ~assume_zero_alloc:Assume_info.none
 
   let enter_lazy ~scopes = cons scopes Sc_lazy (str scopes) ""
-                             ~assume_zero_alloc:No_assume
+                             ~assume_zero_alloc:Assume_info.none
 
   let enter_partial_or_eta_wrapper ~scopes =
     cons scopes Sc_partial_or_eta_wrapper (dot ~no_parens:() scopes "(partial)") ""
-      ~assume_zero_alloc:No_assume
+      ~assume_zero_alloc:Assume_info.none
 
   let join_assume_zero_alloc ~scopes ~assume_zero_alloc =
     match scopes with
@@ -114,7 +114,7 @@ module Scoped_location = struct
 
   let get_assume_zero_alloc ~scopes =
     match scopes with
-    | Empty -> Assume_info.No_assume
+    | Empty -> Assume_info.none
     | Cons { assume_zero_alloc; _ } -> assume_zero_alloc
 
   let string_of_scopes = function
@@ -238,7 +238,7 @@ type alloc_dbginfo_item =
     alloc_dbg : t }
 type alloc_dbginfo = alloc_dbginfo_item list
 
-let none = { dbg = []; assume_zero_alloc = No_assume }
+let none = { dbg = []; assume_zero_alloc = Assume_info.none }
 
 let to_string { dbg; assume_zero_alloc; } =
   let s = Dbg.to_string dbg in
@@ -266,7 +266,7 @@ let item_from_location ~scopes loc =
   }
 
 let from_location = function
-  | Scoped_location.Loc_unknown -> { dbg = []; assume_zero_alloc = No_assume; }
+  | Scoped_location.Loc_unknown -> { dbg = []; assume_zero_alloc = Assume_info.none; }
   | Scoped_location.Loc_known {scopes; loc} ->
     assert (not (Location.is_none loc));
     let assume_zero_alloc = Scoped_location.get_assume_zero_alloc ~scopes in
@@ -295,7 +295,7 @@ let inline { dbg = dbg1; assume_zero_alloc = a1; }
   { dbg = dbg1 @ dbg2; assume_zero_alloc = Assume_info.join a1 a2; }
 
 let is_none { dbg; assume_zero_alloc } =
-  (not Assume_info.(equal assume_zero_alloc No_assume)) && Dbg.is_none dbg
+  (not Assume_info.(equal assume_zero_alloc Assume_info.none)) && Dbg.is_none dbg
 
 let compare { dbg = dbg1; assume_zero_alloc = a1; }
       { dbg = dbg2; assume_zero_alloc = a2; } =
@@ -328,9 +328,9 @@ let merge ~into:{ dbg = dbg1; assume_zero_alloc = a1; }
      from the other.
   *)
   let dbg =
-    match a1, a2 with
-    | (Assume _), No_assume -> dbg2
-    | (Assume _ | No_assume),  _ -> dbg1
+    match Assume_info.is_none a1, Assume_info.is_none a2 with
+    | false, true -> dbg2
+    | _,  _ -> dbg1
   in
   { dbg;
     assume_zero_alloc = Assume_info.meet a1 a2

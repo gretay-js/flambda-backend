@@ -1049,7 +1049,7 @@ and transl_apply ~scopes
       ?(tailcall=Default_tailcall)
       ?(inlined = Default_inlined)
       ?(specialised = Default_specialise)
-      ?(assume_zero_alloc = Assume_info.No_assume)
+      ?(assume_zero_alloc = Assume_info.none)
       ?(position=Rc_normal)
       ?(mode=alloc_heap)
       ~result_layout
@@ -1825,7 +1825,7 @@ let transl_scoped_exp ~scopes sort exp =
 let transl_apply
       ~scopes ?tailcall ?inlined ?specialised ?position ?mode ~result_layout fn args loc =
   maybe_region_layout result_layout (transl_apply
-      ~scopes ?tailcall ?inlined ?specialised ~assume_zero_alloc:Assume_info.No_assume ?position ?mode ~result_layout fn args loc)
+      ~scopes ?tailcall ?inlined ?specialised ~assume_zero_alloc:Assume_info.none ?position ?mode ~result_layout fn args loc)
 
 (* Error report *)
 

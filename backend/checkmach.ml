@@ -390,14 +390,16 @@ end = struct
   let of_metadata dbg ~can_raise =
     (* [loc] can be obtained by [Debuginfo.to_location dbg], For now just return
        [Location.none] because it is not used. *)
-    match Debuginfo.assume_zero_alloc dbg with
-    | No_assume ->
-      (* CR-someday gyorsh: propage assert of arbitrary expressions. *)
+    let a = Debuginfo.assume_zero_alloc dbg in
+    if Assume_info.is_none a
+    then
+      (* CR-someday gyorsh: propagate assert of arbitrary expressions. *)
       default
-    | Assume { strict; never_returns_normally } ->
+    else
       { assume = true;
-        strict;
-        never_returns_normally;
+        strict = Assume_info.strict a |> Option.get;
+        never_returns_normally =
+          Assume_info.never_returns_normally a |> Option.get;
         can_raise;
         loc = Location.none
       }
