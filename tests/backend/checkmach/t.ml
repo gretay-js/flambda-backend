@@ -290,3 +290,9 @@ let[@zero_alloc] test52 x =
 
 let[@zero_alloc] test53 x =
   (test42[@zero_alloc assume never_returns_normally]) x
+
+let[@zero_alloc strict] test54 x =
+  let[@zero_alloc assume never_returns_normally] test55 x =
+    (test42 [@zero_alloc assume strict]) x
+  in
+  test55 x
