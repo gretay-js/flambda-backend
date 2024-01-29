@@ -1,9 +1,16 @@
 module Witness = struct
   module Kind = struct
+    type alloc_dbginfo_item =
+      { alloc_words : int;
+        alloc_dbg : Dbg.t
+      }
+
+    type alloc_dbginfo = alloc_dbginfo_item list
+
     type t =
       | Alloc of
           { bytes : int;
-            dbginfo : Debuginfo.alloc_dbginfo
+            dbginfo : alloc_dbginfo
           }
       | Indirect_call
       | Indirect_tailcall
@@ -47,7 +54,7 @@ module Witness = struct
   end
 
   type t =
-    { dbg : Debuginfo.t;
+    { dbg : Dbg.t;
       kind : Kind.t
     }
 
@@ -56,11 +63,11 @@ module Witness = struct
   let compare { dbg = dbg1; kind = kind1 } { dbg = dbg2; kind = kind2 } =
     (* compare by [dbg] first to print the errors in the order they appear in
        the source file. *)
-    let c = Debuginfo.compare dbg1 dbg2 in
+    let c = Dbg.compare dbg1 dbg2 in
     if c <> 0 then c else Stdlib.compare kind1 kind2
 
   let print ppf { kind; dbg } =
-    Format.fprintf ppf "%a %a" Kind.print kind Debuginfo.print_compact dbg
+    Format.fprintf ppf "%a %a" Kind.print kind Dbg.print_compact dbg
 end
 
 module Witnesses : sig
@@ -74,7 +81,7 @@ module Witnesses : sig
 
   val join : t -> t -> t
 
-  val create : Witness.Kind.t -> Debuginfo.t -> t
+  val create : Witness.Kind.t -> Dbg.t -> t
 
   val print : Format.formatter -> t -> unit
 

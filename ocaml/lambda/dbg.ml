@@ -95,3 +95,29 @@ let rec print_compact ppf t =
       print_item item;
       Format.fprintf ppf ";";
       print_compact ppf t
+
+let to_location dbg =
+  match dbg with
+  | [] -> Location.none
+  | d :: _ ->
+      let open Lexing in
+      let open Location in
+      let loc_start =
+        {
+          pos_fname = d.dinfo_file;
+          pos_lnum = d.dinfo_line;
+          pos_bol = d.dinfo_start_bol;
+          pos_cnum = d.dinfo_start_bol + d.dinfo_char_start;
+        }
+      in
+      let loc_end =
+        {
+          pos_fname = d.dinfo_file;
+          pos_lnum = d.dinfo_end_line;
+          pos_bol = d.dinfo_end_bol;
+          pos_cnum = d.dinfo_start_bol + d.dinfo_char_end;
+        }
+      in
+      { loc_ghost = false; loc_start; loc_end }
+
+let none = []

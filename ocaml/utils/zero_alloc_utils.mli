@@ -2,10 +2,17 @@
     not satisfy the property. *)
 module Witness : sig
   module Kind : sig
+    type alloc_dbginfo_item =
+      { alloc_words : int;
+        alloc_dbg : Dbg.t
+      }
+
+    type alloc_dbginfo = alloc_dbginfo_item list
+
     type t =
       | Alloc of
           { bytes : int;
-            dbginfo : Debuginfo.alloc_dbginfo
+            dbginfo : alloc_dbginfo
           }
       | Indirect_call
       | Indirect_tailcall
@@ -22,15 +29,15 @@ module Witness : sig
 
     val print : Format.formatter -> t -> unit
 
-    val get_alloc_dbginfo : t -> Debuginfo.alloc_dbginfo option
+    val get_alloc_dbginfo : t -> alloc_dbginfo option
   end
 
   type t = private
-    { dbg : Debuginfo.t;
+    { dbg : Dbg.t;
       kind : Kind.t
     }
 
-  val create : Debuginfo.t -> Kind.t -> t
+  val create : Dbg.t -> Kind.t -> t
 
   val compare : t -> t -> int
 
@@ -48,7 +55,7 @@ module Witnesses : sig
 
   val join : t -> t -> t
 
-  val create : Witness.Kind.t -> Debuginfo.t -> t
+  val create : Witness.Kind.t -> Dbg.t -> t
 
   val print : Format.formatter -> t -> unit
 

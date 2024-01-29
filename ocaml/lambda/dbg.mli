@@ -20,3 +20,5 @@ val to_list : t -> item list
 val length : t -> int
 val to_string : t -> string
 val print_compact : Format.formatter -> t -> unit
+val to_location : t -> Location.t
+val none : t

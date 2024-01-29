@@ -59,22 +59,7 @@ let from_location = function
     { dbg = [item_from_location ~scopes loc]; assume_zero_alloc; }
 
 let to_location { dbg; assume_zero_alloc=_ } =
-  match dbg with
-  | [] -> Location.none
-  | d :: _ ->
-    let loc_start =
-      { pos_fname = d.dinfo_file;
-        pos_lnum = d.dinfo_line;
-        pos_bol = d.dinfo_start_bol;
-        pos_cnum = d.dinfo_start_bol + d.dinfo_char_start;
-      } in
-    let loc_end =
-      { pos_fname = d.dinfo_file;
-        pos_lnum = d.dinfo_end_line;
-        pos_bol = d.dinfo_end_bol;
-        pos_cnum = d.dinfo_start_bol + d.dinfo_char_end;
-      } in
-    { loc_ghost = false; loc_start; loc_end; }
+  Dbg.to_location dbg
 
 let inline { dbg = dbg1; assume_zero_alloc = a1; }
       { dbg = dbg2; assume_zero_alloc = a2; } =

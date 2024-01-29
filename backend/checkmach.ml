@@ -213,8 +213,8 @@ end = struct
     let pp_inlined_dbg ppf dbg =
       (* Show inlined locations, if dbg has more than one item. The first item
          will be shown at the start of the error message. *)
-      if Dbg.length (Debuginfo.get_dbg dbg) > 1
-      then Format.fprintf ppf " (%a)" Debuginfo.print_compact dbg
+      if Dbg.length dbg > 1
+      then Format.fprintf ppf " (%a)" Dbg.print_compact dbg
     in
     let print_comballoc (w : Witness.t) =
       match Witness.Kind.get_alloc_dbginfo w.kind with
@@ -230,12 +230,12 @@ end = struct
         in
         let details =
           List.map
-            (fun (item : Debuginfo.alloc_dbginfo_item) ->
+            (fun (item : Witness.Kind.alloc_dbginfo_item) ->
               let pp_alloc ppf =
                 Format.fprintf ppf "allocate %d words%a" item.alloc_words
                   pp_inlined_dbg item.alloc_dbg
               in
-              let aloc = Debuginfo.to_location item.alloc_dbg in
+              let aloc = Dbg.to_location item.alloc_dbg in
               Location.mkloc pp_alloc aloc)
             alloc_dbginfo
         in
@@ -243,7 +243,7 @@ end = struct
     in
     let print_witness (w : Witness.t) ~component =
       (* print location of the witness, print witness description. *)
-      let loc = Debuginfo.to_location w.dbg in
+      let loc = Dbg.to_location w.dbg in
       let comballoc_msg, sub = print_comballoc w in
       let component_msg =
         if String.equal "" component
@@ -442,9 +442,7 @@ end = struct
       let w =
         if should_keep_witnesses true
         then
-          Witnesses.create
-            (Forward_call { callee = func_info.name })
-            Debuginfo.none
+          Witnesses.create (Forward_call { callee = func_info.name }) Dbg.none
         else Witnesses.empty
       in
       let v = V.join value.nor value.exn |> V.replace_witnesses w in
@@ -656,7 +654,9 @@ end = struct
     | None -> report t v ~msg:"resolved" ~desc dbg
 
   let[@inline always] create_witnesses t kind dbg =
-    if t.keep_witnesses then Witnesses.create kind dbg else Witnesses.empty
+    if t.keep_witnesses
+    then Witnesses.create kind (Debuginfo.get_dbg dbg)
+    else Witnesses.empty
 
   (* [find_callee] returns the value associated with the callee and a new
      dependency to record if there is one. *)
@@ -802,6 +802,12 @@ end = struct
     | Ialloc { mode = Alloc_heap; bytes; dbginfo } -> (
       assert (not (Mach.operation_can_raise op));
       let a = Annotation.of_metadata dbg ~can_raise:false in
+      let extract_alloc_dbginfo
+          ({ alloc_words; alloc_dbg } : Debuginfo.alloc_dbginfo_item) :
+          Witness.Kind.alloc_dbginfo_item =
+        { alloc_words; alloc_dbg = Debuginfo.get_dbg alloc_dbg }
+      in
+      let dbginfo = List.map extract_alloc_dbginfo dbginfo in
       let w = create_witnesses t (Alloc { bytes; dbginfo }) dbg in
       match Annotation.is_assume a with
       | true ->
