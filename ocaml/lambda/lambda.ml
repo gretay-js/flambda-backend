@@ -574,7 +574,7 @@ type function_attribute = {
   tmc_candidate: bool;
 }
 
-type scoped_location = Debuginfo.Scoped_location.t
+type scoped_location = Scoped_location.t
 
 type parameter_attribute = No_attributes
 

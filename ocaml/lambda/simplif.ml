@@ -17,7 +17,7 @@
    Also transform let-bound references into variables. *)
 
 open Lambda
-open Debuginfo.Scoped_location
+open Scoped_location
 
 (* To transform let-bound references into variables *)
 

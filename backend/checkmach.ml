@@ -197,9 +197,9 @@ end = struct
     let loc = Annotation.get_loc t.a in
     let print_annotated_fun ppf () =
       let scoped_name =
-        t.fun_dbg |> Debuginfo.get_dbg |> Debuginfo.Dbg.to_list
+        t.fun_dbg |> Debuginfo.get_dbg |> Dbg.to_list
         |> List.map (fun dbg ->
-               Debuginfo.(Scoped_location.string_of_scopes dbg.dinfo_scopes))
+               Scoped_location.string_of_scopes dbg.Dbg.dinfo_scopes)
         |> String.concat ","
       in
       Format.fprintf ppf "Annotation check for %s%s failed on function %s (%s)"
@@ -213,7 +213,7 @@ end = struct
     let pp_inlined_dbg ppf dbg =
       (* Show inlined locations, if dbg has more than one item. The first item
          will be shown at the start of the error message. *)
-      if Debuginfo.Dbg.length (Debuginfo.get_dbg dbg) > 1
+      if Dbg.length (Debuginfo.get_dbg dbg) > 1
       then Format.fprintf ppf " (%a)" Debuginfo.print_compact dbg
     in
     let print_comballoc (w : Witness.t) =

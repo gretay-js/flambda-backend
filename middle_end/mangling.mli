@@ -21,5 +21,4 @@
  * SOFTWARE.
  *)
 
-val fun_symbol :
-  unitname:string -> loc:Debuginfo.Scoped_location.t -> id:string -> string
+val fun_symbol : unitname:string -> loc:Scoped_location.t -> id:string -> string

@@ -94,7 +94,7 @@ let transl_label_init_general f =
       (fun c id expr ->
          let layout = Lambda.structured_constant_layout c in
          let const =
-           Lprim (Popaque layout, [Lconst c], Debuginfo.Scoped_location.Loc_unknown)
+           Lprim (Popaque layout, [Lconst c], Scoped_location.Loc_unknown)
          in
          (* CR ncourant: this *should* not be too precise for the moment,
             but we should take care, or fix the underlying cause that led

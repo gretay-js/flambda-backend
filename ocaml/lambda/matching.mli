@@ -17,7 +17,7 @@
 
 open Typedtree
 open Lambda
-open Debuginfo.Scoped_location
+open Scoped_location
 
 (* Entry points to match compiler *)
 val for_function:

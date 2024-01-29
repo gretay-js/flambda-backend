@@ -24,7 +24,7 @@ open Typedtree
 open Typeopt
 open Lambda
 open Translmode
-open Debuginfo.Scoped_location
+open Scoped_location
 
 type error =
     Free_super_var

@@ -158,10 +158,10 @@ module Relative = struct
 
   let unknown prev = Absolute.Unknown { prev }
 
-  let between_scoped_locations ~(parent : Debuginfo.Scoped_location.t)
-      ~(child : Debuginfo.Scoped_location.t) =
-    let scopes_are_equal (a : Debuginfo.Scoped_location.scopes)
-        (b : Debuginfo.Scoped_location.scopes) =
+  let between_scoped_locations ~(parent : Scoped_location.t)
+      ~(child : Scoped_location.t) =
+    let scopes_are_equal (a : Scoped_location.scopes)
+        (b : Scoped_location.scopes) =
       match a, b with
       | Cons a, Cons b ->
         a.item = b.item && a.str = b.str && a.str_fun = b.str_fun
@@ -173,8 +173,8 @@ module Relative = struct
       then Absolute.Empty
       else
         match child with
-        | Debuginfo.Scoped_location.Empty -> Absolute.Empty
-        | Debuginfo.Scoped_location.Cons { item; name; prev; _ } -> (
+        | Scoped_location.Empty -> Absolute.Empty
+        | Scoped_location.Cons { item; name; prev; _ } -> (
           let prev = aux ~parent ~child:prev in
           match item with
           | Sc_module_definition -> Absolute.Module { name; prev }
@@ -185,7 +185,7 @@ module Relative = struct
     in
     let parent =
       match parent with
-      | Loc_unknown -> Debuginfo.Scoped_location.empty_scopes
+      | Loc_unknown -> Scoped_location.empty_scopes
       | Loc_known { scopes; _ } -> scopes
     in
     let child =
@@ -254,9 +254,8 @@ module Tracker = struct
   let call ~dbg ~callee ~relative { absolute; _ } =
     extend_absolute absolute (Relative.call ~dbg ~callee relative)
 
-  let fundecl_of_scoped_location ~name
-      ~(path_to_root : Debuginfo.Scoped_location.t)
-      (loc : Debuginfo.Scoped_location.t) t =
+  let fundecl_of_scoped_location ~name ~(path_to_root : Scoped_location.t)
+      (loc : Scoped_location.t) t =
     match loc with
     | Loc_unknown -> unknown t
     | Loc_known _ ->

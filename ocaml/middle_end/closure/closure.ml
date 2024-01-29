@@ -869,7 +869,7 @@ let bind_params { backend; mutable_vars; _ } loc fdesc params args funct body =
 
 let warning_if_forced_inlined ~loc ~attribute warning =
   if attribute = Always_inlined then
-    Location.prerr_warning (Debuginfo.Scoped_location.to_location loc)
+    Location.prerr_warning (Scoped_location.to_location loc)
       (Warnings.Inlining_impossible warning)
 
 let fail_if_probe ~(probe : Lambda.probe) msg =
@@ -1046,7 +1046,7 @@ let rec close ({ backend; fenv; cenv ; mutable_vars; kinds; catch_env } as env) 
       let nargs = List.length args in
       if nargs = 0 && probe = None then
         Misc.fatal_errorf "Closure: 0-ary application at %a"
-          Location.print_loc (Debuginfo.Scoped_location.to_location loc);
+          Location.print_loc (Scoped_location.to_location loc);
       assert (nargs > 0);
       begin match (close env funct, close_list env args) with
         ((ufunct, Value_closure(_,

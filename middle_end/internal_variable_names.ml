@@ -365,7 +365,7 @@ let pmake_unboxed_product_arg = "Pmake_unboxed_product_arg"
 let punboxed_product_field_arg = "Punboxed_product_field_arg"
 
 let anon_fn_with_loc (sloc: Lambda.scoped_location) =
-  let loc = Debuginfo.Scoped_location.to_location sloc in
+  let loc = Scoped_location.to_location sloc in
   let (file, line, startchar) = Location.get_pos_info loc.loc_start in
   let endchar = loc.loc_end.pos_cnum - loc.loc_start.pos_bol in
   let pp_chars ppf =

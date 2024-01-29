@@ -127,7 +127,7 @@ type frame_descr =
 
 let frame_descriptors = ref([] : frame_descr list)
 
-let is_none_dbg d = Debuginfo.Dbg.is_none (Debuginfo.get_dbg d)
+let is_none_dbg d = Dbg.is_none (Debuginfo.get_dbg d)
 
 let get_flags debuginfo =
   match debuginfo with
@@ -200,13 +200,13 @@ let emit_frames a =
   in
   let module Label_table =
     Hashtbl.Make (struct
-      type t = bool * Debuginfo.Dbg.t
+      type t = bool * Dbg.t
 
       let equal ((rs1 : bool), dbg1) (rs2, dbg2) =
-        rs1 = rs2 && Debuginfo.Dbg.compare dbg1 dbg2 = 0
+        rs1 = rs2 && Dbg.compare dbg1 dbg2 = 0
 
       let hash (rs, dbg) =
-        Hashtbl.hash (rs, Debuginfo.Dbg.hash dbg)
+        Hashtbl.hash (rs, Dbg.hash dbg)
     end)
   in
   let debuginfos = Label_table.create 7 in
@@ -278,9 +278,9 @@ let emit_frames a =
     a.efa_string defname
   in
   let pack_info fd_raise d has_next =
-    let line = min 0xFFFFF d.Debuginfo.dinfo_line
-    and char_start = min 0xFF d.Debuginfo.dinfo_char_start
-    and char_end = min 0x3FF d.Debuginfo.dinfo_char_end
+    let line = min 0xFFFFF d.Dbg.dinfo_line
+    and char_start = min 0xFF d.Dbg.dinfo_char_start
+    and char_end = min 0x3FF d.Dbg.dinfo_char_end
     and kind = if fd_raise then 1 else 0
     and has_next = if has_next then 1 else 0 in
     Int64.(add (shift_left (of_int line) 44)
@@ -290,18 +290,17 @@ let emit_frames a =
                       (of_int has_next)))))
   in
   let emit_debuginfo (rs, dbg) lbl =
-    let rdbg = dbg |> Debuginfo.Dbg.to_list |> List.rev in
+    let rdbg = dbg |> Dbg.to_list |> List.rev in
     (* Due to inlined functions, a single debuginfo may have multiple locations.
        These are represented sequentially in memory (innermost frame first),
        with the low bit of the packed debuginfo being 0 on the last entry. *)
     a.efa_align 4;
     a.efa_def_label lbl;
     let rec emit rs d rest =
-      let open Debuginfo in
       let info = pack_info rs d (rest <> []) in
-      let defname = Scoped_location.string_of_scopes d.dinfo_scopes in
+      let defname = Scoped_location.string_of_scopes d.Dbg.dinfo_scopes in
       a.efa_label_rel
-        (label_defname d.dinfo_file defname)
+        (label_defname d.Dbg.dinfo_file defname)
         (Int64.to_int32 info);
       a.efa_32 (Int64.to_int32 (Int64.shift_right info 32));
       match rest with
@@ -404,12 +403,12 @@ let get_file_num ~file_emitter file_name =
 (* We only display .file if the file has not been seen before. We
    display .loc for every instruction. *)
 let emit_debug_info_gen ?discriminator dbg file_emitter loc_emitter =
-  let dbg = Debuginfo.Dbg.to_list (Debuginfo.get_dbg dbg) in
+  let dbg = Dbg.to_list (Debuginfo.get_dbg dbg) in
   if is_cfi_enabled () &&
     (!Clflags.debug || Config.with_frame_pointers) then begin
     match List.rev dbg with
     | [] -> ()
-    | { Debuginfo.dinfo_line = line;
+    | { Dbg.dinfo_line = line;
         dinfo_char_start = col;
         dinfo_file = file_name; } :: _ ->
       if line > 0 then begin (* PR#6243 *)

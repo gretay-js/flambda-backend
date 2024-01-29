@@ -205,7 +205,7 @@ module Precompute_array_size : sig
 end = struct
   (* Modeled after [Translcore.assert_failed] *)
   let raise_overflow_exn ~loc =
-    let loc' = Debuginfo.Scoped_location.to_location loc in
+    let loc' = Scoped_location.to_location loc in
     let slot =
       transl_extension_path
         loc

@@ -92,6 +92,8 @@
     cmi_format
     persistent_env
     env
+    scoped_location
+    dbg
     assume_info
     debuginfo
     lambda
@@ -184,6 +186,8 @@
 (copy_files ../../file_formats/cmi_format.ml)
 (copy_files ../../typing/persistent_env.ml)
 (copy_files ../../typing/env.ml)
+(copy_files ../../lambda/scoped_location.ml)
+(copy_files ../../lambda/dbg.ml)
 (copy_files ../../lambda/assume_info.ml)
 (copy_files ../../lambda/debuginfo.ml)
 (copy_files ../../lambda/lambda.ml)
@@ -248,6 +252,7 @@
 (copy_files ../../file_formats/cmi_format.mli)
 (copy_files ../../typing/persistent_env.mli)
 (copy_files ../../typing/env.mli)
+(copy_files ../../lambda/dbg.mli)
 (copy_files ../../lambda/assume_info.mli)
 (copy_files ../../lambda/debuginfo.mli)
 (copy_files ../../lambda/lambda.mli)
@@ -351,6 +356,8 @@
       .dynlink_compilerlibs.objs/byte/dynlink_compilerlibs__Subst.cmo
       .dynlink_compilerlibs.objs/byte/dynlink_compilerlibs__Bytesections.cmo
       .dynlink_compilerlibs.objs/byte/dynlink_compilerlibs__Cmi_format.cmo
+      .dynlink_compilerlibs.objs/byte/dynlink_compilerlibs__Scoped_location.cmo
+      .dynlink_compilerlibs.objs/byte/dynlink_compilerlibs__Dbg.cmo
       .dynlink_compilerlibs.objs/byte/dynlink_compilerlibs__Assume_info.cmo
       .dynlink_compilerlibs.objs/byte/dynlink_compilerlibs__Debuginfo.cmo
       .dynlink_compilerlibs.objs/byte/dynlink_compilerlibs__Consistbl.cmo
@@ -431,6 +438,8 @@
       .dynlink_compilerlibs.objs/native/dynlink_compilerlibs__Subst.cmx
       .dynlink_compilerlibs.objs/native/dynlink_compilerlibs__Bytesections.cmx
       .dynlink_compilerlibs.objs/native/dynlink_compilerlibs__Cmi_format.cmx
+      .dynlink_compilerlibs.objs/native/dynlink_compilerlibs__Scoped_location.cmx
+      .dynlink_compilerlibs.objs/native/dynlink_compilerlibs__Dbg.cmx
       .dynlink_compilerlibs.objs/native/dynlink_compilerlibs__Assume_info.cmx
       .dynlink_compilerlibs.objs/native/dynlink_compilerlibs__Debuginfo.cmx
       .dynlink_compilerlibs.objs/native/dynlink_compilerlibs__Consistbl.cmx

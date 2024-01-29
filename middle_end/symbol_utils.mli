@@ -18,7 +18,7 @@
 
 val for_fun_ident
    : compilation_unit:Compilation_unit.t option
-  -> Debuginfo.Scoped_location.t
+  -> Scoped_location.t
   -> Ident.t
   -> Symbol.t
 

@@ -96,8 +96,6 @@ open Parmatch
 open Printf
 open Printpat
 
-module Scoped_location = Debuginfo.Scoped_location
-
 type error =
     Non_value_layout of Jkind.Violation.t
   | Illegal_record_field of Jkind.const

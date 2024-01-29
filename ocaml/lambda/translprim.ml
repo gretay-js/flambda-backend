@@ -20,7 +20,7 @@ open Types
 open Typedtree
 open Typeopt
 open Lambda
-open Debuginfo.Scoped_location
+open Scoped_location
 open Translmode
 
 type error =
@@ -806,7 +806,7 @@ let lambda_of_loc kind sloc =
     Lconst (Const_immstring loc)
   | Loc_LINE -> Lconst (Const_base (Const_int lnum))
   | Loc_FUNCTION ->
-    let scope_name = Debuginfo.Scoped_location.string_of_scoped_location sloc in
+    let scope_name = Scoped_location.string_of_scoped_location sloc in
     Lconst (Const_immstring scope_name)
 
 let caml_restore_raw_backtrace =
@@ -976,8 +976,8 @@ let transl_primitive loc p env ty ~poly_mode path =
   | [] -> lambda_of_prim p.prim_name prim loc args None
   | _ ->
      let loc =
-       Debuginfo.Scoped_location.map_scopes (fun ~scopes ->
-         Debuginfo.Scoped_location.enter_partial_or_eta_wrapper ~scopes)
+       Scoped_location.map_scopes (fun ~scopes ->
+         Scoped_location.enter_partial_or_eta_wrapper ~scopes)
          loc
      in
      let body = lambda_of_prim p.prim_name prim loc args None in

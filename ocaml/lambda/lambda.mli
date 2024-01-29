@@ -479,7 +479,7 @@ type lparam = {
   mode : alloc_mode
 }
 
-type scoped_location = Debuginfo.Scoped_location.t
+type scoped_location = Scoped_location.t
 
 type lambda =
     Lvar of Ident.t

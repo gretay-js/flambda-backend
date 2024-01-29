@@ -45,9 +45,9 @@ let for_fundecl ~get_file_id state (fundecl : L.fundecl) ~fun_end_label
   let parent = Dwarf_state.compilation_unit_proto_die state in
   let fun_name = fundecl.fun_name in
   let linkage_name =
-    match Debuginfo.Dbg.to_list (Debuginfo.get_dbg fundecl.fun_dbg) with
+    match Dbg.to_list (Debuginfo.get_dbg fundecl.fun_dbg) with
     | [item] ->
-      Debuginfo.Scoped_location.string_of_scopes item.dinfo_scopes
+      Scoped_location.string_of_scopes item.dinfo_scopes
       |> remove_double_underscores
     (* Not sure what to do in the cases below *)
     | [] | _ :: _ -> fun_name

@@ -22,7 +22,7 @@ open Types
 open Lambda
 open Switch
 open Instruct
-open Debuginfo.Scoped_location
+open Scoped_location
 
 (**** Label generation ****)
 

@@ -110,7 +110,7 @@ module Relative : sig
      [Absolute.of_scoped_location parent] and [Absolute.of_scope_location
      child] *)
   val between_scoped_locations :
-    parent:Debuginfo.Scoped_location.t -> child:Debuginfo.Scoped_location.t -> t
+    parent:Scoped_location.t -> child:Scoped_location.t -> t
 end
 
 module Tracker : sig
@@ -154,8 +154,8 @@ module Tracker : sig
      history is then ended by a function declaration. *)
   val fundecl_of_scoped_location :
     name:string ->
-    path_to_root:Debuginfo.Scoped_location.t ->
-    Debuginfo.Scoped_location.t ->
+    path_to_root:Scoped_location.t ->
+    Scoped_location.t ->
     t ->
     Absolute.t * Relative.t
 

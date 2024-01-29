@@ -1,6 +1,6 @@
 open Lambda
 open Typedtree
-open Debuginfo.Scoped_location
+open Scoped_location
 
 (** Translate array comprehensions; see the .ml file for more details *)
 

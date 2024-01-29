@@ -153,7 +153,7 @@ module Env = struct
       current_depth : Variable.t option;
       value_approximations : value_approximation Variable.Map.t;
       big_endian : bool;
-      path_to_root : Debuginfo.Scoped_location.t;
+      path_to_root : Scoped_location.t;
       inlining_history_tracker : Inlining_history.Tracker.t;
       at_toplevel : bool
     }
@@ -173,7 +173,7 @@ module Env = struct
       current_depth = None;
       value_approximations = Variable.Map.empty;
       big_endian;
-      path_to_root = Debuginfo.Scoped_location.Loc_unknown;
+      path_to_root = Scoped_location.Loc_unknown;
       inlining_history_tracker = Inlining_history.Tracker.empty current_unit;
       at_toplevel = true
     }
@@ -309,7 +309,7 @@ module Env = struct
     with Not_found -> Value_approximation.Value_unknown
 
   let set_path_to_root t path_to_root =
-    if path_to_root = Debuginfo.Scoped_location.Loc_unknown
+    if path_to_root = Scoped_location.Loc_unknown
     then t
     else { t with path_to_root }
 

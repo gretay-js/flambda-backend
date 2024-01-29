@@ -195,7 +195,7 @@ let rec try_to_find_location (lam : L.lambda) =
   | Ltrywith (lam, _, _, _) ->
     try_to_find_location lam
   | Lvar _ | Lmutvar _ | Lconst _ | Lletrec _ | Lstaticraise (_, []) ->
-    Debuginfo.Scoped_location.Loc_unknown
+    Scoped_location.Loc_unknown
 
 let try_to_find_debuginfo lam =
   Debuginfo.from_location (try_to_find_location lam)

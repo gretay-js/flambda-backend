@@ -125,6 +125,8 @@ COMPILERLIBS_SOURCES=\
   file_formats/cmi_format.ml \
   typing/persistent_env.ml \
   typing/env.ml \
+  lambda/scoped_location.ml \
+  lambda/dbg.ml \
   lambda/assume_info.ml \
   lambda/debuginfo.ml \
   lambda/lambda.ml \

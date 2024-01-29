@@ -24,7 +24,7 @@ open Lambda
 open Translobj
 open Translcore
 open Translclass
-open Debuginfo.Scoped_location
+open Scoped_location
 
 type unsafe_component =
   | Unsafe_module_binding

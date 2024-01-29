@@ -1,2 +1,6 @@
 assume_info.ml
 assume_info.mli
+dbg.ml
+dbg.mli
+scoped_location.ml
+scoped_location.mli

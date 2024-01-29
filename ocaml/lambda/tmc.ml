@@ -44,7 +44,7 @@ exception Error of Location.t * error
 type 'offset destination = {
   var: Ident.t;
   offset: 'offset;
-  loc : Debuginfo.Scoped_location.t;
+  loc : Scoped_location.t;
 }
 and offset = Offset of lambda
 (** In the OCaml value model, interior pointers are not allowed.  To
@@ -86,7 +86,7 @@ module Constr : sig
     shape : block_shape;
     before: lambda list;
     after: lambda list;
-    loc : Debuginfo.Scoped_location.t;
+    loc : Scoped_location.t;
   }
 
   (** [apply constr e] plugs the expression [e] in the hole of the
@@ -119,7 +119,7 @@ end = struct
     shape : block_shape;
     before: lambda list;
     after: lambda list;
-    loc : Debuginfo.Scoped_location.t;
+    loc : Scoped_location.t;
   }
 
   let apply constr t =
@@ -565,7 +565,7 @@ let find_candidate = function
   | Lfunction lfun when lfun.attr.tmc_candidate ->
      (* TMC does not make sense for local-returning functions *)
      if not lfun.region then
-       raise (Error (Debuginfo.Scoped_location.to_location lfun.loc,
+       raise (Error (Scoped_location.to_location lfun.loc,
                      Tmc_without_region));
      Some lfun
   | _ -> None
@@ -692,7 +692,7 @@ let rec choice ctx t =
             with Not_found ->
               if tail then
                 Location.prerr_warning
-                  (Debuginfo.Scoped_location.to_location apply.ap_loc)
+                  (Scoped_location.to_location apply.ap_loc)
                   Warnings.Tmc_breaks_tailcall;
               raise No_tmc;
           in
@@ -815,7 +815,7 @@ let rec choice ctx t =
                 arguments = List.map info ambiguous_subterms;
               }
             in
-            raise (Error (Debuginfo.Scoped_location.to_location loc,
+            raise (Error (Scoped_location.to_location loc,
                           Ambiguous_constructor_arguments arguments))
           );
         }
@@ -988,7 +988,7 @@ and traverse_binding outer_ctx inner_ctx (var, def) =
   let fun_choice = choice outer_ctx ~tail:true lfun.body in
   if fun_choice.Choice.tmc_calls = [] then
     Location.prerr_warning
-      (Debuginfo.Scoped_location.to_location lfun.loc)
+      (Scoped_location.to_location lfun.loc)
       Warnings.Unused_tmc_attribute;
   let direct =
     let { kind; params; return; body = _; attr; loc; mode; ret_mode; region } = lfun in
@@ -1051,7 +1051,7 @@ let () =
           in
           let submgs =
             let sub (info : tmc_call_information) =
-              let loc = Debuginfo.Scoped_location.to_location info.loc in
+              let loc = Scoped_location.to_location info.loc in
               Location.msg ~loc "This call could be annotated." in
             arguments
             |> List.map (fun t -> t.tmc_calls)
@@ -1073,7 +1073,7 @@ let () =
           in
           let submgs =
             let sub (info : tmc_call_information) =
-              let loc = Debuginfo.Scoped_location.to_location info.loc in
+              let loc = Scoped_location.to_location info.loc in
               Location.msg ~loc "This call is explicitly annotated." in
             arguments
             |> List.map (fun t -> t.tmc_calls)

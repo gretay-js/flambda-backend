@@ -19,7 +19,7 @@ open Typedtree
 open Lambda
 open Translobj
 open Translcore
-open Debuginfo.Scoped_location
+open Scoped_location
 
 (* XXX Rajouter des evenements... | Add more events... *)
 

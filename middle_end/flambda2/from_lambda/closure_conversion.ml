@@ -2132,7 +2132,7 @@ let wrap_partial_application acc env apply_continuation (apply : IR.apply)
   then
     Misc.fatal_errorf "Partial application of %a with wrong mode at %s"
       Ident.print apply.IR.func
-      (Debuginfo.Scoped_location.string_of_scoped_location apply.IR.loc);
+      (Scoped_location.string_of_scoped_location apply.IR.loc);
   let function_declarations =
     [ Function_decl.create ~let_rec_ident:(Some wrapper_id) ~function_slot
         ~kind:
@@ -2389,7 +2389,7 @@ let close_apply acc env (apply : IR.apply) : Expr_with_acc.t =
       (match apply.inlined with
       | Always_inlined | Unroll _ ->
         Location.prerr_warning
-          (Debuginfo.Scoped_location.to_location apply.loc)
+          (Scoped_location.to_location apply.loc)
           (Warnings.Inlining_impossible
              Inlining_helpers.(
                inlined_attribute_on_partial_application_msg Inlined))

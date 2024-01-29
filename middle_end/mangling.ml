@@ -114,7 +114,7 @@ let name_op = function
   | op -> op
 
 let build_location_info loc =
-  let loc = Debuginfo.Scoped_location.to_location loc in
+  let loc = Scoped_location.to_location loc in
   let file, line, startchar = Location.get_pos_info loc.loc_start in
   let endchar = loc.loc_end.pos_cnum - loc.loc_start.pos_bol in
   let line_str = Printf.sprintf "ln_%d" line in
@@ -165,7 +165,7 @@ let convert_scope scope =
 
 let list_of_scopes scopes =
   (* Works for now since the only separators are '.' and '#' *)
-  let scope_str = Debuginfo.Scoped_location.string_of_scopes scopes in
+  let scope_str = Scoped_location.string_of_scopes scopes in
   String.split_on_chars scope_str ~split_on:['.'; '#']
 
 let scope_matches_closure_id scope closure_id =
@@ -183,7 +183,7 @@ let scope_matches_closure_id scope closure_id =
 (* Returns a pair of the top-level module and the list of scopes that strictly
    contain the closure id *)
 let module_and_scopes ~unitname loc id =
-  match (loc : Debuginfo.Scoped_location.t) with
+  match (loc : Scoped_location.t) with
   | Loc_known { loc = _; scopes } -> (
     let scopes = list_of_scopes scopes in
     (* Remove last scope if it matches closure id *)

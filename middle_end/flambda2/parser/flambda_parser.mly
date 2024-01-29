@@ -2,8 +2,8 @@
 open! Fexpr
 
 let make_loc (startpos, endpos) =
-  Debuginfo.Scoped_location.of_location
-    ~scopes:Debuginfo.Scoped_location.empty_scopes
+  Scoped_location.of_location
+    ~scopes:Scoped_location.empty_scopes
     {
       Location.loc_start = startpos;
       Location.loc_end = endpos;
