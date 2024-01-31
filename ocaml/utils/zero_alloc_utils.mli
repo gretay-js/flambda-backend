@@ -6,6 +6,8 @@ module type WS = sig
 
   val join : t -> t -> t
 
+  val meet : t -> t -> t
+
   val print : Format.formatter -> t -> unit
 end
 
@@ -20,6 +22,8 @@ module Make (Witnesses : WS) : sig
     val lessequal : t -> t -> bool
 
     val join : t -> t -> t
+
+    val meet : t -> t -> t
 
     val is_not_safe : t -> bool
 
@@ -42,6 +46,8 @@ module Make (Witnesses : WS) : sig
     val lessequal : t -> t -> bool
 
     val join : t -> t -> t
+
+    val meet : t -> t -> t
 
     val top : Witnesses.t -> t
 

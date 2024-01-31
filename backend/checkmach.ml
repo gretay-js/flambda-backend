@@ -99,6 +99,8 @@ module Witnesses : sig
 
   val join : t -> t -> t
 
+  val meet : t -> t -> t
+
   val create : Witness.kind -> Debuginfo.t -> t
 
   val print : Format.formatter -> t -> unit
@@ -119,6 +121,8 @@ end = struct
      limit the size of this set. The downside is that it won't get tested as
      much. Only keep witnesses for functions that need checking. *)
   let join = union
+
+  let meet = inter
 
   let create kind dbg = singleton (Witness.create dbg kind)
 

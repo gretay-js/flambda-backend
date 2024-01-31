@@ -3,6 +3,8 @@ module type WS = sig
 
   val join : t -> t -> t
 
+  val meet : t -> t -> t
+
   val print : Format.formatter -> t -> unit
 end
 
@@ -21,6 +23,15 @@ module Make (Witnesses : WS) = struct
       | Top w1, Top w2 -> Top (Witnesses.join w1 w2)
       | Safe, Bot | Bot, Safe -> Safe
       | Top w1, Bot | Top w1, Safe | Bot, Top w1 | Safe, Top w1 -> Top w1
+
+    let meet c1 c2 =
+      match c1, c2 with
+      | Bot, Bot -> Bot
+      | Safe, Safe -> Safe
+      | Top w1, Top w2 -> Top (Witnesses.meet w1 w2)
+      | Safe, Bot | Bot, Safe -> Bot
+      | Top _, Bot | Bot, Top _ -> Bot
+      | Top _, Safe | Safe, Top _ -> Safe
 
     let lessequal v1 v2 =
       match v1, v2 with
@@ -63,6 +74,11 @@ module Make (Witnesses : WS) = struct
         div = V.join v1.div v2.div
       }
 
+    let meet v1 v2 =
+      { nor = V.meet v1.nor v2.nor;
+        exn = V.meet v1.exn v2.exn;
+        div = V.meet v1.div v2.div
+      }
 
     let normal_return = { bot with nor = V.Safe }
 
