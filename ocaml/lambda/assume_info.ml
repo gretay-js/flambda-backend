@@ -29,63 +29,64 @@
    directly, instead of the weird compare function that abstracts them? Perhaps we
    should translate "strict" and "never_returns_normally" directly into (nor,exn,div)
 *)
-type t =
-  | No_assume
-  | Assume of { strict : bool; never_returns_normally : bool }
 
-let[@inline always] rank = function
-  | No_assume -> 0
-  | Assume { strict = false; never_returns_normally = false } -> 1
-  | Assume { strict = true; never_returns_normally = false } -> 2
-  | Assume { strict = false; never_returns_normally = true } -> 3
-  | Assume { strict = true; never_returns_normally = true } -> 4
+module Witnesses = struct
+  type t = unit
 
-let compare t1 t2 = Int.compare (rank t1) (rank t2)
-let equal t1 t2 = Int.equal (rank t1) (rank t2)
+  let join _ _ = ()
+  let meet _ _ = ()
+  let print _ _ = ()
+  let empty = ()
+end
+
+include Zero_alloc_utils.Make (Witnesses)
+
+type t = No_assume | Assume of Value.t
+
+let compare t1 t2 = Stdlib.compare t1 t2
+let equal t1 t2 = compare t1 t2 = 0
 
 let to_string = function
   | No_assume -> ""
-  | Assume { strict; never_returns_normally } ->
-      Printf.sprintf "(assume zero_alloc%s%s)"
-        ( if strict then
-          "_strict"
-        else
-          ""
-        )
-        ( if never_returns_normally then
-          "_never_returns_normally"
-        else
-          ""
-        )
+  | Assume v -> Format.asprintf "%a" (Value.print ~witnesses:false) v
 
 let join t1 t2 =
-  (* max of rank *)
-  if Int.compare (rank t1) (rank t2) < 0 then
-    t2
-  else
-    t1
+  match (t1, t2) with
+  | No_assume, No_assume -> No_assume
+  | No_assume, Assume _
+  | Assume _, No_assume ->
+      No_assume
+  | Assume t1, Assume t2 -> Assume (Value.join t1 t2)
 
 let meet t1 t2 =
-  (* min of rank *)
-  if Int.compare (rank t1) (rank t2) < 0 then
-    t1
-  else
-    t2
+  match (t1, t2) with
+  | No_assume, No_assume -> No_assume
+  | No_assume, (Assume _ as t)
+  | (Assume _ as t), No_assume ->
+      t
+  | Assume t1, Assume t2 -> Assume (Value.meet t1 t2)
 
 let none = No_assume
 
 let create ~strict ~never_returns_normally =
-  Assume { strict; never_returns_normally }
+  let res =
+    if strict then
+      Value.safe
+    else
+      Value.relaxed Witnesses.empty
+  in
+  let res =
+    if never_returns_normally then
+      { res with nor = V.Bot }
+    else
+      res
+  in
+  Assume res
 
-let strict t =
+let get_value t =
   match t with
   | No_assume -> None
-  | Assume { strict; _ } -> Some strict
-
-let never_returns_normally t =
-  match t with
-  | No_assume -> None
-  | Assume { never_returns_normally; _ } -> Some never_returns_normally
+  | Assume v -> Some v
 
 let is_none t =
   match t with

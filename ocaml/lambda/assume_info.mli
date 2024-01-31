@@ -7,6 +7,16 @@ val equal : t -> t -> bool
 val join : t -> t -> t
 val meet : t -> t -> t
 val to_string : t -> string
-val strict : t -> bool option
-val never_returns_normally : t -> bool option
 val is_none : t -> bool
+
+module Witnesses : sig
+  type t = unit
+
+  val join : t -> t -> t
+  val meet : t -> t -> t
+  val print : Format.formatter -> t -> unit
+end
+
+include module type of Zero_alloc_utils.Make (Witnesses)
+
+val get_value : t -> Value.t option
