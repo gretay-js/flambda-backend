@@ -240,8 +240,6 @@ module Annotation : sig
 
   val is_check_enabled :
     Cmm.codegen_option list -> string -> Debuginfo.t -> bool
-
-  val of_metadata : Debuginfo.t -> can_raise:bool -> t
 end = struct
   (**
    ***************************************************************************
@@ -264,17 +262,8 @@ end = struct
     { strict : bool;  (** strict or relaxed? *)
       assume : bool;
       never_returns_normally : bool;
-      can_raise : bool;
       loc : Location.t
           (** Source location of the annotation, used for error messages. *)
-    }
-
-  let default =
-    { assume = false;
-      strict = false;
-      never_returns_normally = false;
-      can_raise = true;
-      loc = Location.none
     }
 
   let get_loc t = t.loc
@@ -284,25 +273,7 @@ end = struct
     let res =
       if t.never_returns_normally then { res with nor = V.Bot } else res
     in
-    let res = if t.can_raise then res else { res with exn = V.Bot } in
     res
-
-  let of_metadata dbg ~can_raise =
-    (* [loc] can be obtained by [Debuginfo.to_location dbg], For now just return
-       [Location.none] because it is not used. *)
-    let a = Debuginfo.assume_zero_alloc dbg in
-    if Assume_info.is_none a
-    then
-      (* CR-someday gyorsh: propagate assert of arbitrary expressions. *)
-      default
-    else
-      { assume = true;
-        strict = Assume_info.strict a |> Option.get;
-        never_returns_normally =
-          Assume_info.never_returns_normally a |> Option.get;
-        can_raise;
-        loc = Location.none
-      }
 
   let is_assume t = t.assume
 
@@ -315,22 +286,10 @@ end = struct
         (fun (c : Cmm.codegen_option) ->
           match c with
           | Check { property; strict; loc } when property = spec ->
-            Some
-              { strict;
-                assume = false;
-                never_returns_normally = false;
-                can_raise = true;
-                loc
-              }
+            Some { strict; assume = false; never_returns_normally = false; loc }
           | Assume { property; strict; never_returns_normally; loc }
             when property = spec ->
-            Some
-              { strict;
-                assume = true;
-                never_returns_normally;
-                loc;
-                can_raise = true
-              }
+            Some { strict; assume = true; never_returns_normally; loc }
           | Ignore_assert_all property when property = spec ->
             ignore_assert_all := true;
             None
@@ -347,7 +306,6 @@ end = struct
           { strict = false;
             assume = false;
             never_returns_normally = false;
-            can_raise = true;
             loc = Debuginfo.to_location dbg
           }
       else None
@@ -363,6 +321,35 @@ end = struct
       | Some { assume; _ } -> not assume
     in
     List.exists is_enabled Cmm.all_properties
+end
+
+module Metadata : sig
+  (* CR-someday gyorsh: propagate assert of arbitrary expressions. *)
+  val assume_value :
+    Debuginfo.t -> can_raise:bool -> Witnesses.t -> Value.t option
+end = struct
+  (* CR gyorsh: The return type of [Assume_info.get_value] is
+     [Assume_info.Value.t]. It is not the same as [Checkmach.Value.t], because
+     [Witnesses] in [Checkmach] depend on Debuginfo and cannot be used in
+     Assume_info due to cyclic dependencies. The witnesses in Assume_info are
+     always empty and the translation is trivial. Is there a better way to avoid
+     duplicating [Zero_alloc_utils]? *)
+  let transl w (v : Assume_info.V.t) : V.t =
+    match v with Top _ -> Top w | Safe -> Safe | Bot -> Bot
+
+  let transl w (v : Assume_info.Value.t) : Value.t =
+    { nor = transl w v.nor; exn = transl w v.exn; div = transl w v.div }
+
+  let assume_value dbg ~can_raise w =
+    (* [loc] can be obtained by [Debuginfo.to_location dbg], For now just return
+       [Location.none] because it is not used. *)
+    let a = Debuginfo.assume_zero_alloc dbg in
+    match Assume_info.get_value a with
+    | None -> None
+    | Some v ->
+      let v = transl w v in
+      let v = if can_raise then v else { v with exn = V.Bot } in
+      Some v
 end
 
 module Report : sig
@@ -929,10 +916,9 @@ end = struct
 
   let transform_top t ~next ~exn w desc dbg =
     let effect =
-      let a = Annotation.of_metadata dbg ~can_raise:true in
-      match Annotation.is_assume a with
-      | true -> Annotation.expected_value a w
-      | false -> Value.top w
+      match Metadata.assume_value dbg ~can_raise:true w with
+      | Some v -> v
+      | None -> Value.top w
     in
     transform t ~next ~exn ~effect desc dbg
 
@@ -940,10 +926,9 @@ end = struct
     report t next ~msg:"transform_call next" ~desc dbg;
     report t exn ~msg:"transform_call exn" ~desc dbg;
     let effect =
-      let a = Annotation.of_metadata dbg ~can_raise:true in
-      match Annotation.is_assume a with
-      | true -> Annotation.expected_value a w
-      | false ->
+      match Metadata.assume_value dbg ~can_raise:true w with
+      | Some v -> v
+      | None ->
         let callee_value, new_dep = find_callee t callee dbg in
         update_deps t callee_value new_dep w desc dbg;
         (* Abstract witnesses of a call to the single witness for the callee
@@ -996,13 +981,10 @@ end = struct
       next
     | Ialloc { mode = Alloc_heap; bytes; dbginfo } -> (
       assert (not (Mach.operation_can_raise op));
-      let a = Annotation.of_metadata dbg ~can_raise:false in
       let w = create_witnesses t (Alloc { bytes; dbginfo }) dbg in
-      match Annotation.is_assume a with
-      | true ->
-        let effect = Annotation.expected_value a w in
-        transform t ~next ~exn ~effect "heap allocation" dbg
-      | false ->
+      match Metadata.assume_value dbg ~can_raise:false w with
+      | Some effect -> transform t ~next ~exn ~effect "heap allocation" dbg
+      | None ->
         let r = Value.transform w next in
         check t r "heap allocation" dbg)
     | Iprobe { name; handler_code_sym; enabled_at_init = __ } ->
@@ -1040,12 +1022,11 @@ end = struct
     | Ispecific s ->
       let effect =
         let w = create_witnesses t Arch_specific dbg in
-        let a =
-          Annotation.of_metadata dbg ~can_raise:(Arch.operation_can_raise s)
-        in
-        match Annotation.is_assume a with
-        | true -> Annotation.expected_value a w
-        | false -> S.transform_specific w s
+        match
+          Metadata.assume_value dbg ~can_raise:(Arch.operation_can_raise s) w
+        with
+        | Some v -> v
+        | None -> S.transform_specific w s
       in
       transform t ~next ~exn ~effect "Arch.specific_operation" dbg
     | Idls_get -> Misc.fatal_error "Idls_get not supported"
