@@ -77,6 +77,7 @@
    local_store target_system compilation_unit import_info linkage_name symbol
    lazy_backtrack diffing diffing_with_keys
    language_extension_kernel language_extension
+   zero_alloc_utils
 
    ;; PARSING
    location longident docstrings printast syntaxerr ast_helper
@@ -358,5 +359,6 @@
     (compilation_unit.mli as compiler-libs/compilation_unit.mli)
     (linkage_name.mli as compiler-libs/linkage_name.mli)
     (symbol.mli as compiler-libs/symbol.mli)
+    (zero_alloc_utils.mli as compiler-libs/zero_alloc_utils.mli)
 
   ))

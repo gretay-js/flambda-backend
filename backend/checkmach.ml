@@ -142,16 +142,10 @@ end = struct
     }
 end
 
-(** Abstract value for each component of the domain. *)
+module T = Zero_alloc_utils.Make (Witnesses)
+
 module V : sig
-  type t =
-    | Top of Witnesses.t  (** Property may not hold on some paths. *)
-    | Safe  (** Property holds on all paths.  *)
-    | Bot  (** Not reachable. *)
-
-  val lessequal : t -> t -> bool
-
-  val join : t -> t -> t
+  include module type of T.V
 
   val transform : Witnesses.t -> t -> t
 
@@ -160,34 +154,8 @@ module V : sig
   val diff_witnesses : expected:t -> actual:t -> Witnesses.t
 
   val get_witnesses : t -> Witnesses.t
-
-  val is_not_safe : t -> bool
-
-  val print : witnesses:bool -> Format.formatter -> t -> unit
 end = struct
-  type t =
-    | Top of Witnesses.t
-    | Safe
-    | Bot
-
-  let join c1 c2 =
-    match c1, c2 with
-    | Bot, Bot -> Bot
-    | Safe, Safe -> Safe
-    | Top w1, Top w2 -> Top (Witnesses.join w1 w2)
-    | Safe, Bot | Bot, Safe -> Safe
-    | Top w1, Bot | Top w1, Safe | Bot, Top w1 | Safe, Top w1 -> Top w1
-
-  let lessequal v1 v2 =
-    match v1, v2 with
-    | Bot, Bot -> true
-    | Safe, Safe -> true
-    | Top _, Top _ -> true
-    | Bot, Safe -> true
-    | Bot, Top _ -> true
-    | Safe, Top _ -> true
-    | Top _, (Bot | Safe) -> false
-    | Safe, Bot -> false
+  include T.V
 
   (** abstract transformer (backward analysis) for a statement that violates the property
       but doesn't alter control flow. *)
@@ -211,49 +179,10 @@ end = struct
     else (
       assert (expected = Safe);
       match actual with Bot | Safe -> assert false | Top w -> w)
-
-  let is_not_safe = function Top _ -> true | Safe | Bot -> false
-
-  let print ~witnesses ppf = function
-    | Bot -> Format.fprintf ppf "bot"
-    | Top w ->
-      Format.fprintf ppf "top";
-      if witnesses then Format.fprintf ppf " (%a)" Witnesses.print w
-    | Safe -> Format.fprintf ppf "safe"
 end
 
-(** Abstract value associated with each program location in a function. *)
 module Value : sig
-  type t =
-    { nor : V.t;
-          (** Property about
-              all paths from this program location that may reach a Normal Return  *)
-      exn : V.t;
-          (** Property about all paths from this program point that may reach a Return with
-          Exception *)
-      div : V.t
-          (** Property about all paths from this program point that may diverge.  *)
-    }
-
-  val lessequal : t -> t -> bool
-
-  val join : t -> t -> t
-
-  val top : Witnesses.t -> t
-
-  val bot : t
-
-  val normal_return : t
-
-  val exn_escape : t
-
-  val diverges : t
-
-  val safe : t
-
-  val relaxed : Witnesses.t -> t
-
-  val print : witnesses:bool -> Format.formatter -> t -> unit
+  include module type of T.Value
 
   val transform : Witnesses.t -> t -> t
 
@@ -263,24 +192,7 @@ module Value : sig
 
   val diff_witnesses : expected:t -> actual:t -> Witnesses.components
 end = struct
-  (** Lifts V to triples  *)
-  type t =
-    { nor : V.t;
-      exn : V.t;
-      div : V.t
-    }
-
-  let bot = { nor = V.Bot; exn = V.Bot; div = V.Bot }
-
-  let lessequal v1 v2 =
-    V.lessequal v1.nor v2.nor && V.lessequal v1.exn v2.exn
-    && V.lessequal v1.div v2.div
-
-  let join v1 v2 =
-    { nor = V.join v1.nor v2.nor;
-      exn = V.join v1.exn v2.exn;
-      div = V.join v1.div v2.div
-    }
+  include T.Value
 
   let transform w v =
     { nor = V.transform w v.nor;
@@ -305,22 +217,6 @@ end = struct
       Witnesses.exn = V.get_witnesses t.exn;
       Witnesses.div = V.get_witnesses t.div
     }
-
-  let normal_return = { bot with nor = V.Safe }
-
-  let exn_escape = { bot with exn = V.Safe }
-
-  let diverges = { bot with div = V.Safe }
-
-  let safe = { nor = V.Safe; exn = V.Safe; div = V.Safe }
-
-  let top w = { nor = V.Top w; exn = V.Top w; div = V.Top w }
-
-  let relaxed w = { nor = V.Safe; exn = V.Top w; div = V.Top w }
-
-  let print ~witnesses ppf { nor; exn; div } =
-    let pp = V.print ~witnesses in
-    Format.fprintf ppf "{ nor=%a; exn=%a; div=%a }" pp nor pp exn pp div
 end
 
 (**  Representation of user-provided annotations as abstract values *)
