@@ -1087,7 +1087,7 @@ and transl_apply ~scopes
          always false currently for them. I am not sure about Lapply case
          above. Also not sure about inlined etc in the Lsend case.  *)
         let loc =
-          map_scopes (join_assume_zero_alloc ~assume_zero_alloc) loc
+          map_scopes (update_assume_zero_alloc ~assume_zero_alloc) loc
         in
         Lapply {
           ap_loc=loc;
@@ -1345,7 +1345,7 @@ and transl_function ~in_new_scope ~scopes e alloc_mode param arg_mode arg_sort r
   in
   let scopes =
     if in_new_scope then
-      join_assume_zero_alloc ~scopes ~assume_zero_alloc
+      update_assume_zero_alloc ~scopes ~assume_zero_alloc
     else enter_anonymous_function ~scopes ~assume_zero_alloc
   in
   let arg_layout =

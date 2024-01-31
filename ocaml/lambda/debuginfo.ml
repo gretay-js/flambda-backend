@@ -100,7 +100,7 @@ module Scoped_location = struct
     cons scopes Sc_partial_or_eta_wrapper (dot ~no_parens:() scopes "(partial)") ""
       ~assume_zero_alloc:Assume_info.none
 
-  let join_assume_zero_alloc ~scopes ~assume_zero_alloc =
+  let update_assume_zero_alloc ~scopes ~assume_zero_alloc =
     match scopes with
     | Empty -> Empty
     | Cons r ->
@@ -108,7 +108,7 @@ module Scoped_location = struct
       then scopes
       else
         let assume_zero_alloc =
-          Assume_info.join r.assume_zero_alloc assume_zero_alloc
+          Assume_info.meet r.assume_zero_alloc assume_zero_alloc
         in
         Cons { r with assume_zero_alloc }
 
@@ -292,7 +292,7 @@ let to_location { dbg; assume_zero_alloc=_ } =
 
 let inline { dbg = dbg1; assume_zero_alloc = a1; }
       { dbg = dbg2; assume_zero_alloc = a2; } =
-  { dbg = dbg1 @ dbg2; assume_zero_alloc = Assume_info.join a1 a2; }
+  { dbg = dbg1 @ dbg2; assume_zero_alloc = Assume_info.meet a1 a2; }
 
 let is_none { dbg; assume_zero_alloc } =
   (not Assume_info.(equal assume_zero_alloc Assume_info.none)) && Dbg.is_none dbg
@@ -333,7 +333,7 @@ let merge ~into:{ dbg = dbg1; assume_zero_alloc = a1; }
     | _,  _ -> dbg1
   in
   { dbg;
-    assume_zero_alloc = Assume_info.meet a1 a2
+    assume_zero_alloc = Assume_info.join a1 a2
   }
 
 let assume_zero_alloc t = t.assume_zero_alloc

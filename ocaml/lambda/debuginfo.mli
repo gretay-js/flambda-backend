@@ -41,7 +41,7 @@ module Scoped_location : sig
   val enter_method_definition : scopes:scopes -> Asttypes.label -> scopes
   val enter_lazy : scopes:scopes -> scopes
   val enter_partial_or_eta_wrapper : scopes:scopes -> scopes
-  val join_assume_zero_alloc : scopes:scopes ->
+  val update_assume_zero_alloc : scopes:scopes ->
     assume_zero_alloc:Assume_info.t -> scopes
   val get_assume_zero_alloc : scopes:scopes -> Assume_info.t
 
