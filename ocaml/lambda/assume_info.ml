@@ -46,9 +46,11 @@ type t = No_assume | Assume of Value.t
 let compare t1 t2 = Stdlib.compare t1 t2
 let equal t1 t2 = compare t1 t2 = 0
 
-let to_string = function
-  | No_assume -> ""
-  | Assume v -> Format.asprintf "%a" (Value.print ~witnesses:false) v
+let print ppf = function
+  | No_assume -> ()
+  | Assume v -> Format.fprintf ppf "%a" (Value.print ~witnesses:false) v
+
+let to_string v = Format.asprintf "%a" print v
 
 let join t1 t2 =
   match (t1, t2) with

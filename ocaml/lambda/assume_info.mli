@@ -7,6 +7,7 @@ val equal : t -> t -> bool
 val join : t -> t -> t
 val meet : t -> t -> t
 val to_string : t -> string
+val print : Format.formatter -> t -> unit
 val is_none : t -> bool
 
 module Witnesses : sig
