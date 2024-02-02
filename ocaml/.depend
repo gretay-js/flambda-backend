@@ -282,6 +282,11 @@ utils/warnings.cmx : \
     utils/misc.cmx \
     utils/warnings.cmi
 utils/warnings.cmi :
+utils/zero_alloc_utils.cmo : \
+    utils/zero_alloc_utils.cmi
+utils/zero_alloc_utils.cmx : \
+    utils/zero_alloc_utils.cmi
+utils/zero_alloc_utils.cmi :
 parsing/ast_helper.cmo : \
     parsing/syntaxerr.cmi \
     parsing/parsetree.cmi \
@@ -3882,10 +3887,13 @@ middle_end/variable.cmi : \
     typing/ident.cmi \
     utils/compilation_unit.cmi
 lambda/assume_info.cmo : \
+    utils/zero_alloc_utils.cmi \
     lambda/assume_info.cmi
 lambda/assume_info.cmx : \
+    utils/zero_alloc_utils.cmx \
     lambda/assume_info.cmi
-lambda/assume_info.cmi :
+lambda/assume_info.cmi : \
+    utils/zero_alloc_utils.cmi
 lambda/debuginfo.cmo : \
     parsing/location.cmi \
     utils/int_replace_polymorphic_compare.cmi \
