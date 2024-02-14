@@ -46,7 +46,8 @@ module Witnesses = struct
   let compare _ _ = 0
 end
 
-include Zero_alloc_utils.Make (Witnesses)
+module V = Zero_alloc_utils.Make_component (Witnesses)
+module Value = Zero_alloc_utils.Make_value (Witnesses) (V)
 
 type t =
   | No_assume
@@ -83,7 +84,7 @@ let none = No_assume
 
 let create ~strict ~never_returns_normally =
   let res = if strict then Value.safe else Value.relaxed Witnesses.empty in
-  let res = if never_returns_normally then { res with nor = V.Bot } else res in
+  let res = if never_returns_normally then { res with nor = V.bot } else res in
   Assume res
 
 let get_value t = match t with No_assume -> None | Assume v -> Some v
