@@ -131,10 +131,12 @@ end
 
 (** Abstract value for each component of the domain. *)
 module V : sig
+  type u
   type t =
     | Top of Witnesses.t  (** Property may not hold on some paths. *)
     | Safe  (** Property holds on all paths.  *)
     | Bot  (** Not reachable. *)
+    | Unresolved of u
 
   val lessequal : t -> t -> bool
 
@@ -151,11 +153,23 @@ module V : sig
   val is_not_safe : t -> bool
 
   val print : witnesses:bool -> Format.formatter -> t -> unit
+
+  val mk_unresolved : Var.t -> t
+  (* val eval : t -> env:(Var.t -> t option) -> t *)
 end = struct
-  type t =
+  type rec t =
     | Top of Witnesses.t
     | Safe
     | Bot
+    | Unresolved { eval : unresolved_t }
+  and unresolved_t =
+    | Join of unresolved_t list
+    | Transform of unresolved_t list
+    | Var of Var.t
+    | Const of t
+
+  type u = unresolved_t
+
 
   let join c1 c2 =
     match c1, c2 with
@@ -207,6 +221,158 @@ end = struct
       Format.fprintf ppf "top";
       if witnesses then Format.fprintf ppf " (%a)" Witnesses.print w
     | Safe -> Format.fprintf ppf "safe"
+
+
+
+  (*
+
+
+      (*
+
+     (* distribute over joins *)
+     let rec distribute_over_joins acc =
+     match acc with
+     | [] -> []
+     | (Join l)::tl ->
+     mk_join (mk_transform ) (mk_transform )
+     in
+     let l = distribute_over_joins l in
+     (* flatten all trs *)
+     let flatten_tr l = ListLabels.fold_left l ~init:[] ~f:(fun acc u ->
+     match
+     )
+     in
+  *)
+
+  (* CR gyorsh: first normalize or first flatten? currrently do both to be on
+     the safe side, this will obvously be very inefficient and reallocate a ton
+     of lists. More efficient way is to normalize on construction, using
+     the special knowledge that args are already in normal form. Or it may
+     also be more efficient to normalize only when checking for equality and not
+     in advance, but the intermediate values might grow deep and big. *)
+  let normalize (u:unresolved_t) =
+    match u with
+    | Const (Unresolved _) -> assert false
+    | Const _ -> u
+    | Var _ -> u
+    | Transform l ->
+      (* normal form: list of Vars only *)
+      let l' = l
+      |> List.map normalize
+      |> distribute_over_joins
+      |> flatten_tr
+      |> List.map normalize
+      in
+      Transform l'
+    | Join l ->
+      (* normal form: list of Const, Var or Transforms in normal form *)
+      let l =
+        l
+        |> List.map normalize
+        |> flatten_join
+        |> simplify_safe
+        |> List.map normalize
+      in
+      Join l
+
+
+  let mk_join (u1:unresolved_t) (u2:unresolved_t) =
+    Join [u1; u2] |> normalize
+
+  let mk_transform (u1:unresolved_t) (u2:unresolved_t) =
+    Transform [u1; u2] |> normalize
+
+  let rec equal (t1:t) (t2:t) =
+    match t1, t2 with
+    | Top, Top -> true
+    | Safe, Safe -> true
+    | Bot, Bot -> true
+    | Unresolved u1, Unresolved u2 -> equal_unresolved u1 u2
+    | Top | Safe | Bot | Unresolved _, _ -> false
+  and rec equal_unresolved (u1:unresolved_t) (u2:unresolved_t) =
+    (* u1, u2 should already be normalized *)
+    match normalize u1, normalize u2 with
+    | Const t1, Const t2 -> equal t1 t2
+    | Var v1, Var v2 -> Var.equal v1 v2
+    | Transform l1, Transform l2
+    | Join l1, Join l2 -> List.equal equal_unresolved l1 l2
+
+  let rec join c1 c2 =
+    match c1, c2 with
+    | Bot, Bot -> Bot
+    | Safe, Safe -> Safe
+    | Top, Top -> Top
+    | Safe, Bot | Bot, Safe -> Safe
+    | Top, Bot | Top, Safe | Bot, Top | Safe, Top -> Top
+    | Top, Unresolved _ -> Top
+    | Unresolved _, Top -> Top
+    | Bot, Unresolved _ -> c2
+    | Unresolved _, Bot -> c1
+    | Safe, Unresolved { eval } | Unresolved { eval }, Safe ->
+      Unresolved { eval = mk_join eval (Const Safe) }
+    | Unresolved { eval = eval1 },
+      Unresolved { eval = eval2 } ->
+      Unresolved { eval = mk_join eval1 eval2 }
+
+  (** Abstract transformer. Symmetric, associative.
+      if t = V.Bot || t' = V.Bot then Bot else (join t t')
+  *)
+  let rec transform_return t t' =
+    match t, t' with
+    | Bot, _ - Bot
+    | _, Bot -> Bot
+    | Top, _ -> Top
+    | _, Top -> Top
+    | Safe, Safe -> Safe
+    | Safe, t' -> t'
+    | t, Safe -> t
+    | Unresolved { eval = eval1 },
+      Unresolved { eval = eval2 } ->
+      mk_transform eval1 eval2
+
+  let rec apply : unresolved_t -> (Var.t -> t) -> t = fun u env ->
+    match u with
+    | Join l ->
+      List.fold_left (fun acc u -> join (apply u env) acc) Bot l
+    | Transform (t1, t2) ->
+      List.fold_left (fun acc u -> transform_return (apply u env) acc) Safe l
+    | Var v -> env v
+    | Const (Unresolved _) -> assert false
+    | Const t -> t
+
+  let rec lessequal v1 v2 =
+    match v1, v2 with
+    | Bot, Bot -> true
+    | Safe, Safe -> true
+    | Top, Top -> true
+    | Bot, Safe -> true
+    | Bot, Top -> true
+    | Safe, Top -> true
+    | Top, (Bot | Safe) -> false
+    | Safe, Bot -> false
+    | v1, v2 ->
+      equal v1 v2 || not (equal (join v1 v2) v2)
+
+  let is_not_safe = function Top -> true | Safe | Bot | Unresolved _ -> false
+
+  let rec print ppf t =
+    match t with
+    | Bot -> Format.fprintf ppf "bot"
+    | Top -> Format.fprintf ppf "top"
+    | Safe -> Format.fprintf ppf "safe"
+    | Unresolved { eval } ->
+      Format.fprintf ppf "unresolved %a@" print_unresolved eval
+  and print_unresolved ppf u =
+    let pp ppf l = Format.pp_print_list print_unresolved ppf l in
+    match u with
+    | Join tl -> Format.fprintf ppf "(join %a)@," pp tl
+    | Transfrom tl -> Format.fprintf ppf "(transform %a)@," pp tl
+    | Var v -> Format.fprintf ppf "(var %a)@," Var.print v
+    | Const (Unresolved _) -> assert false
+    | Const t -> Format.fprintf ppf "%a" print t
+
+
+  *)
 end
 
 (** Abstract value associated with each program location in a function. *)
@@ -1058,6 +1224,38 @@ end = struct
       Unit_info.iter unit_info ~f:analyze_func;
       report_unit_info ppf unit_info ~msg:"computing fixpoint"
     done
+
+
+  let resolve_all t =
+    let env = String.Tbl.fold (fun func_info acc ->
+      (func_info, Value.Bot)::acc)
+      t []
+    in
+    (* CR gyorsh: handle components *)
+    let apply summary env =
+      let lookup var =
+        List.assoc_find_opt (fun func_info -> func_info.name ...) env)
+      in
+      match summary with
+      | Bot | Safe| Top -> summary
+      | Unresolved {eval} -> Value.apply_t eval lookup
+    in
+    let rec loop env =
+      let changed = ref false in
+      let env' =
+      List.map (fun (func_info, v) ->
+          let v' = apply func_info.value env in
+          assert (Value.is_resolved v');
+          changed := !changed || Value.equal v' v
+          v'
+        )
+        env
+      in
+      if !changed then loop env' else env'
+    in
+    let env = loop env in
+    String.Tbl.iter (fun _ func_info -> func_info.value <- env(name)) t
+
 
   let record_unit unit_info ppf =
     Profile.record_call ~accumulate:true ("record_unit " ^ analysis_name)
