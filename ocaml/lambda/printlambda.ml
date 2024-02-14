@@ -791,6 +791,12 @@ let apply_probe ppf : probe -> unit = function
   | None -> ()
   | Some {name} -> fprintf ppf " (probe %s)" name
 
+let apply_assume_zero_alloc ppf : Lambda.scoped_location -> unit = function
+  | Loc_unknown -> ()
+  | Loc_known { loc = _; scopes } ->
+    let a = Debuginfo.Scoped_location.get_assume_zero_alloc ~scopes in
+    fprintf ppf " (assume %a)" Assume_info.print a
+
 let apply_kind name pos mode =
   let name =
     match pos with
@@ -811,12 +817,13 @@ let rec lam ppf = function
       let lams ppf largs =
         List.iter (fun l -> fprintf ppf "@ %a" lam l) largs in
       let form = apply_kind "apply" ap.ap_region_close ap.ap_mode in
-      fprintf ppf "@[<2>(%s@ %a%a%a%a%a%a)@]" form
+      fprintf ppf "@[<2>(%s@ %a%a%a%a%a%a%a)@]" form
         lam ap.ap_func lams ap.ap_args
         apply_tailcall_attribute ap.ap_tailcall
         apply_inlined_attribute ap.ap_inlined
         apply_specialised_attribute ap.ap_specialised
         apply_probe ap.ap_probe
+        apply_assume_zero_alloc ap.ap_loc
   | Lfunction{kind; params; return; body; attr; ret_mode; mode} ->
       let pr_params ppf params =
         match kind with

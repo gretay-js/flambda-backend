@@ -98,6 +98,8 @@ val compare : t -> t -> int
 
 val print_compact : Format.formatter -> t -> unit
 
+val print_assume_zero_alloc : Format.formatter -> t -> unit
+
 val merge : into:t -> t -> t
 
 val assume_zero_alloc : t -> Assume_info.t
