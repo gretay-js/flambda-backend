@@ -41,6 +41,7 @@ end
 
 include Zero_alloc_utils.Make (Witnesses)
 
+(* No_assume is equivalent to Value.top but convenient and fast. *)
 type t = No_assume | Assume of Value.t
 
 let compare t1 t2 = Stdlib.compare t1 t2
@@ -48,7 +49,10 @@ let equal t1 t2 = compare t1 t2 = 0
 
 let print ppf = function
   | No_assume -> ()
-  | Assume v -> Format.fprintf ppf "%a" (Value.print ~witnesses:false) v
+  | Assume v ->
+      Format.fprintf ppf "@[<hov 1>(assume@ %a)@]"
+        (Value.print ~witnesses:false)
+        v
 
 let to_string v = Format.asprintf "%a" print v
 

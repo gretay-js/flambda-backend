@@ -321,6 +321,9 @@ let rec print_compact ppf t =
 
 let print_compact ppf { dbg; } = print_compact ppf dbg
 
+let print_assume_zero_alloc ppf { dbg = _; assume_zero_alloc } =
+  Assume_info.print ppf assume_zero_alloc
+
 let merge ~into:{ dbg = dbg1; assume_zero_alloc = a1; }
       { dbg = dbg2; assume_zero_alloc = a2 } =
   (* Keep the first [dbg] info to match existing behavior.
