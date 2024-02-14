@@ -72,7 +72,7 @@ module Witness = struct
       fprintf ppf "probe \"%s\" handler %s" name handler_code_sym
 
   let print ppf { kind; dbg } =
-    Format.fprintf ppf "%a %a" print_kind kind Debuginfo.print_compact dbg
+    Format.fprintf ppf "%a {%a}@," print_kind kind Debuginfo.print_compact dbg
 end
 
 module Witnesses : sig
@@ -139,36 +139,516 @@ end = struct
     }
 end
 
-module T = Zero_alloc_utils.Make (Witnesses)
+module Tag = struct
+  type t =
+    | N
+    | E
+    | D
 
-module V : sig
-  include module type of T.V
+  let compare = Stdlib.compare
 
-  val transform : Witnesses.t -> t -> t
+  let print = function N -> "nor" | E -> "exn" | D -> "div"
+end
+
+module Var : sig
+  type t
+
+  val get : string -> Tag.t -> t
+
+  val name : t -> string
+
+  val tag : t -> Tag.t
+
+  val print : Format.formatter -> t -> unit
+
+  val compare : t -> t -> int
+
+  module Set : Set.S with type elt = t
+
+  module Map : Map.S with type key = t
+end = struct
+  module T = struct
+    type t =
+      { name : string;
+        tag : Tag.t
+      }
+
+    let compare { tag = tag1; name = name1 } { tag = tag2; name = name2 } =
+      let c = String.compare name1 name2 in
+      if c = 0 then Tag.compare tag1 tag2 else c
+  end
+
+  include T
+  module Set = Set.Make (T)
+  module Map = Map.Make (T)
+
+  let name t = t.name
+
+  let tag t = t.tag
+
+  let get name tag = { name; tag }
+
+  let print ppf { name; tag } =
+    Format.fprintf ppf "%s.%s@ " name (Tag.print tag)
+end
+
+(** Abstract value for each component of the domain. *)
+module Unresolved : sig
+
+  type t =
+    | Top of Witnesses.t  (** Property may not hold on some paths. *)
+    | Safe  (** Property holds on all paths.  *)
+    | Bot  (** Not reachable. *)
+    (* unresolved *)
+    | Var of
+        { var : Var.t;
+          witnesses : Witnesses.t
+        }
+    | Transform of t list
+    | Join of t list
+
+  (** order of the abstract domain  *)
+  val lessequal : t -> t -> bool
+
+  (** [equal] is structural equality on terms,
+      not the order of the abstract domain. *)
+
+  val join : t -> t -> t
+
+  val transform : t -> t -> t
 
   val replace_witnesses : Witnesses.t -> t -> t
 
   val diff_witnesses : expected:t -> actual:t -> Witnesses.t
 
   val get_witnesses : t -> Witnesses.t
+
+  val print : witnesses:bool -> Format.formatter -> t -> unit
+
+  val unresolved : Witnesses.t -> Var.t -> t
+
+  val is_resolved : t -> bool
+
+  val apply : t -> env:(Var.t -> t) -> t
 end = struct
-  include T.V
 
-  (** abstract transformer (backward analysis) for a statement that violates the property
-      but doesn't alter control flow. *)
-  let transform w = function
-    | Bot ->
-      (* if a return is unreachable from the program location immediately after
-         the statement, then return is unreachable from the program location
-         immediately before the statement. *)
-      Bot
-    | Safe -> Top w
-    | Top w' -> Top (Witnesses.join w w')
 
-  let replace_witnesses w t = match t with Top _ -> Top w | Bot | Safe -> t
+  type t =
+    | Top of Witnesses.t
+    | Safe
+    | Bot
+    (* unresolved *)
+    | Var of
+        { var : Var.t;
+          witnesses : Witnesses.t
+        }
+    | Transform of t list
+    | Join of t list
 
-  let get_witnesses t =
-    match t with Top w -> w | Bot | Safe -> Witnesses.empty
+  let unresolved witnesses var = Var { var; witnesses }
+
+  let is_resolved t =
+    match t with
+    | Top _ | Safe | Bot -> true
+    | Var _ | Join _ | Transform _ -> false
+
+  let rec print ~witnesses ppf t =
+    let pp ppf l = print_list ~witnesses ppf l in
+    let pp_w ppf w =
+      if witnesses then Format.fprintf ppf "@, (%a)" Witnesses.print w else ()
+    in
+    match t with
+    | Bot -> Format.fprintf ppf "bot"
+    | Top w -> Format.fprintf ppf "(top%a)" pp_w w
+    | Safe -> Format.fprintf ppf "safe"
+    | Join tl -> Format.fprintf ppf "(join %a)@," pp tl
+    | Transform tl -> Format.fprintf ppf "(transform %a)@," pp tl
+    | Var { var = v; witnesses = w } ->
+      Format.fprintf ppf "(var %a%a)" Var.print v pp_w w
+
+  and print_list ~witnesses ppf tl =
+    Format.pp_print_list (print ~witnesses) ppf tl
+
+  let rec get_witnesses t =
+    match t with
+    | Top w -> w
+    | Bot | Safe -> Witnesses.empty
+    | Var { var = _; witnesses } -> witnesses
+    | Transform ul | Join ul ->
+      List.fold_left
+        (fun acc u -> Witnesses.join acc (get_witnesses u))
+        Witnesses.empty ul
+
+  (* [Unresolved] module groups functions that operate on [u]. Note that some of
+     these functions return [t] to keep [u] in normal form, in cases when the
+     value can be resolved as a result of an operation. *)
+  module Unresolved : sig
+    val equal : t -> t -> bool
+
+    val join : t -> t -> t
+
+    val transform : t -> t -> t
+
+    val assert_normal_form : t -> unit
+  end = struct
+    (* structural comparison on terms, not the ordering on the abstract
+       domain. *)
+    let rec compare t1 t2 =
+      match t1, t2 with
+      | Bot, Bot -> 0
+      | Bot, _ -> -1
+      | _, Bot -> 1
+      | Safe, Safe -> 0
+      | Safe, _ -> -1
+      | _, Safe -> 1
+      | Top w1, Top w2 -> Witnesses.compare w1 w2
+      | Top _, (Var _ | Transform _ | Join _) -> -1
+      | (Var _ | Transform _ | Join _), Top _ -> 1
+      | Var { var = v1; witnesses = w1 }, Var { var = v2; witnesses = w2 } ->
+        let c = Var.compare v1 v2 in
+        if c = 0 then Witnesses.compare w1 w2 else c
+      | Var _, _ -> -1
+      | _, Var _ -> 1
+      | Transform ul1, Transform ul2 -> List.compare compare ul1 ul2
+      | Transform _, _ -> -1
+      | _, Transform _ -> 1
+      | Join ul1, Join ul2 -> List.compare compare ul1 ul2
+
+    let equal u1 u2 = compare u1 u2 = 0
+
+    module USet = Set.Make (struct
+      type nonrec t = t
+
+      let compare = compare
+    end)
+
+    (* independently of normalize, check that u is in normal form *)
+    let rec assert_normal_form u =
+      match u with
+      | Top _ | Safe | Bot -> ()
+      | Var _ -> ()
+      | Transform ul -> assert_normal_form_transform ul
+      | Join ul -> assert_normal_form_join ul
+
+    and assert_normal_form_join ul =
+      (* only Safe, Top, Var, or Transform in normal form, at least two
+         elements, sorted, no duplicates. *)
+      let found_top = ref false in
+      let found_vars = ref Var.Set.empty in
+      ul |> get_elements
+      |> USet.iter (function
+           | Safe -> ()
+           | Top _ ->
+             assert (not !found_top);
+             found_top := true
+           | Var { var; witnesses = _ } ->
+             assert (not (Var.Set.mem var !found_vars));
+             found_vars := Var.Set.add var !found_vars
+           | Transform ul -> assert_normal_form_transform ul
+           | Join _ -> assert false
+           | Bot -> assert false)
+
+    and assert_normal_form_transform ul =
+      (* only Top, Var, at least two elements, sorted, no duplicates. *)
+      let found_top = ref false in
+      let found_vars = ref Var.Set.empty in
+      ul |> get_elements
+      |> USet.iter (function
+           | Top _ ->
+             assert (not !found_top);
+             found_top := true
+           | Var { var; witnesses = _ } ->
+             assert (not (Var.Set.mem var !found_vars));
+             found_vars := Var.Set.add var !found_vars
+           | Bot | Safe | Transform _ | Join _ -> assert false)
+
+    and get_elements ul =
+      (* ensures: sorted, no duplicates, at least two elements *)
+      let us = USet.of_list ul in
+      assert (USet.cardinal us >= 2);
+      if not (List.equal equal (USet.elements us) ul)
+      then
+        Misc.fatal_errorf "input: %a@.sorted:%a@."
+          (print_list ~witnesses:true)
+          ul
+          (print_list ~witnesses:true)
+          (USet.elements us);
+      us
+
+    module Acc : sig
+      (* Used during normalization. Someday: use this as the canonical
+         representation directly to reduce allocation. *)
+      type u = t
+
+      type t
+
+      val empty : t
+
+      val add : t -> u -> t
+
+      val mk_transform : t -> u
+
+      val mk_join : t -> u
+
+      val remove_join : t -> (u * t) option
+
+      val contains_bot : t -> bool
+    end = struct
+      type u = t
+
+      type t =
+        { us : USet.t;
+          (* CR-someday gyorsh: split const and transforms into dedicated
+             fields? *)
+          joins : USet.t;
+          (* CR-someday gyorsh: avoid reallocating top and vars unnecessarily *)
+          top : Witnesses.t option;
+          vars : Witnesses.t Var.Map.t
+        }
+
+      let empty =
+        { joins = USet.empty;
+          us = USet.empty;
+          top = None;
+          vars = Var.Map.empty
+        }
+
+      let contains_bot t = USet.mem Bot t.us
+
+      let contains_safe t = USet.mem Bot t.us
+
+      let contains_join t = not (USet.is_empty t.joins)
+
+      let add_var t var witness =
+        let f w =
+          match w with
+          | None -> Some witness
+          | Some w -> Some (Witnesses.join w witness)
+        in
+        { t with vars = Var.Map.update var f t.vars }
+
+      let add_top t w =
+        let top =
+          match t.top with
+          | None -> Some w
+          | Some w' -> Some (Witnesses.join w w')
+        in
+        { t with top }
+
+      let remove_join t =
+        let j = USet.choose_opt t.joins in
+        match j with
+        | None -> None
+        | Some j ->
+          let t = { t with joins = USet.remove j t.joins } in
+          Some (j, t)
+
+      let add t u = { t with us = USet.add u t.us }
+
+      let add t u =
+        match u with
+        | Bot -> add t u
+        | Safe -> add t u
+        | Top w -> add_top t w
+        | Var { var; witnesses } -> add_var t var witnesses
+        | Transform _ -> add t u
+        | Join _ -> { t with joins = USet.add u t.joins }
+
+      let mk_vars t =
+        t.vars |> Var.Map.to_seq
+        |> Seq.map (fun (var, witnesses) -> Var { var; witnesses })
+
+      let to_list t =
+        let top =
+          match t.top with
+          | None -> USet.empty
+          | Some w -> USet.singleton (Top w)
+        in
+        let res = USet.(union top (add_seq (mk_vars t) t.us)) in
+        USet.elements res
+
+      (* returns transform in normal form *)
+      let mk_transform t =
+        assert (not (contains_safe t));
+        assert (not (contains_join t));
+        if contains_bot t
+        then Bot
+        else
+          match to_list t with
+          | [] -> Safe
+          | [u] -> (
+            match u with
+            | Safe | Bot | Transform _ -> assert false
+            | Top _ as t -> t
+            | Join _ | Var _ -> u)
+          | ul -> Transform ul
+
+      let simplify_join_of_top t =
+        (* Don't simplify (join Top x) to x if there are any witnesses in x.
+           This makes the analysis more expensive because symbolic summaries
+           cannot be simiplified as much. Finding out if there are witnesses is
+           also expensive, but can be made cheap for by passing [keep_witnesses]
+           to all operations. Only functions that need to be checked against a
+           user-provided annotation at the end keep witnesses. *)
+        match t.top with
+        | None -> None
+        | Some _ ->
+          let t_without_top = { t with top = None } in
+          let w' =
+            List.fold_left
+              (fun acc u -> Witnesses.join acc (get_witnesses u))
+              Witnesses.empty (to_list t_without_top)
+          in
+          if Witnesses.is_empty w' then t.top else None
+
+      (* returns join in normal form *)
+      let mk_join t =
+        assert (not (contains_bot t));
+        match simplify_join_of_top t with
+        | Some w -> Top w
+        | None -> (
+          match to_list t with
+          | [] -> Bot
+          | [u] -> (
+            match u with
+            | Bot | Join _ -> assert false
+            | (Safe | Top _ | Var _ | Transform _) as u -> u)
+          | ul -> Join ul)
+    end
+
+    (* This naive normal form is conceptually "dnf". Currently very inefficient,
+       does not guarantee sharing, and [normalize] reallocates even if the input
+       is already in a normal form. Someday it can be optimized using hash
+       consing and bdd-like representation. *)
+    module N : sig
+      val normalize : t -> t
+    end = struct
+      (* CR-someday gyorsh: symmetry in handling join and transform, factor
+         out? *)
+      let rec normalize : t -> t =
+       fun u ->
+        (* if !Flambda_backend_flags.dump_checkmach
+         * then
+         *   Format.fprintf Format.std_formatter "normalize: %a@."
+         *     (print ~witnesses:true) u; *)
+        match u with
+        | (Top _ | Safe | Bot) as t -> t
+        | Var _ -> u
+        | Join ul -> normalize_join ul
+        | Transform ul -> normalize_transform ul
+
+      and flatten_transform acc u =
+        match normalize u with
+        | Safe -> acc
+        | Transform ul -> List.fold_left flatten_transform acc ul
+        | (Bot | Top _ | Var _ | Join _) as u -> Acc.add acc u
+
+      and distribute_transform_over_join acc =
+        (* worst-case exponential in the number of variables *)
+        match Acc.remove_join acc with
+        | None -> Acc.mk_transform acc
+        | Some (Join ul, acc) ->
+          let f u = distribute_transform_over_join (flatten_transform acc u) in
+          ul |> List.map f
+          |> List.fold_left flatten_join Acc.empty
+          |> Acc.mk_join
+        | Some ((Top _ | Bot | Safe | Transform _ | Var _), _) -> assert false
+
+      and normalize_transform ul =
+        let res =
+          ul |> List.map normalize |> List.fold_left flatten_transform Acc.empty
+        in
+        (* optimize common case *)
+        if Acc.contains_bot res then Bot else distribute_transform_over_join res
+
+      and flatten_join acc u =
+        match u with
+        | Bot -> acc
+        | Join ul -> List.fold_left flatten_join acc ul
+        | (Safe | Top _ | Var _ | Transform _) as u -> Acc.add acc u
+
+      and normalize_join ul =
+        ul |> List.map normalize
+        |> List.fold_left flatten_join Acc.empty
+        |> Acc.mk_join
+    end
+
+    let join u1 u2 = Join [u1; u2] |> N.normalize
+
+    let transform u1 u2 = Transform [u1; u2] |> N.normalize
+  end
+
+  let debug = true
+
+  let assert_normal_form t = if debug then Unresolved.assert_normal_form t
+
+  (* Keep [join] and [lessequal] in sync. Handling of constant cases here is an
+     optimization, instead of going directly to [Unresolved]. *)
+  let join t1 t2 =
+    assert_normal_form t1;
+    assert_normal_form t2;
+    match t1, t2 with
+    | Bot, Bot -> Bot
+    | Safe, Safe -> Safe
+    | Top w1, Top w2 -> Top (Witnesses.join w1 w2)
+    | Safe, Bot | Bot, Safe -> Safe
+    | Top _, Bot | Top _, Safe -> t1
+    | Bot, Top _ | Safe, Top _ -> t2
+    | Bot, (Var _ | Transform _ | Join _) -> t2
+    | (Var _ | Transform _ | Join _), Bot -> t1
+    | (Safe | Top _ | Var _ | Transform _ | Join _), _ -> Unresolved.join t1 t2
+
+  let lessequal t1 t2 =
+    assert_normal_form t1;
+    assert_normal_form t2;
+    match t1, t2 with
+    | Bot, Bot -> true
+    | Safe, Safe -> true
+    | Top w1, Top w2 -> Witnesses.lessequal w1 w2
+    | Bot, Safe -> true
+    | Bot, Top _ -> true
+    | Safe, Top _ -> true
+    | Top _, (Bot | Safe) -> false
+    | Safe, Bot -> false
+    | Bot, (Var _ | Transform _ | Join _) -> true
+    | (Var _ | Transform _ | Join _), Bot -> false
+    | (Safe | Top _ | Var _ | Transform _ | Join _), _ ->
+      (* structural equality on normal form *)
+      Unresolved.equal (Unresolved.join t1 t2) t2
+
+  (* Abstract transformer. Commutative and Associative.
+
+     let transform t t' = if t = V.Bot || t' = V.Bot then V.Bot else (V.join t
+     t')
+
+     The implementation is an optimized version of the above definition that
+     "inlines" and "specializes" join: efficently handle definitvie cases and
+     preserve normal form of unresolved.
+
+     Soundness (intuitively): If a return is unreachable from the program
+     location immediately after the statement, or the statement does not return,
+     then return is unreachable from the program location immediately before the
+     statement. *)
+  let transform t t' =
+    assert_normal_form t;
+    assert_normal_form t';
+    match t, t' with
+    | Bot, _ -> Bot
+    | _, Bot -> Bot
+    | Safe, t' -> t'
+    | t, Safe -> t
+    | Top w, Top w' -> Top (Witnesses.join w w')
+    | (Top _ | Var _ | Transform _ | Join _), _ -> Unresolved.transform t t'
+
+  let rec replace_witnesses w t =
+    match t with
+    | Top _ -> Top w
+    | Bot | Safe -> t
+    | Join tl -> Join (replace_witnesses_list w tl)
+    | Transform tl -> Transform (replace_witnesses_list w tl)
+    | Var { var; witnesses = _ } -> Var { var; witnesses = w }
+
+  and replace_witnesses_list w tl = List.map (replace_witnesses w) tl
 
   let diff_witnesses ~expected ~actual =
     (* If [actual] is Top and [expected] is not Top then return the [actual]
@@ -180,25 +660,99 @@ end = struct
       Witnesses.empty
     | Safe, Bot -> Witnesses.empty
     | Top w, (Bot | Safe) -> w
+    | (Var _ | Join _ | Transform _), _ | _, (Var _ | Join _ | Transform _) ->
+      assert false
+
+  let rec apply t ~env =
+    assert_normal_form t;
+    match t with
+    | Bot | Safe | Top _ -> t
+    | Var { var; witnesses } -> replace_witnesses witnesses (env var)
+    | Transform tl ->
+      List.fold_left (fun acc u -> transform (apply u ~env) acc) Safe tl
+    | Join l -> List.fold_left (fun acc u -> join (apply u ~env) acc) Bot l
+end
+
+module V : sig
+  type t
+
+  (** order of the abstract domain  *)
+  val lessequal : t -> t -> bool
+
+  (** [equal] is structural equality on terms,
+      not the order of the abstract domain. *)
+
+  val join : t -> t -> t
+
+  val transform : t -> t -> t
+
+  val replace_witnesses : Witnesses.t -> t -> t
+
+  val diff_witnesses : expected:t -> actual:t -> Witnesses.t
+
+  val get_witnesses : t -> Witnesses.t
+
+  val print : witnesses:bool -> Format.formatter -> t -> unit
+
+  val unresolved : Witnesses.t -> Var.t -> t
+
+  val is_resolved : t -> bool
+
+  val apply : t -> env:(Var.t -> t) -> t
+
+end = struct
+
+  module Resolved = Zero_alloc_utils.Make (Witnesses)
+
+  type t =
+    | Resolved of Resolved.t
+    | Unresolved of Unresolved.t
+
 end
 
 module Value : sig
   include module type of T.Value
 
-  val transform : Witnesses.t -> t -> t
+  val transform : V.t -> t -> t
 
   val replace_witnesses : Witnesses.t -> t -> t
 
   val get_witnesses : t -> Witnesses.components
 
   val diff_witnesses : expected:t -> actual:t -> Witnesses.components
+
+  val unresolved : string -> Witnesses.t -> t
+
+  val is_resolved : t -> bool
+
+  val get_component : t -> Tag.t -> V.t
+
+  val apply : t -> (Var.t -> V.t) -> t
 end = struct
   include T.Value
 
-  let transform w v =
-    { nor = V.transform w v.nor;
-      exn = V.transform w v.exn;
-      div = V.transform w v.div
+  let unresolved name w =
+    { nor = Var.get name Tag.N |> V.unresolved w;
+      exn = Var.get name Tag.E |> V.unresolved w;
+      div = Var.get name Tag.D |> V.unresolved w
+    }
+
+  let is_resolved t =
+    V.is_resolved t.nor && V.is_resolved t.exn && V.is_resolved t.div
+
+  let get_component t (tag : Tag.t) =
+    match tag with N -> t.nor | E -> t.exn | D -> t.div
+
+  let apply t env =
+    { nor = V.apply t.nor ~env;
+      exn = V.apply t.exn ~env;
+      div = V.apply t.div ~env
+    }
+
+  let transform effect v =
+    { nor = V.transform effect v.nor;
+      exn = V.transform effect v.exn;
+      div = V.transform effect v.div
     }
 
   let replace_witnesses w t =
@@ -218,6 +772,7 @@ end = struct
       Witnesses.exn = V.get_witnesses t.exn;
       Witnesses.div = V.get_witnesses t.div
     }
+
 end
 
 (**  Representation of user-provided annotations as abstract values *)
@@ -525,21 +1080,12 @@ module Func_info : sig
     { name : string;  (** function name *)
       dbg : Debuginfo.t;  (** debug info associated with the function *)
       mutable value : Value.t;  (** the result of the check *)
-      annotation : Annotation.t option;
+      annotation : Annotation.t option
           (** [value] must be lessequal than the expected value
           if there is user-defined annotation on this function. *)
-      saved_body : Mach.instruction option
-          (** If the function has callees that haven't been analyzed yet, keep function body
-          so it can be reanalyzed when the callees are available.  *)
     }
 
-  val create :
-    string ->
-    Value.t ->
-    Debuginfo.t ->
-    Annotation.t option ->
-    Mach.instruction option ->
-    t
+  val create : string -> Value.t -> Debuginfo.t -> Annotation.t option -> t
 
   val print : witnesses:bool -> msg:string -> Format.formatter -> t -> unit
 
@@ -549,16 +1095,12 @@ end = struct
     { name : string;  (** function name *)
       dbg : Debuginfo.t;  (** debug info associated with the function *)
       mutable value : Value.t;  (** the result of the check *)
-      annotation : Annotation.t option;
+      annotation : Annotation.t option
           (** [value] must be lessequal than the expected value
           if there is user-defined annotation on this function. *)
-      saved_body : Mach.instruction option
-          (** If the function has callees that haven't been analyzed yet, keep function body
-          so it can be reanalyzed when the callees are available.  *)
     }
 
-  let create name value dbg annotation saved_body =
-    { name; dbg; value; annotation; saved_body }
+  let create name value dbg annotation = { name; dbg; value; annotation }
 
   let print ~witnesses ~msg ppf t =
     Format.fprintf ppf "%s %s %a@." msg t.name (Value.print ~witnesses) t.value
@@ -602,15 +1144,11 @@ module Unit_info : sig
   (** [recod t name v dbg a] name must be in the current compilation unit,
       and not previously recorded.  *)
   val record :
-    t ->
-    string ->
-    Value.t ->
-    Debuginfo.t ->
-    Annotation.t option ->
-    Mach.instruction option ->
-    unit
+    t -> string -> Value.t -> Debuginfo.t -> Annotation.t option -> unit
 
   val iter : t -> f:(Func_info.t -> unit) -> unit
+
+  val fold : t -> f:(Func_info.t -> 'a -> 'a) -> init:'a -> 'a
 end = struct
   (** map function name to the information about it *)
   type t = Func_info.t String.Tbl.t
@@ -623,11 +1161,14 @@ end = struct
 
   let iter t ~f = String.Tbl.iter (fun _ func_info -> f func_info) t
 
-  let record t name value dbg annotation saved_body =
+  let fold t ~f ~init =
+    String.Tbl.fold (fun _name func_info acc -> f func_info acc) t init
+
+  let record t name value dbg annotation =
     match String.Tbl.find_opt t name with
     | Some _ -> Misc.fatal_errorf "Duplicate symbol %s" name
     | None ->
-      let func_info = Func_info.create name value dbg annotation saved_body in
+      let func_info = Func_info.create name value dbg annotation in
       String.Tbl.replace t name func_info
 end
 
@@ -643,7 +1184,9 @@ module Stats : sig
 
   val dataflow : t -> int -> string -> unit
 
-  val print : Format.formatter -> Unit_info.t -> t -> unit
+  val unresolved : t -> Unit_info.t -> unit
+
+  val print : Format.formatter -> t -> unit
 end = struct
   type s =
     { mutable total_functions : int;
@@ -700,15 +1243,20 @@ end = struct
         t.dataflow_max_iterations <- c;
         t.dataflow_max_fun_name <- name)
 
-  let print ppf unit_info t =
+  let unresolved t unit_info =
     match t with
     | None -> ()
     | Some t ->
       (* count selfrec and unresolved functions in this compilation unit *)
       Unit_info.iter unit_info ~f:(fun func_info ->
           t.total_functions <- t.total_functions + 1;
-          if Option.is_some func_info.saved_body
-          then t.unresolved_functions <- t.unresolved_functions + 1);
+          if not (Value.is_resolved func_info.value)
+          then t.unresolved_functions <- t.unresolved_functions + 1)
+
+  let print ppf t =
+    match t with
+    | None -> ()
+    | Some t ->
       (* print all fields *)
       let h = "*** Checkmach stats" in
       Format.fprintf ppf "%s: Total number of functions: %d@." h
@@ -748,10 +1296,6 @@ end = struct
     { ppf : Format.formatter;
       current_fun_name : string;
       future_funcnames : String.Set.t;
-      mutable approx : Value.t option;
-          (** Used for computing for self calls. *)
-      mutable unresolved : bool;
-          (** the current function contains calls to other unresolved functions (not including self calls) *)
       unit_info : Unit_info.t;  (** must be the current compilation unit.  *)
       keep_witnesses : bool
     }
@@ -762,16 +1306,9 @@ end = struct
     | No_details -> false
     | At_most _ -> keep
 
-  let create ppf current_fun_name future_funcnames unit_info approx annot =
+  let create ppf current_fun_name future_funcnames unit_info annot =
     let keep_witnesses = should_keep_witnesses (Option.is_some annot) in
-    { ppf;
-      current_fun_name;
-      future_funcnames;
-      approx;
-      unresolved = false;
-      unit_info;
-      keep_witnesses
-    }
+    { ppf; current_fun_name; future_funcnames; unit_info; keep_witnesses }
 
   let analysis_name = Printcmm.property_to_string S.property
 
@@ -786,15 +1323,7 @@ end = struct
   let report t v ~msg ~desc dbg =
     report' t.ppf v ~msg ~desc ~current_fun_name:t.current_fun_name dbg
 
-  let report_fail t d desc dbg = report t d ~msg:"failed" ~desc dbg
-
   let is_future_funcname t callee = String.Set.mem callee t.future_funcnames
-
-  let check t (r : Value.t) msg dbg =
-    if V.is_not_safe r.nor then report_fail t r (msg ^ " nor") dbg;
-    if V.is_not_safe r.exn then report_fail t r (msg ^ " exn") dbg;
-    if V.is_not_safe r.div then report_fail t r (msg ^ " div") dbg;
-    r
 
   let report_unit_info ppf unit_info ~msg =
     if !Flambda_backend_flags.dump_checkmach
@@ -862,32 +1391,27 @@ end = struct
       return ~msg v
     in
     let resolved v =
-      let msg = Printf.sprintf "resolved  %s" callee in
-      return ~msg v
+      if Value.is_resolved v
+      then
+        let msg = Printf.sprintf "resolved  %s" callee in
+        return ~msg v
+      else unresolved v "defined earlier with unresolved dependencies"
     in
     if is_future_funcname t callee
-    then
+    then (
       if !Flambda_backend_flags.disable_precise_checkmach
       then
-        (* Conservatively return Top. Won't be able to prove any recursive
+                (* Conservatively return Top. Won't be able to prove any recursive
            functions as non-allocating. *)
         unresolved (Value.top w)
-          "conservative handling of forward or recursive call or tailcall"
-      else if String.equal callee t.current_fun_name
-      then
-        (* Self call. *)
-        match t.approx with
-        | None ->
-          (* Summary is not computed yet. Conservative. *)
-          let v = Value.safe in
-          t.approx <- Some v;
-          unresolved v "self-call init"
-        | Some approx -> unresolved approx "self-call approx"
-      else (
+          "conservative handling of forward or recursive call\nor tailcall"
+      else ( if String.equal callee t.current_fun_name
+      then (* Self call. *)
+        unresolved (Value.unresolved callee w) "self call"
+      else
         (* Call is defined later in the current compilation unit. Summary of
-           this callee is not yet computed. *)
-        t.unresolved <- true;
-        unresolved Value.safe "forward or recursive call or tailcall")
+            this callee is not yet computed. *)
+        unresolved (Value.unresolved callee w) "foward call"))
     else
       (* CR gyorsh: unresolved case here is impossible in the conservative
          analysis because all previous functions have been conservatively
@@ -898,22 +1422,21 @@ end = struct
         match S.get_value_opt callee with
         | None ->
           unresolved (Value.top w)
-            "(missing summary: callee compiled without checks)"
+            "missing summary: callee compiled without checks"
         | Some v -> resolved v)
-      | Some callee_info -> (
-        (* Callee defined earlier in the same compilation unit. *)
-        match callee_info.saved_body with
-        | None -> resolved callee_info.value
-        | Some _ ->
-          (* callee was unresolved, mark caller as unresolved *)
-          t.unresolved <- true;
-          unresolved callee_info.value "unresolved callee")
+      | Some callee_info ->
+        (* Callee defined earlier in the same compilation unit. May have
+           unresolved dependencies. *)
+        resolved callee_info.value
 
   let transform_return ~(effect : V.t) dst =
+    (* Instead of calling [Value.transform] directly, first check for trivial
+       cases to avoid reallocating [dst]. *)
     match effect with
-    | V.Bot -> Value.bot
-    | V.Safe -> dst
-    | V.Top w -> Value.transform w dst
+    | Bot -> Value.bot
+    | Safe -> dst
+    | Top _ -> Value.transform effect dst
+    | Var _ | Join _ | Transform _ -> Value.transform effect dst
 
   let transform_diverge ~(effect : V.t) (dst : Value.t) =
     let div = V.join effect dst.div in
@@ -928,7 +1451,7 @@ end = struct
     report t r ~msg:"transform join" ~desc dbg;
     let r = transform_diverge ~effect:effect.div r in
     report t r ~msg:"transform result" ~desc dbg;
-    check t r desc dbg
+    r
 
   let transform_top t ~next ~exn w desc dbg =
     let effect =
@@ -984,11 +1507,14 @@ end = struct
     | Ialloc { mode = Alloc_heap; bytes; dbginfo } -> (
       assert (not (Mach.operation_can_raise op));
       let w = create_witnesses t (Alloc { bytes; dbginfo }) dbg in
-      match Metadata.assume_value dbg ~can_raise:false w with
-      | Some effect -> transform t ~next ~exn ~effect "heap allocation" dbg
-      | None ->
-        let r = Value.transform w next in
-        check t r "heap allocation" dbg)
+      let effect =
+        match Metadata.assume_value dbg ~can_raise:false w with
+        | Some effect -> effect
+        | None ->
+          (* Value.{ nor = Top w; exn = V.Bot; div = V.Bot } in *)
+          Value.top
+      in
+      transform t ~effect ~next ~exn "heap allocation" dbg
     | Iprobe { name; handler_code_sym; enabled_at_init = __ } ->
       let desc = Printf.sprintf "probe %s handler %s" name handler_code_sym in
       let w = create_witnesses t (Probe { name; handler_code_sym }) dbg in
@@ -1075,61 +1601,123 @@ end = struct
     |> fst
 
   let analyze_body t body =
+    (* CR gyorsh: Optimize the common case of self-recursive functions.  Refactor fixpoint
+       so it can be reused instead of having a separate loop. *)
     let counter = ref 0 in
-    let rec fixpoint () =
-      let new_value = check_instr t body in
-      match t.approx with
-      | None -> new_value
-      | Some approx ->
-        (* Fixpoint here is only for the common case of "self" recursive
-           functions that do not have other unresolved dependencies. Other cases
-           will be recomputed simultaneously at the end of the compilation
-           unit. *)
-        if t.unresolved
-        then new_value
-        else (
-          incr counter;
-          if Value.lessequal new_value approx
-          then approx
-          else (
-            t.approx <- Some (Value.join new_value approx);
-            fixpoint ()))
+    let fixpoint () =
+      let new_value = check_instr t fd.fun_body in
+      incr counter;
+      new_value
     in
     let res = fixpoint () in
     Stats.selfrec !stats !counter t.current_fun_name;
     res
 
+  module Env : sig
+    type t
+
+    val empty : t
+
+    val add : Func_info.t -> Value.t -> t -> t
+
+    val get_value : string -> t -> Value.t
+
+    val iter : t -> f:(Func_info.t -> Value.t -> unit) -> unit
+
+    val map : t -> f:(Func_info.t -> Value.t -> Value.t) -> t
+
+    val print : msg:string -> Format.formatter -> t -> unit
+  end = struct
+    type data =
+      { func_info : Func_info.t;
+        approx : Value.t
+      }
+
+    type t = data String.Map.t
+
+    let empty = String.Map.empty
+
+    let add (func_info : Func_info.t) approx t =
+      let d = { func_info; approx } in
+      String.Map.add func_info.name d t
+
+    let get_value name t =
+      let d = String.Map.find name t in
+      d.approx
+
+    let map t ~f =
+      String.Map.map (fun d -> { d with approx = f d.func_info d.approx }) t
+
+    let iter t ~f = String.Map.iter (fun _name d -> f d.func_info d.approx) t
+
+    let print ~msg ppf t =
+      if !Flambda_backend_flags.dump_checkmach
+      then
+        iter t ~f:(fun func_info approx ->
+            Format.fprintf ppf "Env %s: %s: %a@." msg func_info.name
+              (Value.print ~witnesses:true)
+              approx)
+  end
+
+  (* CR gyorsh: do we need join in the fixpoint computation or is the function
+     body analysis/summary already monotone? *)
   let fixpoint ppf unit_info =
     report_unit_info ppf unit_info ~msg:"before fixpoint";
     (* CR gyorsh: this is a really dumb iteration strategy. *)
-    let change = ref true in
-    let analyze_func (func_info : Func_info.t) =
-      match func_info.saved_body with
-      | None -> ()
-      | Some b ->
-        let t =
-          create ppf func_info.name String.Set.empty unit_info None
-            func_info.annotation
-        in
-        let new_value = analyze_body t b in
-        if not (Value.lessequal new_value func_info.value)
-        then (
-          change := true;
-          report t new_value ~msg:"update" ~desc:"fixpoint" func_info.dbg;
-          Func_info.update func_info new_value)
+    Stats.unresolved !stats unit_info;
+    let found_unresolved = ref false in
+    let init_env =
+      (* initialize [env] with Bot for all functions on normal and exceptional
+         return, and Safe for diverage component conservatively. *)
+      let init_val = Value.{ nor = V.Bot; exn = V.Bot; div = V.Safe } in
+      Unit_info.fold unit_info ~init:Env.empty ~f:(fun func_info env ->
+          let v =
+            if Value.is_resolved func_info.value
+            then func_info.value
+            else (
+              found_unresolved := true;
+              init_val)
+          in
+          Env.add func_info v env)
     in
-    while !change do
-      change := false;
-      Unit_info.iter unit_info ~f:analyze_func;
+    let lookup env var =
+      let v = Env.get_value (Var.name var) env in
+      Value.get_component v (Var.tag var)
+    in
+    let rec loop env =
       Stats.fixpoint_incr !stats;
-      report_unit_info ppf unit_info ~msg:"computing fixpoint"
-    done
+      Env.print ~msg:"computing fixpoint" ppf env;
+      let changed = ref false in
+      let env' =
+        Env.map
+          ~f:(fun func_info v ->
+            let v' = Value.apply func_info.value (lookup env) in
+            assert (Value.is_resolved v');
+            if not (Value.lessequal v' v)
+            then (
+              changed := true;
+              if !Flambda_backend_flags.dump_checkmach
+              then
+                Format.fprintf ppf "fixpoint update: %s %a@." func_info.name
+                  (Value.print ~witnesses:true)
+                  v');
+            v')
+          env
+      in
+      if !changed then loop env' else env'
+    in
+    if !found_unresolved
+    then (
+      let env = loop init_env in
+      Env.iter env ~f:(fun func_info v -> Func_info.update func_info v);
+      Env.print ~msg:"after fixpoint" ppf env;
+      report_unit_info ppf unit_info ~msg:"after fixpoint")
 
   let record_unit unit_info ppf =
     Profile.record_call ~accumulate:true ("record_unit " ^ analysis_name)
       (fun () ->
         fixpoint ppf unit_info;
-        Stats.print ppf unit_info !stats;
+        Stats.print ppf !stats;
         record_unit ppf unit_info)
 
   let fundecl (f : Mach.fundecl) ~future_funcnames unit_info ppf =
@@ -1138,18 +1726,17 @@ end = struct
       let a =
         Annotation.find f.fun_codegen_options S.property fun_name f.fun_dbg
       in
-      let t = create ppf fun_name future_funcnames unit_info None a in
+      let t = create ppf fun_name future_funcnames unit_info a in
       let really_check () =
-        let res = analyze_body t f.fun_body in
-        let saved_body = if t.unresolved then Some f.fun_body else None in
+        let res = analyze_body t f in
         report t res ~msg:"finished" ~desc:"fundecl" f.fun_dbg;
-        if not t.keep_witnesses
+        if (not t.keep_witnesses) && Value.is_resolved res
         then (
           let { Witnesses.nor; exn; div } = Value.get_witnesses res in
           assert (Witnesses.is_empty nor);
           assert (Witnesses.is_empty exn);
           assert (Witnesses.is_empty div));
-        Unit_info.record unit_info fun_name res f.fun_dbg a saved_body;
+        Unit_info.record unit_info fun_name res f.fun_dbg a;
         report_unit_info ppf unit_info ~msg:"after record"
       in
       let really_check () =
@@ -1159,14 +1746,14 @@ end = struct
              the summary is top. *)
           Unit_info.record unit_info fun_name
             (Value.top Witnesses.empty)
-            f.fun_dbg a None
+            f.fun_dbg a
         else really_check ()
       in
       match a with
       | Some a when Annotation.is_assume a ->
         let expected_value = Annotation.expected_value a in
         report t expected_value ~msg:"assumed" ~desc:"fundecl" f.fun_dbg;
-        Unit_info.record unit_info fun_name expected_value f.fun_dbg None None
+        Unit_info.record unit_info fun_name expected_value f.fun_dbg None
       | None -> really_check ()
       | Some a ->
         let expected_value = Annotation.expected_value a in
@@ -1193,7 +1780,12 @@ module Spec_zero_alloc : Spec = struct
      in cmx and memory consumption Compilenv. Different components have
      different frequencies of Top/Bot. The most likely value is encoded as None
      (i.e., not stored). *)
-  let encode (v : V.t) = match v with Top _ -> 0 | Safe -> 1 | Bot -> 2
+  let encode (v : V.t) =
+    match v with
+    | Top _ -> 0
+    | Safe -> 1
+    | Bot -> 2
+    | Var _ | Transform _ | Join _ -> assert false
 
   (* Witnesses are not used across functions and not stored in cmx. Witnesses
      that appear in a function's summary are only used for error messages about

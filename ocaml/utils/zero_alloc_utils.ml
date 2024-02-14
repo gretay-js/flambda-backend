@@ -108,7 +108,7 @@ module Make (Witnesses : WS) = struct
 
     let print ~witnesses ppf { nor; exn; div } =
       let pp = V.print ~witnesses in
-      Format.fprintf ppf "{ nor=%a; exn=%a; div=%a }" pp nor pp exn pp div
+      Format.fprintf ppf "{ nor=%a;@ exn=%a;@ div=%a }@," pp nor pp exn pp div
 
     let compare { nor = n1; exn = e1; div = d1 }
         { nor = n2; exn = e2; div = d2 } =
