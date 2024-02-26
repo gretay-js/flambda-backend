@@ -369,8 +369,9 @@ end = struct
           var1::(merge_sorted tl1 tl2)
       | (Var v1) as var1::tl1,l2 ->
         var1::(merge_sorted tl1 l2)
-      | (Var v1) as var1::tl1,l2 ->
-        var1::(merge_sorted tl1 l2)
+      | l1, (Var v2) as var2::tl2 ->
+        var2::(merge_sorted l1 tl2)
+
 
     in
     match u1, u2 with
