@@ -135,6 +135,7 @@ module Tag = struct
     | E
     | D
 
+  let compare = Stdlib.compare
   let print = function N -> "nor" | E -> "exn" | D -> "div"
 end
 
@@ -152,6 +153,10 @@ end = struct
 
   let get name tag = { name; tag }
 
+  let compare {tag=tag1; name=name1} {tag=tag2; name=name2} =
+    let c = String.compare name1 name2
+    if c = 0 then Tag.compare tag1 tag2 else c
+
   let print ppf { name; tag } =
     Format.fprintf ppf "%s.%s@," name (Tag.print tag)
 end
@@ -164,7 +169,7 @@ module V : sig
     | Top of Witnesses.t  (** Property may not hold on some paths. *)
     | Safe  (** Property holds on all paths.  *)
     | Bot  (** Not reachable. *)
-    | Unresolved of u
+    | Unresolved of u  (** [u] is normalized  *)
 
   val lessequal : t -> t -> bool
 
@@ -180,8 +185,9 @@ module V : sig
 
   val print : witnesses:bool -> Format.formatter -> t -> unit
 
-  val mk_unresolved : Var.t -> t
-  (* val eval : t -> env:(Var.t -> t option) -> t *)
+  val unresolved : Var.t -> t
+
+  val eval : t -> env:(Var.t -> t option) -> t
 end = struct
   type t =
     | Top of Witnesses.t
@@ -190,24 +196,170 @@ end = struct
     | Unresolved of { eval : unresolved_t }
 
   and unresolved_t =
-    | Join of unresolved_t list
-    | Transform of unresolved_t list
     | Var of Var.t
     | Const of t
+    | Transform of unresolved_t list
+    (* normal form of Transform: non-empty sorted list of Vars with no duplicates *)
+    | Join of unresolved_t list
+    (* normal form of Join: only (Const Safe), Vars or Transforms in normal form *)
 
   type u = unresolved_t
 
-  let mk_unresolved var = Unresolved { eval = Var var }
+  let unresolved var = Unresolved { eval = Var var }
+
+  let assert_normal_form_unresolved u =
+    let rec is_sorted ~prev l =
+      match l with
+      | [] -> ()
+      | Var v::tl ->
+        assert (Var.compare prev v < 0);
+        is_sorted ~prev:v tl
+    in
+    let is_var = (function | Var -> () | Const _  | Transform _ | Join _ -> assert false) in
+    let assert_sorted_vars l =
+      List.iter is_var l;
+      (* sorted, non-empty, no duplicates *)
+      match l with
+      | [] -> assert false
+      | hd::tl -> is_sorted ~prev:hd tl
+    in
+    let is_normal_transform =
+      (function
+        | Transform l -> assert_sorted_vars l
+        | Const _ | Var _ | Join _  -> assert false)
+    in
+    let assert_transforms l =
+      List.iter is_normal_transform l
+    in
+    let assert_vars_and_transforms l =
+      (* sorted Vars followed by Transforms *)
+      let rec aux l ~prev =
+        match l with
+        | [] -> ()
+        | Var v :: tl ->
+          assert (Var.compare prev v < 0);
+          aux tl ~prev:v
+        | Transform _ :: tl -> assert_transforms l
+      in
+      match l with
+      | [] -> assert false
+      | Var v::tl -> aux tl ~prev:v
+      | Transform _::_ -> assert_transforms l
+      | _ -> assert false
+    in
+    match u with
+    | Const _ -> assert false
+    | Var _ -> ()
+    | Transform l ->
+      assert_sorted_non_empty_vars l
+    | Join l ->
+      match l with
+      | [] | [_] -> (* at least two elements *) assert false
+      | Const Safe :: tl ->
+        (* at most one (Const Safe) *)
+        assert_vars_and_transforms tl
+      | l -> assert_vars_and_transforms l
+      | _ -> assert false
+
+  let assert_normal_form t =
+    match t with
+    | Top _ | Safe | Bot -> ()
+    | Unresolved u -> assert_normal_form_unresolved u
+
+
+  (* equality on the structure of the term in normal form *)
+  let rec same (t1 : t) (t2 : t) =
+    assert_normal_form t1;
+    assert_normal_form t2;
+    match t1, t2 with
+    | Top, Top -> true
+    | Safe, Safe -> true
+    | Bot, Bot -> true
+    | Unresolved u1, Unresolved u2 -> same_unresolved u1 u2
+    | (Top | Safe | Bot | Unresolved _), _ -> false
+
+  and same_unresolved (u1 : unresolved_t) (u2 : unresolved_t) =
+    assert_normal_form u1;
+    assert_normal_form u2;
+    match u1, u2 with
+    | Const t1, Const t2 -> assert false
+    | Var v1, Var v2 -> Var.compare v1 v2 = 0
+    | Transform l1, Transform l2 | Join l1, Join l2 ->
+      List.equal same_unresolved l1 l2
+    | (Const _ |  Var _ | Transform _ | Join _, _) -> false
+
+    (* (* distribute over joins *) let rec distribute_over_joins acc = match acc
+     with | [] -> [] | (Join l)::tl -> mk_join (mk_transform ) (mk_transform )
+     in let l = distribute_over_joins l in (* flatten all trs *) let flatten_tr
+     l = ListLabels.fold_left l ~init:[] ~f:(fun acc u -> match ) in *)
+
+  (* CR gyorsh: first normalize or first flatten? currrently do both to be on
+     the safe side, this will obvously be very inefficient and reallocate a ton
+     of lists. More efficient way is to normalize on construction, using the
+     special knowledge that args are already in normal form. Or it may also be
+     more efficient to normalize only when checking for equality and not in
+     advance, but the intermediate values might grow deep and big. *)
+  let normalize t =
+    match t with
+    | Bot | Top | Safe -> t
+    | Unresolved u ->
+      (match normalize_unresolved u with
+       | Const t -> t
+       | (Var _ | Join _ | Transform _) as u' -> Unresolved u'
+      )
+  and normalize_unresolved (u : unresolved_t) =
+    match u with
+    | Const (Unresolved _) -> assert false
+    | Const _ -> u
+    | Var _ -> u
+    | Transform l ->
+      (* normal form: list of Vars only *)
+      let l' =
+        l |> List.map normalize_unresolved |> distribute_over_joins |> flatten_tr
+        |> List.map normalize_unresolved
+      in
+      Transform l'
+    | Join l ->
+      (* normal form: list of Const, Var or Transforms in normal form *)
+      let l =
+        l |> List.map normalize |> flatten_join |> simplify_safe
+        |> List.map normalize
+      in
+      Join l
+
+  let mk_join (u1 : unresolved_t) (u2 : unresolved_t) =
+    Join [u1; u2] |> normalize_unresolved
+
+  let mk_transform (u1 : unresolved_t) (u2 : unresolved_t) =
+    Transform [u1; u2] |> normalize_unresolved
+
+  let mk_const (t:t) : u =
+    match t with
+    | Unresolved u -> assert false
+    | Top _ | Safe | Bot -> Const t
 
   let join c1 c2 =
+    assert_normal_form v1;
+    assert_normal_form v2;
     match c1, c2 with
     | Bot, Bot -> Bot
     | Safe, Safe -> Safe
     | Top w1, Top w2 -> Top (Witnesses.join w1 w2)
     | Safe, Bot | Bot, Safe -> Safe
-    | Top w1, Bot | Top w1, Safe | Bot, Top w1 | Safe, Top w1 -> Top w1
+    | Top w1, Bot | Top w1, Safe -> c1
+    | Bot, Top w1 | Safe, Top w1 -> c2
+    | Top w1, Unresolved _ -> c1
+    | Unresolved _, Top w1 -> c2
+    | Bot, Unresolved _ -> c2
+    | Unresolved _, Bot -> c1
+    | Safe, Unresolved { eval } | Unresolved { eval }, Safe ->
+      Unresolved (mk_join eval (mk_const Safe) )
+    | Unresolved { eval = eval1 }, Unresolved { eval = eval2 } ->
+      Unresolved (mk_join eval1 eval2 )
 
   let lessequal v1 v2 =
+    assert_normal_form v1;
+    assert_normal_form v2;
     match v1, v2 with
     | Bot, Bot -> true
     | Safe, Safe -> true
@@ -217,6 +369,15 @@ end = struct
     | Safe, Top _ -> true
     | Top _, (Bot | Safe) -> false
     | Safe, Bot -> false
+    | Unresolved _, Top -> true
+    | Bot, Unresolved _ -> true
+    | Top _, Unresolved u2 -> false
+    | Safe, Unresolved u2 -> false
+    | Unresolved u1, Bot -> false
+    | Unresolved u1, Safe -> false
+    | Unresolved u1, Unresolved u2 ->
+      ->
+      same_unresolved (mk_join u1 u2) u2
 
   (** abstract transformer (backward analysis) for a statement that violates the property
       but doesn't alter control flow. *)
@@ -229,76 +390,7 @@ end = struct
     | Safe -> Top w
     | Top w' -> Top (Witnesses.join w w')
 
-  (* (* distribute over joins *) let rec distribute_over_joins acc = match acc
-     with | [] -> [] | (Join l)::tl -> mk_join (mk_transform ) (mk_transform )
-     in let l = distribute_over_joins l in (* flatten all trs *) let flatten_tr
-     l = ListLabels.fold_left l ~init:[] ~f:(fun acc u -> match ) in *)
-
-  (* CR gyorsh: first normalize or first flatten? currrently do both to be on
-     the safe side, this will obvously be very inefficient and reallocate a ton
-     of lists. More efficient way is to normalize on construction, using the
-     special knowledge that args are already in normal form. Or it may also be
-     more efficient to normalize only when checking for equality and not in
-     advance, but the intermediate values might grow deep and big. *)
-  let normalize (u : unresolved_t) =
-    match u with
-    | Const (Unresolved _) -> assert false
-    | Const _ -> u
-    | Var _ -> u
-    | Transform l ->
-      (* normal form: list of Vars only *)
-      let l' =
-        l |> List.map normalize |> distribute_over_joins |> flatten_tr
-        |> List.map normalize
-      in
-      Transform l'
-    | Join l ->
-      (* normal form: list of Const, Var or Transforms in normal form *)
-      let l =
-        l |> List.map normalize |> flatten_join |> simplify_safe
-        |> List.map normalize
-      in
-      Join l
-
-  let mk_join (u1 : unresolved_t) (u2 : unresolved_t) =
-    Join [u1; u2] |> normalize
-
-  let mk_transform (u1 : unresolved_t) (u2 : unresolved_t) =
-    Transform [u1; u2] |> normalize
-
-  let rec equal (t1 : t) (t2 : t) =
-    match t1, t2 with
-    | Top, Top -> true
-    | Safe, Safe -> true
-    | Bot, Bot -> true
-    | Unresolved u1, Unresolved u2 -> equal_unresolved u1 u2
-    | Top | Safe | Bot | Unresolved _, _ -> false
-
-  and equal_unresolved (u1 : unresolved_t) (u2 : unresolved_t) =
-    (* u1, u2 should already be normalized *)
-    match normalize u1, normalize u2 with
-    | Const t1, Const t2 -> equal t1 t2
-    | Var v1, Var v2 -> Var.equal v1 v2
-    | Transform l1, Transform l2 | Join l1, Join l2 ->
-      List.equal equal_unresolved l1 l2
-
-  let rec join c1 c2 =
-    match c1, c2 with
-    | Bot, Bot -> Bot
-    | Safe, Safe -> Safe
-    | Top, Top -> Top
-    | Safe, Bot | Bot, Safe -> Safe
-    | Top, Bot | Top, Safe | Bot, Top | Safe, Top -> Top
-    | Top, Unresolved _ -> Top
-    | Unresolved _, Top -> Top
-    | Bot, Unresolved _ -> c2
-    | Unresolved _, Bot -> c1
-    | Safe, Unresolved { eval } | Unresolved { eval }, Safe ->
-      Unresolved { eval = mk_join eval (Const Safe) }
-    | Unresolved { eval = eval1 }, Unresolved { eval = eval2 } ->
-      Unresolved { eval = mk_join eval1 eval2 }
-
-  (** Abstract transformer. Symmetric, associative.
+  (** Abstract transformer. commutative, associative.
       if t = V.Bot || t' = V.Bot then Bot else (join t t')
   *)
   let rec transform_return t t' =
@@ -322,18 +414,6 @@ end = struct
     | Var v -> env v
     | Const (Unresolved _) -> assert false
     | Const t -> t
-
-  let rec lessequal v1 v2 =
-    match v1, v2 with
-    | Bot, Bot -> true
-    | Safe, Safe -> true
-    | Top, Top -> true
-    | Bot, Safe -> true
-    | Bot, Top -> true
-    | Safe, Top -> true
-    | Top, (Bot | Safe) -> false
-    | Safe, Bot -> false
-    | v1, v2 -> equal v1 v2 || not (equal (join v1 v2) v2)
 
   let replace_witnesses w t =
     match t with
