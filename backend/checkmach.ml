@@ -202,6 +202,14 @@ module V : sig
   val eval : t -> env:(Var.t -> t option) -> t
 end = struct
 
+  module Var_or_const : sig
+    type t
+    module Set : Set.S with type elt = t
+  end = struct
+    type t =
+      | Top
+      | Var of Var.t
+  end
   module Unresolved_transform : sig
     type t
     let create : Var.t -> t
@@ -246,13 +254,18 @@ end = struct
     include Set.Make(Var.Set)
   end
 
-  type u = { safe:bool; vars : Var.Set.t; transforms: Unresolved_transform.Set.t }
+  type u = { vars : Var.Set.t; transforms: Unresolved_transform.Set.t }
 
   type t =
     | Top of Witnesses.t
     | Safe
     | Bot
     | Unresolved of { eval : u }
+  and var_or_const =
+    | Const of t
+    | Var of Var.t
+  and transform = var_or_const list
+  and join = { var_or_const list; transform list;
 
   (* [u] represent unresolved join with its arguments in normal form.
      [vars] and [transforms] must not be both empty,
