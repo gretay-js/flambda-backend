@@ -202,7 +202,7 @@ module V : sig
   val eval : t -> env:(Var.t -> t option) -> t
 end = struct
 
-  module Unresolved_transform : sig
+  module Transform : sig
     type t
     let create : Var.t -> t
     module Set : Set.S with type elt = t
@@ -246,7 +246,7 @@ end = struct
     include Set.Make(Var.Set)
   end
 
-  type u = { safe:bool; vars : Var.Set.t; transforms: Unresolved_transform.Set.t }
+  type u = { safe:bool; vars : Var.Set.t; transforms: Transform.Set.t }
 
   type t =
     | Top of Witnesses.t
