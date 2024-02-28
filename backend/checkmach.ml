@@ -173,88 +173,6 @@ end = struct
 
 end
 
-module Transform : sig
-  type t
-  let singleton : Var.t -> t
-  module Set : Set.S with type elt = t
-end = struct
-  (* set of sets of vars *)
-  type t = Var.Set.t
-  include Set.Make(Var.Set)
-end
-
-module Unresolved : sig
-  type t
-  val lessthan :  t-> t -> t
-  val join : t -> t -> t
-  val join_safe : t -> t
-  val var : Var.t -> t
-end = struct
-  type t = { safe:bool; vars : Var.Set.t; transforms: Transform.Set.t }
-  let var v = { safe : false; vars = Var.Set.singleton v; transforms = Transform.Set.empty }
-
-  let lessthan { safe=s1;vars=vars1;transforms=trs1; }
-        { safe=s2;vars=vars2;transforms=trs2; } =
-    (* [safe = true] means V.Safe is in the set of values to join. *)
-    Bool.compare s1 s2 <= 0 && Var.Set.compare vars1 vars2 <= 0 &&
-    Transform.Set.compare trs1 trs2 <= 0
-
-  let join { safe=s1;vars=vars1;transforms=trs1; }
-        { safe=s2;vars=vars2;transforms=trs2; } =
-    { safe = s1 || s2;
-      vars = Var.Set.union vars1 vars2;
-      transforms = Transform.Set.union trs1 trs2;
-    }
-
-  let join_safe {safe;vars;transforms} as t =
-    (* Optimized common case of [join] to avoid some allocations. *)
-    if t.safe then t
-    else { t with safe = true }
-
-
-  let distribute_transform_over_join l w =
-    let apply_tr u =
-      match u with
-      | Const _ -> assert false
-      | Join _ -> assert false
-      | Var v -> Transform u
-      | Transform l as u -> u
-    in
-    let compare_tr u1 u2 =
-      match u1, u2 with
-      | Transform l1, Transform l2 ->
-        (* l1 and l2 are already sorted *)
-        List.compare Var.compare l1 l2
-      | (Var _ | Const _ | Transform _ | Join _), _ -> assert false
-    in
-    (* l is in normal form of Join *)
-    match l with
-    | [] | [_] | Join _ :: tl -> assert false
-    | Const Safe :: _ -> Const (Top w)
-    | l -> l |> List.map apply_tr |> List.sort_uniq compare_tr |> Join
-
-  let mk_transform safe
-  let transform { safe=s1;vars=vars1;transforms=trs1; } as t1
-    { safe=s2;vars=vars2;transforms=trs2; } as t2 =
-    (* distribute transform over join t1 *)
-    let new_t1 = mk_transform
-    mk_transform
-    (* distribute transform over joins  *)
-    if safe1 && safe2 then
-      (* join t1 and t2 *)
-      join t1 t2
-    else
-
-  let transform_top ({safe;vars;transforms} as t) w =
-    assert (not safe);
-    (* distribute transform over join *)
-    let new_transforms = Var.Set.map Transform.singleton vars in
-    { safe = false;
-      vars = Var.Set.empty;
-      transforms = Transform.Set.union transforms new_transforms }
-
-end
-
 (** Abstract value for each component of the domain. *)
 module V : sig
   type u
@@ -284,17 +202,152 @@ module V : sig
   val eval : t -> env:(Var.t -> t option) -> t
 end = struct
 
-  type sorted_vars = Var.t list
+  module Unresolved_transform : sig
+    type t
+    let create : Var.t -> t
+    module Set : Set.S with type elt = t
+  end = struct
+    type t = { top: bool; vars :  Var.Set.t }
+    (* The binary "transform" is commutative and associative,
+       so a nested "transform" can be flattened in the normal form.
+       The arguments are represented as a set of variables and optionally top.
+       if top is false, [vars] must contain at least two elements.
+       if top is true, [vars] must have at least one element.
+       This is enforced by the available constructors.
+
+       We never need to represent other constants because these cases can be simplified
+       to either a constant or a variable. *)
+
+    (* Does [t] always include "Top"?
+       We never construct (tr var1 var2) directly,
+       because any program path will include a constant (even an infinite path)
+       and thus will be resolved to a constant
+       (even if there is an unresolved callee on the path)
+       except if the constant is "top".
+       However, we can end up with a value of the form
+       (tr (join var1 var2) (join var3 var4))
+       that will be normalized into
+       (join (tr var1 var3) (tr var1 var4) (tr var2 var3) (tr var2 var4))
+       that does not have "top".
+    *)
+
+    let compare {top=top1; vars=vars1; } { top=top2; vars=vars2; } =
+      let c = Bool.compare top1 top2 in
+      if c <> 0 then c else Var.Set.compare vars1 vars2
+
+    let create_with_top var ~top =
+      { top = true;
+        vars = Var.Set.singleton var }
+
+    let create vars =
+      assert (Var.Set.cardinal > 1);
+      { top = false; vars; }
+
+    include Set.Make(Var.Set)
+  end
+
+  type u = { safe:bool; vars : Var.Set.t; transforms: Unresolved_transform.Set.t }
 
   type t =
     | Top of Witnesses.t
     | Safe
     | Bot
-    | Unresolved of { eval : Unresolved.t }
+    | Unresolved of { eval : u }
 
-  type u = Unresolved.t
+  (* [u] represent unresolved join with its arguments in normal form.
+     [vars] and [transforms] must not be both empty,
+     to ensure that resolved values are represented explicitly.
 
-  let unresolved var = Unresolved { eval = Unresolved.var var }
+     [Unresolved] module groups functions that operate on [u]. Note
+     that some of these functions return [t] to keep [u] in normal form.
+     in cases when the value can be resolved as a result of an operation.
+
+     Use [Unresolved] module to operate on [u]. Do not access the implementation
+     of [u] directly.
+  *)
+
+  (* CR gyorsh: can we avoid exposing the implementation of
+     [u] outside of [Unresolved] module? without using recursive modules?
+  *)
+  module Unresolved : sig
+    val lessthan :  u -> u -> bool
+    val join : u -> u -> t
+    val join_safe : u -> t
+    val transform : u -> u -> t
+
+    (** Optimized common case of [transform] to avoid some allocations. *)
+    val transform_top : u -> top:t-> t
+
+    val var : Var.t -> t
+  end = struct
+    let var v =
+      let eval =
+        { safe : false; vars = Var.Set.singleton v; transforms = Transform.Set.empty }
+      in
+      Unresolved { eval }
+
+    let lessthan { safe=s1;vars=vars1;transforms=trs1; }
+          { safe=s2;vars=vars2;transforms=trs2; } =
+      (* [safe = true] means V.Safe is in the set of values to join. *)
+      Bool.compare s1 s2 <= 0 && Var.Set.compare vars1 vars2 <= 0 &&
+      Transform.Set.compare trs1 trs2 <= 0
+
+    let join { safe=s1;vars=vars1;transforms=trs1; }
+          { safe=s2;vars=vars2;transforms=trs2; } =
+      { safe = s1 || s2;
+        vars = Var.Set.union vars1 vars2;
+        transforms = Transform.Set.union trs1 trs2;
+      }
+
+    let join_safe {safe;vars;transforms} as t =
+      (* Optimized common case of [join] to avoid some allocations. *)
+      if t.safe then t
+      else { t with safe = true }
+
+    let distribute_transform_over_join l w =
+      let apply_tr u =
+        match u with
+        | Const _ -> assert false
+        | Join _ -> assert false
+        | Var v -> Transform u
+        | Transform l as u -> u
+      in
+      let compare_tr u1 u2 =
+        match u1, u2 with
+        | Transform l1, Transform l2 ->
+          (* l1 and l2 are already sorted *)
+          List.compare Var.compare l1 l2
+        | (Var _ | Const _ | Transform _ | Join _), _ -> assert false
+      in
+      (* l is in normal form of Join *)
+      match l with
+      | [] | [_] | Join _ :: tl -> assert false
+      | Const Safe :: _ -> Const (Top w)
+      | l -> l |> List.map apply_tr |> List.sort_uniq compare_tr |> Join
+
+    let mk_transform safe
+    let transform { safe=s1;vars=vars1;transforms=trs1; } as t1
+      { safe=s2;vars=vars2;transforms=trs2; } as t2 =
+      (* distribute transform over join t1 *)
+      let new_t1 = mk_transform
+                     mk_transform
+                     (* distribute transform over joins  *)
+                     if safe1 && safe2 then
+                       (* join t1 and t2 *)
+                       join t1 t2
+                     else ()
+
+    let transform_top {safe;vars;transforms}  ~top =
+      if safe then top else (
+        (* distribute transform over join *)
+        let new_transforms = Var.Set.map Transform.singleton vars in
+        { safe = false;
+          vars = Var.Set.empty;
+          transforms = Transform.Set.union transforms new_transforms }
+      )
+  end
+
+  let unresolved var = Unresolved.var var
 
   let join c1 c2 =
     assert_normal_form v1;
@@ -335,12 +388,18 @@ end = struct
     | Unresolved u1, Safe -> false
     | Unresolved u1, Unresolved u2 -> Unresolved.lessequal u1 u2
 
-  (* Abstract transformer. commutative, associative. if t = V.Bot || t' = V.Bot
-     then Bot else (join t t')
+  (* Abstract transformer. Commutative and Associative.
 
-     If a return is unreachable from the program location immediately after the
-     statement, or the statement does not return, then return is unreachable
-     from the program location immediately before the statement. *)
+     let transform t t' =
+         if t = V.Bot || t' = V.Bot then V.Bot else (V.join t t')
+
+     The implementation is an optimized version of the above definition that "inlines" and
+     "specializes" join: efficently handle definitvie cases and preserve normal form of
+     unresolved.
+
+     Soundness (intuitively): If a return is unreachable from the program location
+     immediately after the statement, or the statement does not return, then return is
+     unreachable from the program location immediately before the statement. *)
   let transform t t' =
     match t, t' with
     | Bot, _ -> Bot
@@ -349,10 +408,7 @@ end = struct
     | t, Safe -> t
     | Top w, Top w' -> Top (Witnesses.join w w')
     | (Top w) as top, Unresolved u
-    | Unresolved u, (Top w) as top ->
-      (* Optimized common case of [mk_transform] to avoid some allocations. *)
-      if Unresolved.is_safe u then top else
-        Unresolved (Unresolved.transform_top u w)
+    | Unresolved u, (Top w) as top -> Unresolved.transform_top u ~top
     | Unresolved u, Unresolved u' ->
       Unresolved (Unresolved.transform u u')
 
