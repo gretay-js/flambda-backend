@@ -272,7 +272,10 @@ end = struct
   module Unresolved : sig
     val lessthan :  u -> u -> bool
     val join : u -> u -> t
+
+    (** Optimized common case of [join] to avoid some allocations. *)
     val join_safe : u -> t
+
     val transform : u -> u -> t
 
     (** Optimized common case of [transform] to avoid some allocations. *)
@@ -325,17 +328,18 @@ end = struct
       | Const Safe :: _ -> Const (Top w)
       | l -> l |> List.map apply_tr |> List.sort_uniq compare_tr |> Join
 
-    let mk_transform safe
-    let transform { safe=s1;vars=vars1;transforms=trs1; } as t1
-      { safe=s2;vars=vars2;transforms=trs2; } as t2 =
-      (* distribute transform over join t1 *)
-      let new_t1 = mk_transform
-                     mk_transform
-                     (* distribute transform over joins  *)
-                     if safe1 && safe2 then
-                       (* join t1 and t2 *)
-                       join t1 t2
-                     else ()
+    let transform { safe=s1;vars=vars1;transforms=trs1; } as u1
+      { safe=s2;vars=vars2;transforms=trs2; } as u2 =
+      (* distribute transform over join *)
+      if safe1 && safe2 then
+        (* join t1 and t2 *)
+        join u1 u2
+      else
+        let tranform_vars =
+          Var.Set.fold vars
+
+        in
+
 
     let transform_top {safe;vars;transforms}  ~top =
       if safe then top else (
