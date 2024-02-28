@@ -236,7 +236,8 @@ end = struct
       | Const of t
       | Var of Var.t
       | Transform of unresolved_t list
-      | Join of unresolved_t list
+      | Join of unresolved_t
+
 
     let u = unresolved_t
     (* [eval] is always maintained in normal form:
@@ -265,60 +266,13 @@ end = struct
        The order of the symbolic abstract domain
        is structural on the shape of the term in [unresolved]. *)
 
-
-
-    let join c1 c2 =
-      assert_normal_form v1;
-      assert_normal_form v2;
-      match c1, c2 with
-      | Bot, Bot -> Bot
-      | Safe, Safe -> Safe
-      | Top w1, Top w2 -> Top (Witnesses.join w1 w2)
-      | Safe, Bot | Bot, Safe -> Safe
-      | Top w1, Bot | Top w1, Safe -> c1
-      | Bot, Top w1 | Safe, Top w1 -> c2
-      | Top w1, Unresolved _ -> c1
-      | Unresolved _, Top w1 -> c2
-      | Bot, Unresolved _ -> c2
-      | Unresolved _, Bot -> c1
-      | Safe, Unresolved { eval } | Unresolved { eval }, Safe ->
-        Unresolved (join_unresolved_safe eval)
-      | Unresolved { eval = eval1 }, Unresolved { eval = eval2 } ->
-        Unresolved (join_unresolved eval1 eval2)
-    and join_unresolved_safe u =
-      (* Optimized common case of [join] to avoid some allocations. *)
-      match u with
-      | Const _ -> assert false
-      | Var v as u -> u
-      | Transform _ as u -> Join [(Const Safe);u]
-      | Join ul as u ->
-        if contains_safe ul then
-          u
-        else
-          Join (Const Safe)::ul
-    and join_unresolved u1 u2 =
-      Join (List.sort_uniq compare_unresolved [u1;u2])
-
+    let join u1 u2 =
       match u1, u2 with
-      | Const _, _
-      | _, Const -> assert false
-      | Var var1, Var var2 ->
-        let c = Var.compare var1 var2 in
-        if c < 0 then Join [u1;u2]
-        else if c > 0 then Join [u2;u1]
-        else u1
-      | (Var _) as var, ((Transform _) as tr)
-      | ((Transform _) as tr), (Var _) as var -> Join [var;tr]
-      | Transform ul1, Tranform ul2 ->
-        let c = compare_trasform u1 u2 in
-        if c < 0 then Join [u1;u2]
-        else if c > 0 then Join [u2;u1]
-        else u1
-      | Join ul1, Join ul2 ->
-        ul1 ul2
+      | Join u1, Join u2 ->
+      let ul =  List.sort_uniq compare_unresolved [u1;u2] in
+      Join ul
 
-
-        -> Join [u1;u2]
+    let join_safe u = join (Const Safe) u
 
     let lessequal v1 v2 =
       assert_normal_form v1;
@@ -338,8 +292,9 @@ end = struct
       | Safe, Unresolved u2 -> false
       | Unresolved u1, Bot -> false
       | Unresolved u1, Safe -> false
-      | Unresolved u1, Unresolved u2 -> Unresolved.lessequal u1 u2
+      | Unresolved u1, Unresolved u2 -> lessequal_unresolved u1 u2
 
+    and lessequal_unresolved
 
     let compare u1 u2 =
       let rank_const t =
@@ -454,7 +409,24 @@ end = struct
   type t = Unresolved.t
   type u = Unresolved.u
 
-
+  let join c1 c2 =
+    assert_normal_form v1;
+    assert_normal_form v2;
+    match c1, c2 with
+    | Bot, Bot -> Bot
+    | Safe, Safe -> Safe
+    | Top w1, Top w2 -> Top (Witnesses.join w1 w2)
+    | Safe, Bot | Bot, Safe -> Safe
+    | Top w1, Bot | Top w1, Safe -> c1
+    | Bot, Top w1 | Safe, Top w1 -> c2
+    | Top w1, Unresolved _ -> c1
+    | Unresolved _, Top w1 -> c2
+    | Bot, Unresolved _ -> c2
+    | Unresolved _, Bot -> c1
+    | Safe, Unresolved { eval } | Unresolved { eval }, Safe ->
+      Unresolved (Unresolved.join_safe eval)
+    | Unresolved { eval = eval1 }, Unresolved { eval = eval2 } ->
+      Unresolved (Unresolved.join eval1 eval2)
 
   (* Abstract transformer. Commutative and Associative.
 
