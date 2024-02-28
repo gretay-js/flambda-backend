@@ -202,87 +202,18 @@ module V : sig
   val eval : t -> env:(Var.t -> t option) -> t
 end = struct
 
-  module Var_or_const : sig
-    type t
-    module Set : Set.S with type elt = t
-  end = struct
-    type t =
-      | Top
-      | Var of Var.t
-  end
-  module Unresolved_transform : sig
-    type t
-    let create : Var.t -> t
-    module Set : Set.S with type elt = t
-  end = struct
-    type t = { top: bool; vars :  Var.Set.t }
-    (* The binary "transform" is commutative and associative,
-       so a nested "transform" can be flattened in the normal form.
-       The arguments are represented as a set of variables and optionally top.
-       if top is false, [vars] must contain at least two elements.
-       if top is true, [vars] must have at least one element.
-       This is enforced by the available constructors.
+  (* [Unresolved] module groups functions that operate on [u]. Note that some of these
+     functions return [t] to keep [u] in normal form, in cases when the value can be
+     resolved as a result of an operation. *)
 
-       We never need to represent other constants because these cases can be simplified
-       to either a constant or a variable. *)
-
-    (* Does [t] always include "Top"?
-       We never construct (tr var1 var2) directly,
-       because any program path will include a constant (even an infinite path)
-       and thus will be resolved to a constant
-       (even if there is an unresolved callee on the path)
-       except if the constant is "top".
-       However, we can end up with a value of the form
-       (tr (join var1 var2) (join var3 var4))
-       that will be normalized into
-       (join (tr var1 var3) (tr var1 var4) (tr var2 var3) (tr var2 var4))
-       that does not have "top".
-    *)
-
-    let compare {top=top1; vars=vars1; } { top=top2; vars=vars2; } =
-      let c = Bool.compare top1 top2 in
-      if c <> 0 then c else Var.Set.compare vars1 vars2
-
-    let create_with_top var ~top =
-      { top = true;
-        vars = Var.Set.singleton var }
-
-    let create vars =
-      assert (Var.Set.cardinal > 1);
-      { top = false; vars; }
-
-    include Set.Make(Var.Set)
-  end
-
-  type u = { vars : Var.Set.t; transforms: Unresolved_transform.Set.t }
-
-  type t =
-    | Top of Witnesses.t
-    | Safe
-    | Bot
-    | Unresolved of { eval : u }
-  and var_or_const =
-    | Const of t
-    | Var of Var.t
-  and transform = var_or_const list
-  and join = { var_or_const list; transform list;
-
-  (* [u] represent unresolved join with its arguments in normal form.
-     [vars] and [transforms] must not be both empty,
-     to ensure that resolved values are represented explicitly.
-
-     [Unresolved] module groups functions that operate on [u]. Note
-     that some of these functions return [t] to keep [u] in normal form.
-     in cases when the value can be resolved as a result of an operation.
-
-     Use [Unresolved] module to operate on [u]. Do not access the implementation
-     of [u] directly.
-  *)
-
-  (* CR gyorsh: can we avoid exposing the implementation of
-     [u] outside of [Unresolved] module? without using recursive modules?
-  *)
   module Unresolved : sig
+    type u
+    type t =
+      | Top of Witnesses.t
+      | Safe
+      | Bot
+      | Unresolved of u
+
     val lessthan :  u -> u -> bool
     val join : u -> u -> t
 
@@ -296,11 +227,83 @@ end = struct
 
     val var : Var.t -> t
   end = struct
-    let var v =
-      let eval =
-        { safe : false; vars = Var.Set.singleton v; transforms = Transform.Set.empty }
+    type t =
+      | Top of Witnesses.t
+      | Safe
+      | Bot
+      | Unresolved of { eval : unresolved_t }
+    and unresolved_t =
+      | Const of t
+      | Var of Var.t
+      | Transform of unresolved_t list
+      | Join of unresolved_t list
+
+    let u = unresolved_t
+    (* [eval] is always maintained in normal form:
+
+       [Transform l]:
+       [l] is a sorted list without duplicates that contains at least
+       two elements. Only (Const Top) or Var are allowed.
+
+       Normal form of [Join l]:
+       [l] is a softed list wihtout duplicates that contains at least
+       two elements.
+       Only Const Safe or Var or Transform in normal form are allowed.
+
+       Normal form does not need other constants, because these
+       cases can be simplified to either a constant or a variable.
+
+       The binary "transform" operation is commutative and associative.
+       A nest of "transform" can be flattened in the normal form.
+
+       Normal form is enforced by the available constructors and preserved
+       by all operations.
+    *)
+
+    (* The total order induced by [compare]
+       is only used for normal form.
+       The order of the symbolic abstract domain
+       is structural on the shape of the term in [unresolved]. *)
+    let compare u1 u2 =
+      let rank_const t =
+        match t with
+        | Bot -> 0
+        | Safe -> 1
+        | Top -> 2
+        | Unresolved _ -> assert false
       in
-      Unresolved { eval }
+      let compare_const t1 t2 =
+        Int.compare (rank t1) (rank t2)
+      in
+      match u1,u2 with
+      | Const c1, Const c2 -> compare_const c1, c2
+      | Const c1, _ -> 1
+      | _, Const _ -> -1
+
+    let var var = Unresolved { eval = Var var }
+
+    let rec assert_non_empty_sorted_vars tl ~prev =
+      match tl with
+      | [] -> ()
+      | Var var ->
+        assert (Var.compare prev var < 0);
+        assert_non_empty_sorted_vars var;
+
+    let assert_normal_form_transform u =
+      match u with
+      | Const Top::Var v::tl -> assert_sorted_vars tl ~prev:v
+      | [Var v1; Var v2]
+      | Var v::tl -> assert_sorted_vars tl ~prev:v
+      | Join _ -> assert false
+      | Const (Safe | Bot)::_ -> assert false
+
+    let assert_normal_form u =
+      match u with
+      | Const _ -> assert false
+      | Var _ -> ()
+      | Transform ul -> assert_normal_form_transform ul
+      | Join ul -> assert_normal_form_join ul
+
 
     let lessthan { safe=s1;vars=vars1;transforms=trs1; }
           { safe=s2;vars=vars2;transforms=trs2; } =
@@ -315,8 +318,10 @@ end = struct
         transforms = Transform.Set.union trs1 trs2;
       }
 
-    let join_safe {safe;vars;transforms} as t =
-      (* Optimized common case of [join] to avoid some allocations. *)
+    let join_safe u =
+      assert_normal_form u;
+      if is_safe u then t else
+
       if t.safe then t
       else { t with safe = true }
 
@@ -364,7 +369,9 @@ end = struct
       )
   end
 
-  let unresolved var = Unresolved.var var
+  (* [t] and [u] are always in normal form *)
+  type t = Unresolved.t
+  type u = Unresolved.u
 
   let join c1 c2 =
     assert_normal_form v1;
