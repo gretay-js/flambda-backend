@@ -369,9 +369,27 @@ end = struct
     | Unresolved { eval = eval1 }, Unresolved { eval = eval2 } ->
       Unresolved.join eval1 eval2
 
-  (* Unresolved is not comparable to Top and Bot. In the lattice with
-     Unresolved, Top and Bot are not longer the maximal and minimal elements.
-     The maximal and minimal elements are not explicitly represented in [t]. *)
+  (* CR gyorsh: Unresolved is not comparable to Top and Bot in the abstract
+     domain, and Top and Bot are not longer the maximal and minimal elements.
+     The maximal and minimal elements are not explicitly represented in [t].
+     However, we want "join" of abstract values to be able to "get rid" of
+     Unresolved sometimes. Intuitively, it is sound with respect to the concrete
+     semantics to define "join Top Unresolved = Top" and "join Bot Unresolved u
+     = Unresolved u" because Unresolved represents something less or equal to
+     Top and greater or equal to Bot.
+
+     On the other hand, "lessthan Top Unresolved = false" is intuitively wrong
+     because if Unresolved resolves to Top than "lessequal Top Top" should be
+     true. However, lesseq should be anti symmetric, right?
+
+     I think it is okay because the "concrete" we are comparing to is a set of
+     all possible values that Unresolved can represent, and lesseq is set
+     inclusion, so it is correct to return false because Top will always
+     represent more than Unresolved in normal form, because and while
+
+     Correspondence between join and lesseq is preserved.
+
+     Is this a semantic reduction? Is Dataflow still sound? *)
   (* CR gyorsh: is Dataflow still sound? *)
 
   let lessequal t1 t2 =
