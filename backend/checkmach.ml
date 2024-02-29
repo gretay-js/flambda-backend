@@ -330,7 +330,7 @@ end = struct
 
   (* structural equality on terms, not the same as the ordering on the abstract
      domain. *)
-  let rec same u1 u2 =
+  let rec same_unresolved u1 u2 =
     match u1, u2 with
     | Const c1, Const c2 -> same_t c1 c2
     | Var var1, Var var2 -> Var.compare var1 var2 = 0
@@ -350,24 +350,29 @@ end = struct
     | Top _ | Safe | Bot -> ()
     | Unresolved { eval } -> Unresolved.assert_normal_form eval
 
-  let join c1 c2 =
-    assert_normal_form v1;
-    assert_normal_form v2;
+  let join t1 t2 =
+    assert_normal_form t1;
+    assert_normal_form t2;
     match v1, v2 with
     | Bot, Bot -> Bot
     | Safe, Safe -> Safe
     | Top w1, Top w2 -> Top (Witnesses.join w1 w2)
     | Safe, Bot | Bot, Safe -> Safe
-    | Top w1, Bot | Top w1, Safe -> v1
-    | Bot, Top w1 | Safe, Top w1 -> v2
-    | Top w1, Unresolved _ -> v1
-    | Unresolved _, Top w1 -> v2
+    | Top _, Bot | Top _, Safe -> v1
+    | Bot, Top _ | Safe, Top _ -> v2
+    | Top _, Unresolved _ -> t1
+    | Unresolved _, Top _ -> t2
     | Bot, Unresolved _ -> v2
     | Unresolved _, Bot -> v1
     | Safe, Unresolved { eval } | Unresolved { eval }, Safe ->
       Unresolved.join (Const Safe) eval
     | Unresolved { eval = eval1 }, Unresolved { eval = eval2 } ->
       Unresolved.join eval1 eval2
+
+  (* Unresolved is not comparable to Top and Bot. In the lattice with
+     Unresolved, Top and Bot are not longer the maximal and minimal elements.
+     The maximal and minimal elements are not explicitly represented in [t]. *)
+  (* CR gyorsh: is Dataflow still sound? *)
 
   let lessequal t1 t2 =
     assert_normal_form t1;
@@ -381,15 +386,15 @@ end = struct
     | Safe, Top _ -> true
     | Top _, (Bot | Safe) -> false
     | Safe, Bot -> false
-    | Unresolved _, Top -> true
+    | Unresolved _, Top _ -> true
+    | Top _, Unresolved -> false
     | Bot, Unresolved _ -> true
-    | ((((t1, Unresolved _) as t2) | Unresolved _) as t1), t2 ->
-      same (join t1 t2) t2
-    | (Top _ as top), Unresolved { eval } ->
-      same (Unresolved.lessequal (Const top) eval
+    | (Top _ as top), Unresolved { eval } -> false
     | Unresolved { eval }, Bot -> Unresolved.lessequal eval (Const Bot)
     | Safe, Unresolved { eval } -> Unresolved.lessequal (Const Safe) eval
     | Unresolved { eval }, Safe -> Unresolved.lessequal eval (Const Safe)
+    | ((((t1, Unresolved _) as t2) | Unresolved _) as t1), t2 ->
+      same (join t1 t2) t2
     | Unresolved { eval = u1 }, Unresolved { eval = u2 } ->
       Unresolved.lessequal u1 u2
 
