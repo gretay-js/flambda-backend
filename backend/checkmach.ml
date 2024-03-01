@@ -188,7 +188,7 @@ module V : sig
 
   val join : t -> t -> t
 
-  val transform : V.t -> t -> t
+  val transform : t -> t -> t
 
   val replace_witnesses : Witnesses.t -> t -> t
 
@@ -200,7 +200,7 @@ module V : sig
 
   val unresolved : Var.t -> t
 
-  val eval : t -> env:(Var.t -> t option) -> t
+  val apply : t -> env:(Var.t -> t option) -> t
 end = struct
   type t =
     | Top of Witnesses.t
@@ -215,6 +215,8 @@ end = struct
     | Join of unresolved_t list
 
   type u = unresolved_t
+
+  let unresolved var = Unresolved { eval = Var var }
 
   (* let flatten_tr
    * let distribute_transform_over_joins
@@ -324,26 +326,26 @@ end = struct
     let join u1 u2 = Join [u1; u2] |> normalize
 
     let transform u1 u2 = Transform [u1; u2] |> normalize
-
-    let lessequal u1 u2 = same (join u1 u2) (Unresolved { eval = u2 })
   end
 
   (* structural equality on terms, not the same as the ordering on the abstract
      domain. *)
   let rec same_unresolved u1 u2 =
     match u1, u2 with
-    | Const c1, Const c2 -> same_t c1 c2
+    | Const c1, Const c2 -> same c1 c2
     | Var var1, Var var2 -> Var.compare var1 var2 = 0
-    | Transform ul1, Transform ul2 -> List.compare same ul1 ul2 = 0
-    | Join ul1, Join ul2 -> List.compare same ul1 ul2 = 0
+    | Transform ul1, Transform ul2 -> List.equal same_unresolved ul1 ul2
+    | Join ul1, Join ul2 -> List.equal same_unresolved ul1 ul2
     | (Const _ | Var _ | Transform _ | Join _), _ -> false
 
-  and same_t t1 t2 =
+  and same t1 t2 =
     match t1, t2 with
     | Top _, Top _ -> true
     | Safe, Safe -> true
     | Bot, Bot -> true
-    | Unresolved { eval = u1 }, Unresolved { eval = u2 } -> same u1 u2
+    | Unresolved { eval = u1 }, Unresolved { eval = u2 } ->
+      same_unresolved u1 u2
+    | (Top _ | Safe | Bot | Unresolved _), _ -> false
 
   let assert_normal_form u =
     match u with
@@ -353,44 +355,21 @@ end = struct
   let join t1 t2 =
     assert_normal_form t1;
     assert_normal_form t2;
-    match v1, v2 with
+    match t1, t2 with
     | Bot, Bot -> Bot
     | Safe, Safe -> Safe
     | Top w1, Top w2 -> Top (Witnesses.join w1 w2)
     | Safe, Bot | Bot, Safe -> Safe
-    | Top _, Bot | Top _, Safe -> v1
-    | Bot, Top _ | Safe, Top _ -> v2
+    | Top _, Bot | Top _, Safe -> t1
+    | Bot, Top _ | Safe, Top _ -> t2
     | Top _, Unresolved _ -> t1
     | Unresolved _, Top _ -> t2
-    | Bot, Unresolved _ -> v2
-    | Unresolved _, Bot -> v1
+    | Bot, Unresolved _ -> t2
+    | Unresolved _, Bot -> t1
     | Safe, Unresolved { eval } | Unresolved { eval }, Safe ->
       Unresolved.join (Const Safe) eval
     | Unresolved { eval = eval1 }, Unresolved { eval = eval2 } ->
       Unresolved.join eval1 eval2
-
-  (* CR gyorsh: Unresolved is not comparable to Top and Bot in the abstract
-     domain, and Top and Bot are not longer the maximal and minimal elements.
-     The maximal and minimal elements are not explicitly represented in [t].
-     However, we want "join" of abstract values to be able to "get rid" of
-     Unresolved sometimes. Intuitively, it is sound with respect to the concrete
-     semantics to define "join Top Unresolved = Top" and "join Bot Unresolved u
-     = Unresolved u" because Unresolved represents something less or equal to
-     Top and greater or equal to Bot.
-
-     On the other hand, "lessthan Top Unresolved = false" is intuitively wrong
-     because if Unresolved resolves to Top than "lessequal Top Top" should be
-     true. However, lesseq should be anti symmetric, right?
-
-     I think it is okay because the "concrete" we are comparing to is a set of
-     all possible values that Unresolved can represent, and lesseq is set
-     inclusion, so it is correct to return false because Top will always
-     represent more than Unresolved in normal form, because and while
-
-     Correspondence between join and lesseq is preserved.
-
-     Is this a semantic reduction? Is Dataflow still sound? *)
-  (* CR gyorsh: is Dataflow still sound? *)
 
   let lessequal t1 t2 =
     assert_normal_form t1;
@@ -405,16 +384,11 @@ end = struct
     | Top _, (Bot | Safe) -> false
     | Safe, Bot -> false
     | Unresolved _, Top _ -> true
-    | Top _, Unresolved -> false
+    | Top _, Unresolved _ -> false
     | Bot, Unresolved _ -> true
-    | (Top _ as top), Unresolved { eval } -> false
-    | Unresolved { eval }, Bot -> Unresolved.lessequal eval (Const Bot)
-    | Safe, Unresolved { eval } -> Unresolved.lessequal (Const Safe) eval
-    | Unresolved { eval }, Safe -> Unresolved.lessequal eval (Const Safe)
-    | ((((t1, Unresolved _) as t2) | Unresolved _) as t1), t2 ->
+    | Unresolved _, Bot -> false
+    | Unresolved _, Safe | Safe, Unresolved _ | Unresolved _, Unresolved _ ->
       same (join t1 t2) t2
-    | Unresolved { eval = u1 }, Unresolved { eval = u2 } ->
-      Unresolved.lessequal u1 u2
 
   (* Abstract transformer. Commutative and Associative.
 
@@ -430,39 +404,54 @@ end = struct
      then return is unreachable from the program location immediately before the
      statement. *)
   let transform t t' =
-    assert_normal_form v1;
-    assert_normal_form v2;
+    assert_normal_form t;
+    assert_normal_form t';
     match t, t' with
     | Bot, _ -> Bot
     | _, Bot -> Bot
     | Safe, t' -> t'
     | t, Safe -> t
     | Top w, Top w' -> Top (Witnesses.join w w')
-    | ((Top w as top), Unresolved u | Unresolved u, Top w) as top ->
-      Unresolved.transform (Const top) u
-    | Unresolved u, Unresolved u' -> Unresolved (Unresolved.transform u u')
+    | (Top w as top), Unresolved { eval } | Unresolved { eval }, (Top w as top)
+      ->
+      Unresolved.transform (Const top) eval
+    | Unresolved { eval = u }, Unresolved { eval = u' } ->
+      Unresolved.transform u u'
 
-  let rec apply : unresolved_t -> (Var.t -> t) -> t =
-   fun u env ->
+  let apply t ~env =
+    assert_normal_form t;
+    match t with
+    | Bot | Safe | Top _ -> t
+    | Unresolved { eval } -> Unresolved.apply eval ~env
+
+  and apply_unresolved : u -> env:(Vart.t -> t) -> t = fun u ~env =
     match u with
-    | Join l -> List.fold_left (fun acc u -> join (apply u env) acc) Bot l
-    | Transform tl ->
-      List.fold_left (fun acc u -> transform (apply u env) acc) Top l
-    | Var v -> env v
-    | Const t -> t
     | Const (Unresolved _) -> assert false
+    | Const ((Top _ | Bot | Safe) as t) -> t
+    | Var v -> env v
+    | Transform tl ->
+      List.fold_left
+        (fun acc u -> transform (apply_unresolved u ~env) acc)
+        Safe tl
+    | Join l ->
+      List.fold_left (fun acc u -> join (apply_unresolved u ~env) acc) Bot l
 
-  let replace_witnesses w t =
+  let rec replace_witnesses w t =
     match t with
     | Top _ -> Top w
     | Bot | Safe -> t
-    | Unresolved { eval } -> replace_witnesses_unresolved eval
+    | Unresolved { eval } ->
+      Unresolved { eval = replace_witnesses_unresolved w eval }
 
   and replace_witnesses_unresolved w u =
     match u with
-    | Join tl | Transform tl -> List.map replace_witnesses_unresolved tl
+    | Join tl -> Join (replace_witnesses_unresolved_list w tl)
+    | Transform tl -> Transform (replace_witnesses_unresolved_list w tl)
     | Var v -> u
-    | Const t -> replace_witnesses w t
+    | Const t -> Const (replace_witnesses w t)
+
+  and replace_witnesses_unresolved_list w tl =
+    List.map (replace_witnesses_unresolved w) tl
 
   let get_witnesses t =
     match t with
@@ -477,23 +466,24 @@ end = struct
       assert (expected = Safe);
       match actual with Bot | Safe | Unresolved _ -> assert false | Top w -> w)
 
-  let print ~witnesses ppf = function
+  let rec print ~witnesses ppf = function
     | Bot -> Format.fprintf ppf "bot"
     | Top w ->
       Format.fprintf ppf "top";
       if witnesses then Format.fprintf ppf " (%a)" Witnesses.print w
     | Safe -> Format.fprintf ppf "safe"
     | Unresolved { eval } ->
-      Format.fprintf ppf "unresolved %a@" print_unresolved eval
+      Format.fprintf ppf "unresolved %a@" (print_unresolved ~witnesses) eval
 
   and print_unresolved ~witnesses ppf u =
-    let pp ppf l = Format.pp_print_list print_unresolved ~witnesses ppf l in
+    let pp ppf l = Format.pp_print_list (print_unresolved ~witnesses) ppf l in
     match u with
     | Join tl -> Format.fprintf ppf "(join %a)@," pp tl
-    | Transfrom tl -> Format.fprintf ppf "(transform %a)@," pp tl
-    | Var v -> Format.fprintf ppf "(var %a)@," Var.print ~witnesses v
+    | Transform tl -> Format.fprintf ppf "(transform %a)@," pp tl
+    | Var v -> Format.fprintf ppf "(var %a)@," Var.print v
     | Const (Unresolved _) -> assert false
-    | Const t -> Format.fprintf ppf "%a" print t
+    | Const ((Top _ | Safe | Bot) as t) ->
+      Format.fprintf ppf "%a" (print ~witnesses) t
 end
 
 (** Abstract value associated with each program location in a function. *)
@@ -950,6 +940,8 @@ module Unit_info : sig
 
   val iter : t -> f:(Func_info.t -> unit) -> unit
 
+  val fold : t -> f:(string -> Func_info.t -> 'a -> unit) -> init:'a -> init
+
   val should_keep_witnesses : bool -> bool
 end = struct
   (** map function name to the information about it *)
@@ -968,6 +960,9 @@ end = struct
     | At_most _ -> keep
 
   let iter t ~f = String.Tbl.iter (fun _ func_info -> f func_info) t
+
+  let fold t ~f ~init =
+    String.Tbl.fold (fun name func_info acc -> f name func_info acc) t
 
   let record t name value dbg annotation saved_body =
     match String.Tbl.find_opt t name with
@@ -1324,7 +1319,7 @@ end = struct
     in
     fixpoint ()
 
-  let fixpoint ppf unit_info =
+  let fixpoint_mach ppf unit_info =
     report_unit_info ppf unit_info ~msg:"before fixpoint";
     (* CR gyorsh: this is a really dumb iteration strategy. *)
     let change = ref true in
@@ -1348,33 +1343,65 @@ end = struct
       report_unit_info ppf unit_info ~msg:"computing fixpoint"
     done
 
-  let resolve_all t =
+  let fixpoint_symbolic ppf unit_info =
+    (* [env] is an association list for now.
+       we expect these lists looks to be relatively rare,
+       only foward functions are looked up and only when
+       the callers are unresolved. *)
     let env =
-      String.Tbl.fold (fun func_info acc -> (func_info, Value.Bot) :: acc) t []
+      (* initialize [env] with Bot for all functions. *)
+      let f _func_name func_info acc =
+        String.Map.add func_name (func_info.value, Value.bot) ::acc
+      in
+      Unit_info.fold ~f unit_info ~init:String.Map.empty
     in
     (* CR gyorsh: handle components *)
     let apply summary env =
-      let lookup var =
-        List.assoc_find_opt (fun func_info -> func_info.name) env
+      let lookup var env =
+
+        let v = List.find (fun (func_info, _) ->
+          String.equal func_info.name Var.name)  env in
+              let component = Value.get_component var.tag in
+        Var.Map.find_first var.name
+        |> Var.Map.add (Var.get name Tag.N) V.Bot
+        |> Var.Map.add (Var.get name Tag.E) V.Bot
+        |> Var.Map.add (Var.get name Tag.D) V.Safe
+             List.assoc_find_opt (fun func_info -> func_info.name) env
       in
-      match summary with
-      | Bot | Safe | Top -> summary
-      | Unresolved u -> Value.apply_t u lookup
+      Value.apply summary (lookup env)
     in
     let rec loop env =
       let changed = ref false in
       let env' =
         List.map
           (fun (func_info, v) ->
-            let v' = apply func_info.value env in
-            assert (Value.is_resolved v');
-            changed := !changed || Value.equal v' v v')
+             let v' = Value.apply func_info.value env in
+             assert (Value.is_resolved v');
+             changed := not (Value.lessequal v' v);
+             v')
           env
       in
       if !changed then loop env' else env'
     in
     let env = loop env in
-    String.Tbl.iter (fun _ func_info -> func_info.value <- env name) t
+    env
+
+  let fixpoint_symbolic_opt ppf unit_info = Misc.fatal_error "not implemented"
+
+  let check fun_name fun_info env =
+
+      if Value.same func_info.value (sym name))
+
+  let fixpoint ppf unit_info =
+    let env = symbolic_fixpoint ppf unit_info in
+    let env_opt = symbolic_optimized_fixpoint ppf unit_info in
+    fixpoint_mach ppf unit_info;
+    Unit_info.iter (check env) unit_info;
+    Unit_info.iter (check env_opt) unit_info;
+
+    (* Unit_info.iter (fun _ func_info -> func_info.value <- sym name) t;
+     * Unit_info.iter (fun _ func_info -> func_info.value <- sym_opt name) t; *)
+    ()
 
   let record_unit unit_info ppf =
     Profile.record_call ~accumulate:true ("record_unit " ^ analysis_name)
