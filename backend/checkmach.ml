@@ -206,7 +206,7 @@ end = struct
     | Top of Witnesses.t
     | Safe
     | Bot
-    | Unresolved of { eval : unresolved_t }
+    | Unresolved of unresolved_t
 
   and unresolved_t =
     | Const of t
@@ -216,7 +216,7 @@ end = struct
 
   type u = unresolved_t
 
-  let unresolved var = Unresolved { eval = Var var }
+  let unresolved var = Unresolved (Var var)
 
   (* let flatten_tr
    * let distribute_transform_over_joins
@@ -343,14 +343,13 @@ end = struct
     | Top _, Top _ -> true
     | Safe, Safe -> true
     | Bot, Bot -> true
-    | Unresolved { eval = u1 }, Unresolved { eval = u2 } ->
-      same_unresolved u1 u2
+    | Unresolved u1, Unresolved u2 -> same_unresolved u1 u2
     | (Top _ | Safe | Bot | Unresolved _), _ -> false
 
   let assert_normal_form u =
     match u with
     | Top _ | Safe | Bot -> ()
-    | Unresolved { eval } -> Unresolved.assert_normal_form eval
+    | Unresolved u -> Unresolved.assert_normal_form u
 
   let join t1 t2 =
     assert_normal_form t1;
@@ -366,10 +365,8 @@ end = struct
     | Unresolved _, Top _ -> t2
     | Bot, Unresolved _ -> t2
     | Unresolved _, Bot -> t1
-    | Safe, Unresolved { eval } | Unresolved { eval }, Safe ->
-      Unresolved.join (Const Safe) eval
-    | Unresolved { eval = eval1 }, Unresolved { eval = eval2 } ->
-      Unresolved.join eval1 eval2
+    | Safe, Unresolved u | Unresolved u, Safe -> Unresolved.join (Const Safe) u
+    | Unresolved u1, Unresolved u2 -> Unresolved.join u1 u2
 
   let lessequal t1 t2 =
     assert_normal_form t1;
@@ -412,19 +409,18 @@ end = struct
     | Safe, t' -> t'
     | t, Safe -> t
     | Top w, Top w' -> Top (Witnesses.join w w')
-    | (Top w as top), Unresolved { eval } | Unresolved { eval }, (Top w as top)
-      ->
-      Unresolved.transform (Const top) eval
-    | Unresolved { eval = u }, Unresolved { eval = u' } ->
-      Unresolved.transform u u'
+    | (Top w as top), Unresolved u | Unresolved u, (Top w as top) ->
+      Unresolved.transform (Const top) u
+    | Unresolved u, Unresolved u' -> Unresolved.transform u u'
 
-  let apply t ~env =
+  let rec apply t ~env =
     assert_normal_form t;
     match t with
     | Bot | Safe | Top _ -> t
-    | Unresolved { eval } -> Unresolved.apply eval ~env
+    | Unresolved u -> apply_unresolved u ~env
 
-  and apply_unresolved : u -> env:(Vart.t -> t) -> t = fun u ~env =
+  and apply_unresolved : u -> env:(Var.t -> t) -> t =
+   fun u ~env ->
     match u with
     | Const (Unresolved _) -> assert false
     | Const ((Top _ | Bot | Safe) as t) -> t
@@ -440,8 +436,7 @@ end = struct
     match t with
     | Top _ -> Top w
     | Bot | Safe -> t
-    | Unresolved { eval } ->
-      Unresolved { eval = replace_witnesses_unresolved w eval }
+    | Unresolved u -> Unresolved (replace_witnesses_unresolved w u)
 
   and replace_witnesses_unresolved w u =
     match u with
@@ -472,8 +467,8 @@ end = struct
       Format.fprintf ppf "top";
       if witnesses then Format.fprintf ppf " (%a)" Witnesses.print w
     | Safe -> Format.fprintf ppf "safe"
-    | Unresolved { eval } ->
-      Format.fprintf ppf "unresolved %a@" (print_unresolved ~witnesses) eval
+    | Unresolved u ->
+      Format.fprintf ppf "unresolved %a@" (print_unresolved ~witnesses) u
 
   and print_unresolved ~witnesses ppf u =
     let pp ppf l = Format.pp_print_list (print_unresolved ~witnesses) ppf l in
@@ -940,7 +935,7 @@ module Unit_info : sig
 
   val iter : t -> f:(Func_info.t -> unit) -> unit
 
-  val fold : t -> f:(string -> Func_info.t -> 'a -> unit) -> init:'a -> init
+  val fold : t -> f:(Func_info.t -> 'a -> unit) -> init:'a -> init
 
   val should_keep_witnesses : bool -> bool
 end = struct
@@ -962,7 +957,7 @@ end = struct
   let iter t ~f = String.Tbl.iter (fun _ func_info -> f func_info) t
 
   let fold t ~f ~init =
-    String.Tbl.fold (fun name func_info acc -> f name func_info acc) t
+    String.Tbl.fold (fun _name func_info acc -> f func_info acc) t
 
   let record t name value dbg annotation saved_body =
     match String.Tbl.find_opt t name with
@@ -1319,7 +1314,7 @@ end = struct
     in
     fixpoint ()
 
-  let fixpoint_mach ppf unit_info =
+  let fixpoint ppf unit_info =
     report_unit_info ppf unit_info ~msg:"before fixpoint";
     (* CR gyorsh: this is a really dumb iteration strategy. *)
     let change = ref true in
@@ -1343,42 +1338,63 @@ end = struct
       report_unit_info ppf unit_info ~msg:"computing fixpoint"
     done
 
+  module Env : sig
+    type t
+
+    val empty : t
+
+    val add : Func_info.t -> Value.t -> t -> t
+
+    val get_value : string -> t -> Value.t
+
+    val iter : t -> f:(Func_info.t -> Value.t -> unit) -> unit
+
+    val map : t -> f:(Func_info.t -> Value.t -> Value.t) -> t
+  end = struct
+    type data =
+      { func_info : Func_info.t;
+        approx : Value.t
+      }
+
+    type t = data String.Map.t
+
+    let empty = String.Map.empty
+
+    let add func_info approx t =
+      let d = { func_info; approx } in
+      String.Map.add func_info.name d t
+
+    let get_value name t = String.Map.find name t
+
+    let map f t = String.Map.map (fun _name d -> f d.func_info d.approx) t
+
+    let iter f t = String.Map.iter (fun _name d -> f d.func_info d.approx) t
+  end
+
   let fixpoint_symbolic ppf unit_info =
-    (* [env] is an association list for now.
-       we expect these lists looks to be relatively rare,
-       only foward functions are looked up and only when
-       the callers are unresolved. *)
     let env =
-      (* initialize [env] with Bot for all functions. *)
-      let f _func_name func_info acc =
-        String.Map.add func_name (func_info.value, Value.bot) ::acc
-      in
-      Unit_info.fold ~f unit_info ~init:String.Map.empty
+      init_env unit_info
+        (* initialize [env] with Bot for all functions. *)
+        Unit_info.fold unit_info ~init:Env.empty ~f:(fun func_info env ->
+          Env.add func_info Value.Bot env)
     in
     (* CR gyorsh: handle components *)
     let apply summary env =
       let lookup var env =
-
-        let v = List.find (fun (func_info, _) ->
-          String.equal func_info.name Var.name)  env in
-              let component = Value.get_component var.tag in
-        Var.Map.find_first var.name
-        |> Var.Map.add (Var.get name Tag.N) V.Bot
-        |> Var.Map.add (Var.get name Tag.E) V.Bot
-        |> Var.Map.add (Var.get name Tag.D) V.Safe
-             List.assoc_find_opt (fun func_info -> func_info.name) env
+        let v = Env.get_value var.name env in
+        Value.get_component var.tag v
       in
-      Value.apply summary (lookup env)
+      Value.apply summary (Env.lookup env)
     in
     let rec loop env =
       let changed = ref false in
       let env' =
-        List.map
-          (fun (func_info, v) ->
-             let v' = Value.apply func_info.value env in
-             assert (Value.is_resolved v');
-             changed := not (Value.lessequal v' v);
-             v')
+        Env.map
+          (fun func_info v ->
+            let v' = Value.apply func_info.value env in
+            assert (Value.is_resolved v');
+            changed := not (Value.lessequal v' v);
+            v')
           env
       in
       if !changed then loop env' else env'
@@ -1388,20 +1404,46 @@ end = struct
 
   let fixpoint_symbolic_opt ppf unit_info = Misc.fatal_error "not implemented"
 
-  let check fun_name fun_info env =
+  let debug = true
 
-      if Value.same func_info.value (sym name))
+  let assert_equal_env unit_info ~expected ~actual =
+    Unit_info.iter unit_info ~f:(fun func_info ->
+        let name = func_info.name in
+        let expected_value = Env.get_value name expected in
+        let actual_value = Env.get_value name actual in
+        if not (Value.is_resolved expected_value)
+        then
+          Misc.fatal_errorf "expected value for function %s is not resolved"
+            name;
+        if not (Value.is_resolved expected_actual)
+        then
+          Misc.fatal_errorf "actual value for function %s is not resolved" name;
+        if not (Value.same expected_value actual_value)
+        then
+          Misc.fatal_errorf "Expected value %a for function %s, got %a" pv
+            expected_value name pv actual_value;
+        if not (Value.is_resolved func_info.value)
+        then
+          Misc.fatal_errorf "recorded value for function %s is not resolved"
+            name;
+        if not (Value.same expected_value actual_value)
+        then
+          Misc.fatal_errorf
+            "Recorded value %a for function %s does not match expected %a" pv
+            expected_value name pv actual_value;
+        ())
 
+  (* CR gyorsh: do we need join in the fixpoint computation or is the function
+     body analysis/summary already monotone? *)
   let fixpoint ppf unit_info =
-    let env = symbolic_fixpoint ppf unit_info in
-    let env_opt = symbolic_optimized_fixpoint ppf unit_info in
-    fixpoint_mach ppf unit_info;
-    Unit_info.iter (check env) unit_info;
-    Unit_info.iter (check env_opt) unit_info;
-
-    (* Unit_info.iter (fun _ func_info -> func_info.value <- sym name) t;
-     * Unit_info.iter (fun _ func_info -> func_info.value <- sym_opt name) t; *)
-    ()
+    symbolic_fixpoint ppf unit_info;
+    if debug
+    then (
+      let env_opt = symbolic_optimized_fixpoint ppf unit_info in
+      fixpoint_mach ppf unit_info;
+      assert_equal_env unit_info ~expected:env ~actual:env_opt;
+      ());
+    Env.iter env ~f:(fun func_info v -> func_info.value <- v)
 
   let record_unit unit_info ppf =
     Profile.record_call ~accumulate:true ("record_unit " ^ analysis_name)
