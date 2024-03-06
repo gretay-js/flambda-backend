@@ -302,40 +302,59 @@ end = struct
 
     val assert_normal_form : u -> unit
   end = struct
-    let normalize : u -> t = fun _u -> Misc.fatal_error "unimplemented"
-
     let rec assert_sorted_vars tl ~prev =
       match tl with
       | [] -> ()
-      | Var var ->
+      | Var var :: tl ->
         assert (Var.compare prev var < 0);
-        assert_sorted_vars var;
+        assert_sorted_vars ~prev:var tl;
         ()
-      | Const _ | Join _ | Transform _ -> assert false
+      | (Const _ | Join _ | Transform _) :: _ -> assert false
+
+    let assert_non_empty_sorted_vars ul =
+      match ul with
+      | [] -> assert false
+      | Var var :: tl -> assert_sorted_vars ~prev:var tl
+      | (Const _ | Join _ | Transform _) :: _ -> assert false
 
     let assert_normal_form_transform u =
       (* only (Const Top) or Var , at least two elements, sorted, no
          duplicates *)
       match u with
-      | Const Top :: Var v :: tl -> assert_sorted_vars tl ~prev:v
-      | Var v :: Var _ :: tl -> assert_sorted_vars tl ~prev:v
-      | [Var _] -> assert false
+      | [] -> assert false
       | Join _ :: _ -> assert false
       | Transform _ :: _ -> assert false
-      | Const (Safe | Bot) :: _ -> assert false
+      | Const (Safe | Bot | Unresolved _) :: _ -> assert false
+      | Const (Top _) :: tl -> assert_non_empty_sorted_vars tl
+      | [Var _] -> assert false
+      | Var v :: tl -> assert_sorted_vars tl ~prev:v
 
-    let rec assert_transforms ~prev ul =
+    let rec assert_transforms ~(prev : u list) ul =
       match ul with
       | [] -> ()
+      | (Const _ | Var _ | Join _) :: _ -> assert false
       | Transform ul :: tl ->
         assert_normal_form_transform ul;
-        assert (List.compare Var.compare prev ul < 0);
+        let compare_top_or_var u1 u2 =
+          (* Optional (Const (Top _)) before sorted vars *)
+          match u1, u2 with
+          | Const (Top _), Const (Top _) -> 0
+          | Const (Top _), Var _ -> -1
+          | Var _, Const (Top _) -> 1
+          | Var var1, Var var2 -> Var.compare var1 var2
+          | ( ( Transform _ | Join _ | Var _
+              | Const (Top _ | Safe | Bot | Unresolved _) ),
+              _ ) ->
+            assert false
+        in
+        assert (List.compare compare_top_or_var prev ul < 0);
         assert_transforms ~prev:ul tl
 
     let rec assert_vars_or_transforms ~prev ul =
       match ul with
       | [] -> ()
-      | [Var var] :: tl ->
+      | (Const _ | Join _) :: _ -> assert false
+      | Var var :: tl ->
         assert (Var.compare prev var < 0);
         assert_vars_or_transforms ~prev:var tl
       | Transform ul :: tl ->
@@ -345,7 +364,8 @@ end = struct
     let assert_non_empty_vars_or_transforms ul =
       match ul with
       | [] -> assert false
-      | Var var :: tl -> asssert_vars_or_transforms ~prev:var tl
+      | (Const _ | Join _) :: _ -> assert false
+      | Var var :: tl -> assert_vars_or_transforms ~prev:var tl
       | Transform ul :: tl ->
         assert_normal_form_transform ul;
         assert_transforms ~prev:ul tl
@@ -355,8 +375,8 @@ end = struct
          elements. *)
       match ul with
       | [] -> assert false
-      | Join _ -> assert false
-      | Const (Unresolved _ | Top | Bot) :: _ -> assert false
+      | Join _ :: _ -> assert false
+      | Const (Unresolved _ | Top _ | Bot) :: _ -> assert false
       | [Var _] | [Transform _] -> assert false
       | Const Safe :: tl -> assert_non_empty_vars_or_transforms tl
       | (Var _ | Transform _) :: _ as ul ->
@@ -368,6 +388,8 @@ end = struct
       | Var _ -> ()
       | Transform ul -> assert_normal_form_transform ul
       | Join ul -> assert_normal_form_join ul
+
+    let normalize : u -> t = fun _u -> Misc.fatal_error "unimplemented"
 
     let join u1 u2 = Join [u1; u2] |> normalize
 
