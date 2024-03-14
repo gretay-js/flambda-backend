@@ -25,7 +25,7 @@ end
 module Backward(D: DOMAIN) = struct
 
 let analyze ?(exnhandler = fun x -> x) ?(exnescape = D.bot)
-      ?(init_rc_lbl = D.bot)
+      ?(init_rc_lbl = D.bot) ?(stats = fun _ -> ())
       ~transfer instr =
 
   let lbls =
@@ -90,7 +90,11 @@ let analyze ?(exnhandler = fun x -> x) ?(exnescape = D.bot)
               let exnh = exn_from_trap_stack trap_stack in
               let b1 = before bx exnh h in
               if D.lessequal b1 b0 then changed else (set_lbl n b1; true) in
-            while List.fold_left update false handlers do () done
+            let counter = ref 0 in
+            while List.fold_left update false handlers do
+              incr counter
+            done;
+            stats !counter;
         end;
         let exnb = exn_from_trap_stack trap_stack in
         let b = before bx exnb body in
