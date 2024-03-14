@@ -631,6 +631,98 @@ end = struct
       String.Tbl.replace t name func_info
 end
 
+(** Ad-hoc statistics about fixpoint computation. *)
+module Stats : sig
+  type t
+
+  val create : unit -> t
+
+  val fixpoint_incr : t -> unit
+
+  val selfrec : t -> int -> string -> unit
+
+  val dataflow : t -> int -> string -> unit
+
+  val print : Format.formatter -> Unit_info.t -> t -> unit
+end = struct
+  type s =
+    { mutable total_functions : int;
+      mutable unresolved_functions : int;
+      mutable fixpoint_iterations : int;
+      (* selfrec: recursive functions that do not have other unresolved
+         callees *)
+      mutable selfrec_max_iterations : int;
+      mutable selfrec_max_fun_name : string;
+      (* dataflow analysis iterations within a call to check_instr *)
+      mutable dataflow_max_iterations : int;
+      mutable dataflow_max_fun_name : string
+    }
+
+  type t = s option
+
+  let create () =
+    match !Flambda_backend_flags.dump_checkmach with
+    | false -> None
+    | true ->
+      Some
+        { total_functions = 0;
+          unresolved_functions = 0;
+          fixpoint_iterations = 0;
+          selfrec_max_iterations = 0;
+          selfrec_max_fun_name = "";
+          dataflow_max_iterations = 0;
+          dataflow_max_fun_name = ""
+        }
+
+  let selfrec t c name =
+    match t with
+    | None -> ()
+    | Some t ->
+      if c > t.selfrec_max_iterations
+      then (
+        t.selfrec_max_iterations <- c;
+        t.selfrec_max_fun_name <- name)
+
+  let fixpoint_incr t =
+    match t with
+    | None -> ()
+    | Some t -> t.fixpoint_iterations <- t.fixpoint_iterations + 1
+
+  let dataflow t c name =
+    match t with
+    | None -> ()
+    | Some t ->
+      if c > t.dataflow_max_iterations
+      then (
+        t.dataflow_max_iterations <- c;
+        t.dataflow_max_fun_name <- name)
+
+  let print ppf unit_info t =
+    match t with
+    | None -> ()
+    | Some t ->
+      (* count selfrec and unresolved functions in this compilation unit *)
+      Unit_info.iter unit_info ~f:(fun func_info ->
+          t.total_functions <- t.total_functions + 1;
+          if Option.is_some func_info.saved_body
+          then t.unresolved_functions <- t.unresolved_functions + 1);
+      (* print all fields *)
+      let h = "*** Checkmach stats" in
+      Format.fprintf ppf "%s: Total number of functions: %d@." h
+        t.total_functions;
+      Format.fprintf ppf "%s: Unresolved functions: %d@." h
+        t.unresolved_functions;
+      Format.fprintf ppf "%s: Fixpoint iterations: %d@." h t.fixpoint_iterations;
+      Format.fprintf ppf
+        "%s: Self-recursive function with max iterations: %d,%s@." h
+        t.selfrec_max_iterations t.selfrec_max_fun_name;
+      Format.fprintf ppf "%s: Function with max iterations of dataflow: %d,%s@."
+        h t.dataflow_max_iterations t.dataflow_max_fun_name;
+      ()
+end
+
+let stats = ref (Stats.create ())
+
 (** The analysis involved some fixed point computations.
     Termination: [Value.t] is a finite height domain and
     [transfer] is a monotone function w.r.t. [Value.lessequal] order.
@@ -974,11 +1066,13 @@ end = struct
        To check divergent loops, the initial value of "div" component of all
        Iexit labels of recurisve Icatch handlers is set to "Safe" instead of
        "Bot". *)
+    let stats counter = Stats.dataflow !stats counter t.current_fun_name in
     D.analyze ~exnescape:Value.exn_escape ~init_rc_lbl:Value.diverges ~transfer
-      body
+      ~stats body
     |> fst
 
   let analyze_body t body =
+    let counter = ref 0 in
     let rec fixpoint () =
       let new_value = check_instr t body in
       match t.approx with
@@ -990,13 +1084,17 @@ end = struct
            unit. *)
         if t.unresolved
         then new_value
-        else if Value.lessequal new_value approx
-        then approx
         else (
-          t.approx <- Some (Value.join new_value approx);
-          fixpoint ())
+          incr counter;
+          if Value.lessequal new_value approx
+          then approx
+          else (
+            t.approx <- Some (Value.join new_value approx);
+            fixpoint ()))
     in
-    fixpoint ()
+    let res = fixpoint () in
+    Stats.selfrec !stats !counter t.current_fun_name;
+    res
 
   let fixpoint ppf unit_info =
     report_unit_info ppf unit_info ~msg:"before fixpoint";
@@ -1020,6 +1118,7 @@ end = struct
     while !change do
       change := false;
       Unit_info.iter unit_info ~f:analyze_func;
+      Stats.fixpoint_incr !stats;
       report_unit_info ppf unit_info ~msg:"computing fixpoint"
     done
 
@@ -1027,6 +1126,7 @@ end = struct
     Profile.record_call ~accumulate:true ("record_unit " ^ analysis_name)
       (fun () ->
         fixpoint ppf unit_info;
+        Stats.print ppf unit_info !stats;
         record_unit ppf unit_info)
 
   let fundecl (f : Mach.fundecl) ~future_funcnames unit_info ppf =
@@ -1145,7 +1245,9 @@ let fundecl ppf_dump ~future_funcnames fd =
   Check_zero_alloc.fundecl fd ~future_funcnames unit_info ppf_dump;
   fd
 
-let reset_unit_info () = Unit_info.reset unit_info
+let reset_unit_info () =
+  Unit_info.reset unit_info;
+  stats := Stats.create ()
 
 let record_unit_info ppf_dump =
   Check_zero_alloc.record_unit unit_info ppf_dump;
