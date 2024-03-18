@@ -104,6 +104,9 @@ let mk_zero_alloc_check f =
 let mk_dcheckmach f =
   "-dcheckmach", Arg.Unit f, " (undocumented)"
 
+let mk_dcheckmach_stats f =
+  "-dcheckmach-stats", Arg.Unit f, " (undocumented)"
+
 let mk_disable_checkmach f =
   "-disable-checkmach", Arg.Unit f,
   " Conservatively assume that all functions may allocate, without checking. \
@@ -646,6 +649,7 @@ module type Flambda_backend_options = sig
   val heap_reduction_threshold : int -> unit
   val zero_alloc_check : string -> unit
   val dcheckmach : unit -> unit
+  val dcheckmach_stats : unit -> unit
   val disable_checkmach : unit -> unit
   val disable_precise_checkmach : unit -> unit
   val checkmach_details_cutoff : int -> unit
@@ -761,6 +765,7 @@ struct
     mk_heap_reduction_threshold F.heap_reduction_threshold;
     mk_zero_alloc_check F.zero_alloc_check;
     mk_dcheckmach F.dcheckmach;
+    mk_dcheckmach_stats F.dcheckmach_stats;
     mk_disable_checkmach F.disable_checkmach;
     mk_disable_precise_checkmach F.disable_precise_checkmach;
     mk_checkmach_details_cutoff F.checkmach_details_cutoff;
@@ -924,6 +929,7 @@ module Flambda_backend_options_impl = struct
       Clflags.zero_alloc_check := a
 
   let dcheckmach = set' Flambda_backend_flags.dump_checkmach
+  let dcheckmach_stats = set' Flambda_backend_flags.dump_checkmach_stats
   let disable_checkmach = set' Flambda_backend_flags.disable_checkmach
   let disable_precise_checkmach = set' Flambda_backend_flags.disable_precise_checkmach
   let checkmach_details_cutoff n =

@@ -727,7 +727,10 @@ end = struct
   type t = s option
 
   let create () =
-    match !Flambda_backend_flags.dump_checkmach with
+    match
+      !Flambda_backend_flags.dump_checkmach
+      || !Flambda_backend_flags.dump_checkmach_stats
+    with
     | false -> None
     | true ->
       Some
