@@ -594,7 +594,7 @@ module Func_info : sig
       annotation : Annotation.t option;
           (** [value] must be lessequal than the expected value
           if there is user-defined annotation on this function. *)
-      saved_body : Mach.instruction option
+      saved_fun : Mach.fundecl option
           (** If the function has callees that haven't been analyzed yet, keep function body
           so it can be reanalyzed when the callees are available.  *)
     }
@@ -604,7 +604,7 @@ module Func_info : sig
     Value.t ->
     Debuginfo.t ->
     Annotation.t option ->
-    Mach.instruction option ->
+    Mach.fundecl option ->
     t
 
   val print : witnesses:bool -> msg:string -> Format.formatter -> t -> unit
@@ -618,13 +618,13 @@ end = struct
       annotation : Annotation.t option;
           (** [value] must be lessequal than the expected value
           if there is user-defined annotation on this function. *)
-      saved_body : Mach.instruction option
+      saved_fun : Mach.fundecl option
           (** If the function has callees that haven't been analyzed yet, keep function body
           so it can be reanalyzed when the callees are available.  *)
     }
 
-  let create name value dbg annotation saved_body =
-    { name; dbg; value; annotation; saved_body }
+  let create name value dbg annotation saved_fun =
+    { name; dbg; value; annotation; saved_fun }
 
   let print ~witnesses ~msg ppf t =
     Format.fprintf ppf "%s %s %a@." msg t.name (Value.print ~witnesses) t.value
@@ -673,7 +673,7 @@ module Unit_info : sig
     Value.t ->
     Debuginfo.t ->
     Annotation.t option ->
-    Mach.instruction option ->
+    Mach.fundecl option ->
     unit
 
   val iter : t -> f:(Func_info.t -> unit) -> unit
@@ -689,11 +689,11 @@ end = struct
 
   let iter t ~f = String.Tbl.iter (fun _ func_info -> f func_info) t
 
-  let record t name value dbg annotation saved_body =
+  let record t name value dbg annotation saved_fun =
     match String.Tbl.find_opt t name with
     | Some _ -> Misc.fatal_errorf "Duplicate symbol %s" name
     | None ->
-      let func_info = Func_info.create name value dbg annotation saved_body in
+      let func_info = Func_info.create name value dbg annotation saved_fun in
       String.Tbl.replace t name func_info
 end
 
@@ -770,7 +770,7 @@ end = struct
       (* count selfrec and unresolved functions in this compilation unit *)
       Unit_info.iter unit_info ~f:(fun func_info ->
           t.total_functions <- t.total_functions + 1;
-          if Option.is_some func_info.saved_body
+          if Option.is_some func_info.saved_fun
           then t.unresolved_functions <- t.unresolved_functions + 1);
       (* print all fields *)
       let h = "*** Checkmach stats" in
@@ -969,7 +969,7 @@ end = struct
         | Some v -> resolved v)
       | Some callee_info -> (
         (* Callee defined earlier in the same compilation unit. *)
-        match callee_info.saved_body with
+        match callee_info.saved_fun with
         | None -> resolved callee_info.value
         | Some _ ->
           (* callee was unresolved, mark caller as unresolved *)
@@ -1143,10 +1143,10 @@ end = struct
       ~stats body
     |> fst
 
-  let analyze_body t body =
+  let analyze_body t (fd : Mach.fundecl) =
     let counter = ref 0 in
     let rec fixpoint () =
-      let new_value = check_instr t body in
+      let new_value = check_instr t fd.fun_body in
       match t.approx with
       | None -> new_value
       | Some approx ->
@@ -1164,6 +1164,8 @@ end = struct
             t.approx <- Some (Value.join new_value approx);
             fixpoint ()))
     in
+    if !Flambda_backend_flags.dump_checkmach
+    then Printmach.phase "Checkmach" t.ppf fd;
     let res = fixpoint () in
     Stats.selfrec !stats !counter t.current_fun_name;
     res
@@ -1173,14 +1175,14 @@ end = struct
     (* CR gyorsh: this is a really dumb iteration strategy. *)
     let change = ref true in
     let analyze_func (func_info : Func_info.t) =
-      match func_info.saved_body with
+      match func_info.saved_fun with
       | None -> ()
-      | Some b ->
+      | Some fd ->
         let t =
           create ppf func_info.name String.Set.empty unit_info None
             func_info.annotation
         in
-        let new_value = analyze_body t b in
+        let new_value = analyze_body t fd in
         if not (Value.lessequal new_value func_info.value)
         then (
           change := true;
@@ -1209,8 +1211,8 @@ end = struct
       in
       let t = create ppf fun_name future_funcnames unit_info None a in
       let really_check () =
-        let res = analyze_body t f.fun_body in
-        let saved_body = if t.unresolved then Some f.fun_body else None in
+        let res = analyze_body t f in
+        let saved_fun = if t.unresolved then Some f else None in
         report t res ~msg:"finished" ~desc:"fundecl" f.fun_dbg;
         if not t.keep_witnesses
         then (
@@ -1218,7 +1220,7 @@ end = struct
           assert (Witnesses.is_empty nor);
           assert (Witnesses.is_empty exn);
           assert (Witnesses.is_empty div));
-        Unit_info.record unit_info fun_name res f.fun_dbg a saved_body;
+        Unit_info.record unit_info fun_name res f.fun_dbg a saved_fun;
         report_unit_info ppf unit_info ~msg:"after record"
       in
       let really_check () =
