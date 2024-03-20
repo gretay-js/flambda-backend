@@ -447,9 +447,14 @@ end = struct
 
     type acc =
       { us : USet.t;
+        joins : USet.t;
         top : Witnesses.t option
       }
 
+    let empty = { joins = USet.empty; us = USet.empty; top = None }
+
+    (* CR-someday gyorsh: symmetry in handling join and transform, factor
+       out? *)
     let rec normalize : u -> t =
      fun u ->
       match u with
@@ -459,10 +464,57 @@ end = struct
       | Join ul -> normalize_join ul
       | Transform ul -> normalize_transform ul
 
-    and normalize_transform _ul = Misc.fatal_error "unimplementated"
+    and flatten_transform acc u =
+      match normalize u with
+      | Safe -> acc
+      | Bot -> { acc with us = USet.add (Const Bot) acc.us }
+      | Top w ->
+        let top =
+          match acc.top with
+          | None -> Some w
+          | Some w' -> Some (Witnesses.join w w')
+        in
+        { acc with top }
+      | Unresolved (Const _) -> assert false
+      | Unresolved (Var _ as u) -> { acc with us = USet.add u acc.us }
+      | Unresolved (Transform ul) -> List.fold_left flatten_transform acc ul
+      | Unresolved (Join ul as u) -> { acc with joins = USet.add u acc.joins }
 
-    and flatten_join acc t =
-      match t with
+    and mk_transform res =
+      assert (USet.is_empty res.joins);
+      if USet.mem (Const Bot) res.us
+      then Bot
+      else
+        let us =
+          match res.top with
+          | None -> res.us
+          | Some w -> USet.add (Const (Top w)) res.us
+        in
+        match USet.elements us with
+        | [] -> Safe
+        | [u] -> Unresolved u
+        | ul -> Unresolved (Transform ul)
+
+    and distribute_transform_over_join acc =
+      (* worst-case exponential in the number of variables *)
+      match USet.choose_opt acc.joins with
+      | None -> mk_transform acc
+      | Some (Join ul as j) ->
+        let acc = { acc with joins = USet.remove j acc.joins } in
+        let f u = distribute_transform_over_join (flatten_transform acc u) in
+        let ul = List.map f ul in
+        normalize_join ul
+      | Some (Const _ | Transform _ | Var _) -> assert false
+
+    and normalize_transform ul =
+      let res = List.fold_left flatten_transform empty ul in
+      if USet.mem (Const Bot) res.us
+      then (* optimization *)
+        Bot
+      else distribute_transform_over_join res
+
+    and flatten_join acc u =
+      match normalize u with
       | Bot -> acc
       | Safe -> { acc with us = USet.add (Const Safe) acc.us }
       | Top w ->
@@ -480,11 +532,7 @@ end = struct
         { acc with us }
 
     and normalize_join ul =
-      let empty = { us = USet.empty; top = None } in
-      let us = USet.of_list ul in
-      let res =
-        USet.fold (fun u acc -> u |> normalize |> flatten_join acc) us empty
-      in
+      let res = List.fold_left flatten_join empty ul in
       match res.top with
       | Some w -> Top w
       | None -> (
