@@ -240,7 +240,11 @@ end = struct
   module Unresolved : sig
     val equal : u -> u -> bool
 
-    module Set : Set.S with type elt = u
+    val join : u -> u -> t
+
+    val transform : u -> u -> t
+
+    val assert_normal_form : u -> unit
   end = struct
     (* structural comparison on terms, not the ordering on the abstract
        domain. *)
@@ -272,153 +276,161 @@ end = struct
 
     let equal u1 u2 = compare u1 u2 = 0
 
-    module Set = Set.Make (struct
+    module USet = Set.Make (struct
       type t = u
 
       let compare = compare
     end)
+
+    module N : sig
+      val normalize : u -> t
+    end = struct
+      type acc =
+        { us : USet.t;
+          joins : USet.t;
+          top : Witnesses.t option
+        }
+
+      let empty = { joins = USet.empty; us = USet.empty; top = None }
+
+      (* CR-someday gyorsh: symmetry in handling join and transform, factor
+         out? *)
+      let rec normalize : u -> t =
+       fun u ->
+        match u with
+        | Const (Unresolved _) -> assert false
+        | Const ((Top _ | Safe | Bot) as t) -> t
+        | Var _ -> Unresolved u
+        | Join ul -> normalize_join ul
+        | Transform ul -> normalize_transform ul
+
+      and flatten_transform acc u =
+        match normalize u with
+        | Safe -> acc
+        | Bot -> { acc with us = USet.add (Const Bot) acc.us }
+        | Top w ->
+          let top =
+            match acc.top with
+            | None -> Some w
+            | Some w' -> Some (Witnesses.join w w')
+          in
+          { acc with top }
+        | Unresolved (Const _) -> assert false
+        | Unresolved (Var _ as u) -> { acc with us = USet.add u acc.us }
+        | Unresolved (Transform ul) -> List.fold_left flatten_transform acc ul
+        | Unresolved (Join _ as u) -> { acc with joins = USet.add u acc.joins }
+
+      and mk_transform res =
+        assert (USet.is_empty res.joins);
+        if USet.mem (Const Bot) res.us
+        then Const Bot
+        else
+          let us =
+            match res.top with
+            | None -> res.us
+            | Some w -> USet.add (Const (Top w)) res.us
+          in
+          match USet.elements us with
+          | [] -> Const Safe
+          | [u] -> u
+          | ul -> Transform ul
+
+      and distribute_transform_over_join acc =
+        (* worst-case exponential in the number of variables *)
+        match USet.choose_opt acc.joins with
+        | None -> [acc]
+        | Some (Join ul as j) ->
+          let acc = { acc with joins = USet.remove j acc.joins } in
+          let f u = distribute_transform_over_join (flatten_transform acc u) in
+          List.concat_map f ul
+        | Some (Const _ | Transform _ | Var _) -> assert false
+
+      and normalize_transform ul =
+        let res = List.fold_left flatten_transform empty ul in
+        (* optimize common cases *)
+        if USet.mem (Const Bot) res.us
+        then Bot
+        else if USet.is_empty res.joins
+        then mk_transform res |> normalize
+        else
+          res |> distribute_transform_over_join |> List.map mk_transform
+          |> normalize_join
+
+      and flatten_join acc u =
+        match normalize u with
+        | Bot -> acc
+        | Safe -> { acc with us = USet.add (Const Safe) acc.us }
+        | Top w ->
+          let top =
+            match acc.top with
+            | None -> Some w
+            | Some w' -> Some (Witnesses.join w w')
+          in
+          { acc with top }
+        | Unresolved (Const _) -> assert false
+        | Unresolved (Var _ as u) | Unresolved (Transform _ as u) ->
+          { acc with us = USet.add u acc.us }
+        | Unresolved (Join ul) ->
+          let us = USet.(union acc.us (of_list ul)) in
+          { acc with us }
+
+      and normalize_join ul =
+        let res = List.fold_left flatten_join empty ul in
+        match res.top with
+        | Some w -> Top w
+        | None -> (
+          match USet.elements res.us with
+          | [] -> Bot
+          | [u] -> (
+            match u with
+            | Const Safe -> Safe
+            | Const (Top _ | Bot | Unresolved _) | Join _ -> assert false
+            | (Var _ | Transform _) as u -> Unresolved u)
+          | ul -> Unresolved (Join ul))
+    end
+
+    let rec assert_normal_form u =
+      let get_elements ul =
+        (* ensures: sorted, no duplicates, at least two elements *)
+        let us = USet.of_list ul in
+        assert (USet.cardinal us >= 2);
+        assert (List.equal equal (USet.elements us) ul);
+        us
+      in
+      match u with
+      | Const _ -> assert false
+      | Var _ -> ()
+      | Transform ul ->
+        (* only (Const Top) or Var, at least two elements, sorted, no
+           duplicates *)
+        ul |> get_elements
+        |> USet.iter (function
+             | Const (Top _) -> ()
+             | Var _ -> ()
+             | Const (Bot | Safe | Unresolved _) | Transform _ | Join _ ->
+               assert false)
+      | Join ul ->
+        (* only (Const Safe), Var, or Transform in normal form, at least two
+           elements. *)
+        ul |> get_elements
+        |> USet.iter (function
+             | Const Safe -> ()
+             | Var _ -> ()
+             | Transform ul -> List.iter assert_normal_form ul
+             | Join _ -> assert false
+             | Const (Top _ | Bot | Unresolved _) -> assert false)
+
+    let join u1 u2 = Join [u1; u2] |> N.normalize
+
+    let transform u1 u2 = Transform [u1; u2] |> N.normalize
   end
 
-  type acc =
-    { us : Unresolved.Set.t;
-      joins : Unresolved.Set.t;
-      top : Witnesses.t option
-    }
+  let assert_normal_form t =
+    match t with
+    | Top _ | Safe | Bot -> ()
+    | Unresolved u -> Unresolved.assert_normal_form u
 
-  let empty =
-    { joins = Unresolved.Set.empty; us = Unresolved.Set.empty; top = None }
-
-  let rec assert_normal_form_u u =
-    let get_elements ul =
-      (* ensures: sorted, no duplicates, at least two elements *)
-      let us = Unresolved.Set.of_list ul in
-      assert (Unresolved.Set.cardinal us >= 2);
-      assert (List.equal Unresolved.equal (Unresolved.Set.elements us) ul);
-      us
-    in
-    match u with
-    | Const _ -> assert false
-    | Var _ -> ()
-    | Transform ul ->
-      (* only (Const Top) or Var, at least two elements, sorted, no
-         duplicates *)
-      ul |> get_elements
-      |> Unresolved.Set.iter (function
-           | Const (Top _) -> ()
-           | Var _ -> ()
-           | Const (Bot | Safe | Unresolved _) | Transform _ | Join _ ->
-             assert false)
-    | Join ul ->
-      (* only (Const Safe), Var, or Transform in normal form, at least two
-         elements. *)
-      ul |> get_elements
-      |> Unresolved.Set.iter (function
-           | Const Safe -> ()
-           | Var _ -> ()
-           | Transform ul -> List.iter assert_normal_form_u ul
-           | Join _ -> assert false
-           | Const (Top _ | Bot | Unresolved _) -> assert false)
-
-  (* CR-someday gyorsh: symmetry in handling join and transform, factor out? *)
-  let rec normalize : u -> t =
-   fun u ->
-    match u with
-    | Const (Unresolved _) -> assert false
-    | Const ((Top _ | Safe | Bot) as t) -> t
-    | Var _ -> Unresolved u
-    | Join ul -> normalize_join ul
-    | Transform ul -> normalize_transform ul
-
-  and flatten_transform acc u =
-    match normalize u with
-    | Safe -> acc
-    | Bot -> { acc with us = Unresolved.Set.add (Const Bot) acc.us }
-    | Top w ->
-      let top =
-        match acc.top with
-        | None -> Some w
-        | Some w' -> Some (Witnesses.join w w')
-      in
-      { acc with top }
-    | Unresolved (Const _) -> assert false
-    | Unresolved (Var _ as u) -> { acc with us = Unresolved.Set.add u acc.us }
-    | Unresolved (Transform ul) -> List.fold_left flatten_transform acc ul
-    | Unresolved (Join _ as u) ->
-      { acc with joins = Unresolved.Set.add u acc.joins }
-
-  and mk_transform res =
-    assert (Unresolved.Set.is_empty res.joins);
-    if Unresolved.Set.mem (Const Bot) res.us
-    then Bot
-    else
-      let us =
-        match res.top with
-        | None -> res.us
-        | Some w -> Unresolved.Set.add (Const (Top w)) res.us
-      in
-      match Unresolved.Set.elements us with
-      | [] -> Safe
-      | [u] -> Unresolved u
-      | ul -> Unresolved (Transform ul)
-
-  and distribute_transform_over_join acc =
-    (* worst-case exponential in the number of variables *)
-    match Unresolved.Set.choose_opt acc.joins with
-    | None -> [acc]
-    | Some (Join ul as j) ->
-      let acc = { acc with joins = Unresolved.Set.remove j acc.joins } in
-      let f u = distribute_transform_over_join (flatten_transform acc u) in
-      List.concat_map f ul
-    | Some (Const _ | Transform _ | Var _) -> assert false
-
-  and normalize_transform ul =
-    let res = List.fold_left flatten_transform empty ul in
-    (* optimization *)
-    if Unresolved.Set.mem (Const Bot) res.us
-    then Bot
-    else
-      res |> distribute_transform_over_join |> List.map mk_transform
-      |> join_list |> normalize_t
-
-  and normalize_t t =
-    match t with Top _ | Safe | Bot -> t | Unresolved u -> normalize u
-
-  and flatten_join acc u =
-    match normalize u with
-    | Bot -> acc
-    | Safe -> { acc with us = Unresolved.Set.add (Const Safe) acc.us }
-    | Top w ->
-      let top =
-        match acc.top with
-        | None -> Some w
-        | Some w' -> Some (Witnesses.join w w')
-      in
-      { acc with top }
-    | Unresolved (Const _) -> assert false
-    | Unresolved (Var _ as u) | Unresolved (Transform _ as u) ->
-      { acc with us = Unresolved.Set.add u acc.us }
-    | Unresolved (Join ul) ->
-      let us = Unresolved.Set.(union acc.us (of_list ul)) in
-      { acc with us }
-
-  and normalize_join ul =
-    let res = List.fold_left flatten_join empty ul in
-    match res.top with
-    | Some w -> Top w
-    | None -> (
-      match Unresolved.Set.elements res.us with
-      | [] -> Bot
-      | [u] -> (
-        match u with
-        | Const Safe -> Safe
-        | Const (Top _ | Bot | Unresolved _) | Join _ -> assert false
-        | (Var _ | Transform _) as u -> Unresolved u)
-      | ul -> Unresolved (Join ul))
-
-  and join_list tl =
-    match tl with [] -> Bot | [t] -> t | t :: tl -> join t (join_list tl)
-
-  and join t1 t2 =
+  let join t1 t2 =
     assert_normal_form t1;
     assert_normal_form t2;
     match t1, t2 with
@@ -432,17 +444,8 @@ end = struct
     | Unresolved _, Top _ -> t2
     | Bot, Unresolved _ -> t2
     | Unresolved _, Bot -> t1
-    | Safe, Unresolved u | Unresolved u, Safe -> join_u (Const Safe) u
-    | Unresolved u1, Unresolved u2 -> join_u u1 u2
-
-  and join_u u1 u2 = Join [u1; u2] |> normalize
-
-  and transform_u u1 u2 = Transform [u1; u2] |> normalize
-
-  and assert_normal_form t =
-    match t with
-    | Top _ | Safe | Bot -> ()
-    | Unresolved u -> assert_normal_form_u u
+    | Safe, Unresolved u | Unresolved u, Safe -> Unresolved.join (Const Safe) u
+    | Unresolved u1, Unresolved u2 -> Unresolved.join u1 u2
 
   let equal t1 t2 =
     match t1, t2 with
@@ -494,8 +497,8 @@ end = struct
     | t, Safe -> t
     | Top w, Top w' -> Top (Witnesses.join w w')
     | (Top _ as top), Unresolved u | Unresolved u, (Top _ as top) ->
-      transform_u (Const top) u
-    | Unresolved u, Unresolved u' -> transform_u u u'
+      Unresolved.transform (Const top) u
+    | Unresolved u, Unresolved u' -> Unresolved.transform u u'
 
   let rec apply t ~env =
     assert_normal_form t;
