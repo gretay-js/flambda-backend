@@ -240,7 +240,7 @@ end = struct
   module Unresolved : sig
     val equal : u -> u -> bool
 
-    val assert_normal_form : u -> unit
+    module Set : Set.Make
   end = struct
     (* structural comparison on terms, not the ordering on the abstract
        domain. *)
@@ -272,44 +272,11 @@ end = struct
 
     let equal u1 u2 = compare u1 u2 = 0
 
-    module Set = struct
-      include Set.Make (struct
-        type t = u
+    module Set = Set.Make (struct
+      type t = u
 
-        let compare = compare
-      end)
-    end
-
-    let rec assert_normal_form u =
-      let get_elements ul =
-        (* ensures: sorted, no duplicates, at least two elements *)
-        let us = USet.of_list ul in
-        assert (USet.cardinal us >= 2);
-        assert (List.equal equal (USet.elements us) ul);
-        us
-      in
-      match u with
-      | Const _ -> assert false
-      | Var _ -> ()
-      | Transform ul ->
-        (* only (Const Top) or Var, at least two elements, sorted, no
-           duplicates *)
-        ul |> get_elements
-        |> USet.iter (function
-             | Const (Top _) -> ()
-             | Var _ -> ()
-             | Const (Bot | Safe | Unresolved _) | Transform _ | Join _ ->
-               assert false)
-      | Join ul ->
-        (* only (Const Safe), Var, or Transform in normal form, at least two
-           elements. *)
-        ul |> get_elements
-        |> USet.iter (function
-             | Const Safe -> ()
-             | Var _ -> ()
-             | Transform ul -> List.iter assert_normal_form ul
-             | Join _ -> assert false
-             | Const (Top _ | Bot | Unresolved _) -> assert false)
+      let compare = compare
+    end)
   end
 
   type acc =
@@ -320,6 +287,37 @@ end = struct
 
   let empty =
     { joins = Unresolved.Set.empty; us = Unresolved.Set.empty; top = None }
+
+  let rec assert_normal_form_u u =
+    let get_elements ul =
+      (* ensures: sorted, no duplicates, at least two elements *)
+      let us = USet.of_list ul in
+      assert (USet.cardinal us >= 2);
+      assert (List.equal equal (USet.elements us) ul);
+      us
+    in
+    match u with
+    | Const _ -> assert false
+    | Var _ -> ()
+    | Transform ul ->
+      (* only (Const Top) or Var, at least two elements, sorted, no
+         duplicates *)
+      ul |> get_elements
+      |> USet.iter (function
+           | Const (Top _) -> ()
+           | Var _ -> ()
+           | Const (Bot | Safe | Unresolved _) | Transform _ | Join _ ->
+             assert false)
+    | Join ul ->
+      (* only (Const Safe), Var, or Transform in normal form, at least two
+         elements. *)
+      ul |> get_elements
+      |> USet.iter (function
+           | Const Safe -> ()
+           | Var _ -> ()
+           | Transform ul -> List.iter assert_normal_form_ ul
+           | Join _ -> assert false
+           | Const (Top _ | Bot | Unresolved _) -> assert false)
 
   (* CR-someday gyorsh: symmetry in handling join and transform, factor out? *)
   let rec normalize : u -> t =
@@ -441,7 +439,7 @@ end = struct
   and assert_normal_form t =
     match t with
     | Top _ | Safe | Bot -> ()
-    | Unresolved u -> Unresolved.assert_normal_form u
+    | Unresolved u -> assert_normal_form_u u
 
   let equal t1 t2 =
     match t1, t2 with
