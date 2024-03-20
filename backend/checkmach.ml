@@ -367,21 +367,22 @@ end = struct
 
     and distribute_transform_over_join acc =
       (* worst-case exponential in the number of variables *)
-      match USet.choose_opt acc.joins with
-      | None -> mk_transform acc
+      match USet.chooset_opt acc.joins with
+      | None -> [acc]
       | Some (Join ul as j) ->
         let acc = { acc with joins = USet.remove j acc.joins } in
         let f u = distribute_transform_over_join (flatten_transform acc u) in
-        let ul = List.map f ul in
-        normalize_join ul
+        List.concat_map f ul in
       | Some (Const _ | Transform _ | Var _) -> assert false
 
     and normalize_transform ul =
       let res = List.fold_left flatten_transform empty ul in
+      (* optimization *)
       if USet.mem (Const Bot) res.us
-      then (* optimization *)
-        Bot
-      else distribute_transform_over_join res
+      then Bot
+      else
+        res |> distribute_transform_over_join |> List.map mk_transform |> join |> normalize
+
 
     and flatten_join acc u =
       match normalize u with
