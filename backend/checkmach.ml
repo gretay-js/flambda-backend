@@ -94,6 +94,8 @@ module Witnesses : sig
 
   val elements : t -> Witness.t list
 
+  val compare : t -> t -> int
+
   type components =
     { nor : t;
       exn : t;
@@ -156,6 +158,7 @@ module Var : sig
   val print : Format.formatter -> t -> unit
 
   val compare : t -> t -> int
+  module Set = module type of Set.Make with t:= t
 end = struct
   type t =
     { name : string;
@@ -374,7 +377,7 @@ end = struct
        domain. *)
     let rec compare u1 u2 =
       match u1, u2 with
-      | Const c1, Const c2 -> compare_t c1, c2
+      | Const c1, Const c2 -> compare_t c1 c2
       | Const c1, _ -> -1
       | _, Const _ -> 1
       | Var v1, Var v2 -> Var.compare v1 v2
@@ -395,26 +398,26 @@ end = struct
       | _, Safe -> 1
       | Top w1, Top w2 -> Witnesses.compare w1 w2
       | Top _, Unresolved _ -> -1
-      | Unresolved _, Top -> 1
-      | Unresolved u1, Unresolved u2 -> compare_u u1 u2
+      | Unresolved _, Top _ -> 1
+      | Unresolved u1, Unresolved u2 -> compare u1 u2
 
-    let equal u1 u2 = compare_u u1 u2 = 0
+    let equal u1 u2 = compare u1 u2 = 0
 
-    module Set = struct
-
+    module USet = struct
       include Set.Make (struct
-          type t = u
+        type t = u
 
-          let compare = compare
-        end)
+        let compare = compare
+      end)
     end
 
     let rec assert_normal_form u =
       let get_elements ul =
         (* ensures: sorted, no duplicates, at least two elements *)
         let us = USet.of_list ul in
-        assert (USet.cardinal >= 2);
-        assert (List.equal equal (USet.to_list us) ul)
+        assert (USet.cardinal us >= 2);
+        assert (List.equal equal (USet.elements us) ul);
+        us
       in
       match u with
       | Const _ -> assert false
@@ -422,69 +425,71 @@ end = struct
       | Transform ul ->
         (* only (Const Top) or Var, at least two elements, sorted, no
            duplicates *)
-        let us = get_elements ul in
-        USet.iter us (function
-          | Const Top -> ()
-          | Var _ -> ()
-          | Const _ | Transfer _ | Join _ -> assert false)
+        ul |> get_elements
+        |> USet.iter (function
+             | Const (Top _) -> ()
+             | Var _ -> ()
+             | Const (Bot | Safe | Unresolved _) | Transform _ | Join _ ->
+               assert false)
       | Join ul ->
         (* only (Const Safe), Var, or Transform in normal form, at least two
            elements. *)
-        let us = get_elements ul in
-        US.iter us (function
-          | Const Safe -> ()
-          | Var -> ()
-          | Transform ul -> List.iter assert_normal_form ul
-          | Join _ -> assert false
-          | Const _ -> assert false)
+        ul |> get_elements
+        |> USet.iter (function
+             | Const Safe -> ()
+             | Var _ -> ()
+             | Transform ul -> List.iter assert_normal_form ul
+             | Join _ -> assert false
+             | Const (Top _ | Bot | Unresolved _) -> assert false)
 
-    type acc = { us : USet.t; w : Witnesses; safe : bool }
+    type acc =
+      { us : USet.t;
+        top : Witnesses.t option
+      }
 
     let rec normalize : u -> t =
+     fun u ->
       match u with
       | Const (Unresolved _) -> assert false
-      | Const t -> t
-      | Var _ -> Unresolved (Var u)
-      | Join ul ->
-        normalize_join ul
+      | Const ((Top _ | Safe | Bot) as t) -> t
+      | Var _ -> Unresolved u
+      | Join ul -> normalize_join ul
       | Transform ul -> normalize_transform ul
-    and normalize_transform ul = fatal_error "unimplementated"
-    and flatten_join ul =
-      let us = USet.of_list ul in
-      (* normalize elements and flatten join *)
-      let empty = { vars = Var.Set.empty; tr = Tr.Set.empty; top = None; safe = false } in
-      USet.fold (fun u acc ->
-        match normalize u with
-        | Bot -> acc
-        | Safe -> { acc with safe = true }
-        | Top w ->
-          let top =
-            match acc.top with
-            | None -> Some w
-            | Some w' -> Some (
-              Witnesses.join w w')
-          in
-          { acc with top   }
-        | Unresolved (Const _) -> assert false
-        | Unresolved (Join ul) ->
-          { acc with us = USet.union ul acc.us }
-        | Unresolved u ->
-          { acc with us = USet.add u acc.us })
-            us empty
+
+    and normalize_transform ul = Misc.fatal_error "unimplementated"
+
+    and flatten_join t acc =
+      match t with
+      | Bot -> acc
+      | Safe -> { acc with us = USet.add (Const Safe) acc.us }
+      | Top w ->
+        let top =
+          match acc.top with
+          | None -> Some w
+          | Some w' -> Some (Witnesses.join w w')
+        in
+        { acc with top }
+      | Unresolved (Const _) -> assert false
+      | Unresolved (Var _ as u) | Unresolved (Transform _ as u) ->
+        { acc with us = USet.add u acc.us }
+      | Unresolved (Join ul) ->
+        let us = USet.(union acc.us (of_list ul)) in
+        { acc with us }
+
     and normalize_join ul =
-      let res = flatten_join ul in
+      let empty = { us = Var.Set.empty; top = None } in
+      let res =
+        ul |> List.sort_uniq compare |> List.map normalize us
+        |> List.fold flatten_join empty
+      in
       match res.top with
       | Some w -> Top w
-      | None ->
-        match USet.to_list res.us with
-        | [] ->
-          if res.safe then Safe
-          else Bot
-        | [u] ->
-          if res.safe then Unresolved (Join [Const Safe; u]) else Unresolved u
-        | ul ->
-          if res.safe then Unresolved (Join [Const Safe::ul])
-          else Unresolved (Join ul)
+      | None -> (
+        match USet.elements res.us with
+        | [] -> Bot
+        | [Const Safe] -> Safe
+        | [u] -> Unresolved u
+        | ul -> Unresolved (Join ul))
 
     let join u1 u2 = Join [u1; u2] |> normalize
 
