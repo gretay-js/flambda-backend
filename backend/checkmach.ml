@@ -240,7 +240,7 @@ end = struct
   module Unresolved : sig
     val equal : u -> u -> bool
 
-    module Set : Set.Make
+    module Set : Set.S with type elt = u
   end = struct
     (* structural comparison on terms, not the ordering on the abstract
        domain. *)
@@ -291,9 +291,9 @@ end = struct
   let rec assert_normal_form_u u =
     let get_elements ul =
       (* ensures: sorted, no duplicates, at least two elements *)
-      let us = USet.of_list ul in
-      assert (USet.cardinal us >= 2);
-      assert (List.equal equal (USet.elements us) ul);
+      let us = Unresolved.Set.of_list ul in
+      assert (Unresolved.Set.cardinal us >= 2);
+      assert (List.equal Unresolved.equal (Unresolved.Set.elements us) ul);
       us
     in
     match u with
@@ -303,7 +303,7 @@ end = struct
       (* only (Const Top) or Var, at least two elements, sorted, no
          duplicates *)
       ul |> get_elements
-      |> USet.iter (function
+      |> Unresolved.Set.iter (function
            | Const (Top _) -> ()
            | Var _ -> ()
            | Const (Bot | Safe | Unresolved _) | Transform _ | Join _ ->
@@ -312,10 +312,10 @@ end = struct
       (* only (Const Safe), Var, or Transform in normal form, at least two
          elements. *)
       ul |> get_elements
-      |> USet.iter (function
+      |> Unresolved.Set.iter (function
            | Const Safe -> ()
            | Var _ -> ()
-           | Transform ul -> List.iter assert_normal_form_ ul
+           | Transform ul -> List.iter assert_normal_form_u ul
            | Join _ -> assert false
            | Const (Top _ | Bot | Unresolved _) -> assert false)
 
@@ -343,7 +343,7 @@ end = struct
     | Unresolved (Const _) -> assert false
     | Unresolved (Var _ as u) -> { acc with us = Unresolved.Set.add u acc.us }
     | Unresolved (Transform ul) -> List.fold_left flatten_transform acc ul
-    | Unresolved (Join ul as u) ->
+    | Unresolved (Join _ as u) ->
       { acc with joins = Unresolved.Set.add u acc.joins }
 
   and mk_transform res =
@@ -377,8 +377,11 @@ end = struct
     if Unresolved.Set.mem (Const Bot) res.us
     then Bot
     else
-      res |> distribute_transform_over_join |> List.map mk_transform |> join
-      |> normalize
+      res |> distribute_transform_over_join |> List.map mk_transform
+      |> join_list |> normalize_t
+
+  and normalize_t t =
+    match t with Top _ | Safe | Bot -> t | Unresolved u -> normalize u
 
   and flatten_join acc u =
     match normalize u with
@@ -413,7 +416,7 @@ end = struct
       | ul -> Unresolved (Join ul))
 
   and join_list tl =
-    match t with [] -> Bot | [t] -> t | t :: tl -> join t (join_list tl)
+    match tl with [] -> Bot | [t] -> t | t :: tl -> join t (join_list tl)
 
   and join t1 t2 =
     assert_normal_form t1;
@@ -466,7 +469,7 @@ end = struct
     | Bot, Unresolved _ -> true
     | Unresolved _, Bot -> false
     | Unresolved _, Safe | Safe, Unresolved _ | Unresolved _, Unresolved _ ->
-      equal (join_u t1 t2) t2
+      equal (join t1 t2) t2
 
   (* Abstract transformer. Commutative and Associative.
 
@@ -491,8 +494,8 @@ end = struct
     | t, Safe -> t
     | Top w, Top w' -> Top (Witnesses.join w w')
     | (Top _ as top), Unresolved u | Unresolved u, (Top _ as top) ->
-      Unresolved.transform (Const top) u
-    | Unresolved u, Unresolved u' -> Unresolved.transform u u'
+      transform_u (Const top) u
+    | Unresolved u, Unresolved u' -> transform_u u u'
 
   let rec apply t ~env =
     assert_normal_form t;
