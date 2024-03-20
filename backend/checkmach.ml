@@ -158,16 +158,19 @@ module Var : sig
   val print : Format.formatter -> t -> unit
 
   val compare : t -> t -> int
-  module Set = module type of Set.Make with t:= t
 end = struct
-  type t =
-    { name : string;
-      tag : Tag.t
-    }
+  module T = struct
+    type t =
+      { name : string;
+        tag : Tag.t
+      }
 
-  let compare { tag = tag1; name = name1 } { tag = tag2; name = name2 } =
-    let c = String.compare name1 name2 in
-    if c = 0 then Tag.compare tag1 tag2 else c
+    let compare { tag = tag1; name = name1 } { tag = tag2; name = name2 } =
+      let c = String.compare name1 name2 in
+      if c = 0 then Tag.compare tag1 tag2 else c
+  end
+
+  include T
 
   let name t = t.name
 
@@ -378,7 +381,7 @@ end = struct
     let rec compare u1 u2 =
       match u1, u2 with
       | Const c1, Const c2 -> compare_t c1 c2
-      | Const c1, _ -> -1
+      | Const _, _ -> -1
       | _, Const _ -> 1
       | Var v1, Var v2 -> Var.compare v1 v2
       | Var _, _ -> -1
@@ -456,9 +459,9 @@ end = struct
       | Join ul -> normalize_join ul
       | Transform ul -> normalize_transform ul
 
-    and normalize_transform ul = Misc.fatal_error "unimplementated"
+    and normalize_transform _ul = Misc.fatal_error "unimplementated"
 
-    and flatten_join t acc =
+    and flatten_join acc t =
       match t with
       | Bot -> acc
       | Safe -> { acc with us = USet.add (Const Safe) acc.us }
@@ -477,18 +480,21 @@ end = struct
         { acc with us }
 
     and normalize_join ul =
-      let empty = { us = Var.Set.empty; top = None } in
+      let empty = { us = USet.empty; top = None } in
+      let us = USet.of_list ul in
       let res =
-        ul |> List.sort_uniq compare |> List.map normalize us
-        |> List.fold flatten_join empty
+        USet.fold (fun u acc -> u |> normalize |> flatten_join acc) us empty
       in
       match res.top with
       | Some w -> Top w
       | None -> (
         match USet.elements res.us with
         | [] -> Bot
-        | [Const Safe] -> Safe
-        | [u] -> Unresolved u
+        | [u] -> (
+          match u with
+          | Const Safe -> Safe
+          | Const (Top _ | Bot | Unresolved _) | Join _ -> assert false
+          | (Var _ | Transform _) as u -> Unresolved u)
         | ul -> Unresolved (Join ul))
 
     let join u1 u2 = Join [u1; u2] |> normalize
