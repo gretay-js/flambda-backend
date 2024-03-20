@@ -278,24 +278,6 @@ end = struct
    *   | Const Safe :: _ -> Const (Top w)
    *   | l -> l |> List.map apply_tr |> List.sort_uniq compare_tr |> Join *)
 
-  (* let compare u1 u2 =
-   *   let rank_const t =
-   *     match t with
-   *     | Bot -> 0
-   *     | Safe -> 1
-   *     | Top -> 2
-   *     | Unresolved _ -> assert false
-   *   in
-   *   let compare_const t1 t2 =
-   *     Int.compare (rank t1) (rank t2)
-   *   in
-   *   match u1,u2 with
-   *   | Const c1, Const c2 -> compare_const c1, c2
-   *   | Const c1, _ -> 1
-   *   | _, Const _ -> -1
-   *
-   *)
-
   (* [Unresolved] module groups functions that operate on [u]. Note that some of
      these functions return [t] to keep [u] in normal form, in cases when the
      value can be resolved as a result of an operation. *)
@@ -306,6 +288,38 @@ end = struct
 
     val assert_normal_form : u -> unit
   end = struct
+    module Set = Set.Make (struct
+      type t = u
+
+      let compare = compare_u
+
+      let rec compare_u u1 u2 =
+        match u1, u2 with
+        | Const c1, Const c2 -> compare_t c1, c2
+        | Const c1, _ -> -1
+        | _, Const _ -> 1
+        | Var v1, Var v2 -> Var.compare v1 v2
+        | Var _, _ -> -1
+        | _, Var _ -> 1
+        | Transform ul1, Transform ul2 -> List.compare compare ul1 ul2
+        | Transform _, _ -> -1
+        | _, Transform _ -> 1
+        | Join ul1, Join ul2 -> List.compare compare ul1 ul2
+
+      and compare_t t1 t2 =
+        match t1, t2 with
+        | Bot, Bot -> 0
+        | Bot, _ -> -1
+        | _, Bot -> 1
+        | Safe, Safe -> 0
+        | Safe, _ -> -1
+        | _, Safe -> 1
+        | Top w1, Top w2 -> Witnesses.compare w1 w2
+        | Top _, Unresolved _ -> -1
+        | Unresolved _, Top -> 1
+        | Unresolved u1, Unresolved u2 -> compare_u u1 u2
+    end)
+
     let rec assert_sorted_vars tl ~prev =
       match tl with
       | [] -> ()
@@ -393,15 +407,26 @@ end = struct
       | Transform ul -> assert_normal_form_transform ul
       | Join ul -> assert_normal_form_join ul
 
-    let normalize : u -> t = fun _u -> Misc.fatal_error "unimplemented"
+    let normalize : u -> t =
+      match u with
+      | Const (Unresolved _) -> assert false
+      | Const t -> t
+      | Var _ -> Unresolved (Var u)
+      | Join ul ->
+        let l =
+          ul |> List.map normalize |> flatten_join |> simplify_safe
+          |> List.map normalize
+        in
+        Unresolved (Join l)
+      | Transform ul -> normalize_transform ul
 
     let join u1 u2 = Join [u1; u2] |> normalize
 
     let transform u1 u2 = Transform [u1; u2] |> normalize
   end
 
-  let assert_normal_form u =
-    match u with
+  let assert_normal_form t =
+    match t with
     | Top _ | Safe | Bot -> ()
     | Unresolved u -> Unresolved.assert_normal_form u
 
