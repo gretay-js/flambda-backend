@@ -149,35 +149,25 @@ end
 module Var : sig
   type t
 
-  val get : string -> Tag.t -> Witnesses.t -> t
+  val get : string -> Tag.t -> t
 
   val name : t -> string
 
   val tag : t -> Tag.t
 
-  val witnesses : t -> Witnesses.t
-
-  val print : witnesses:bool -> Format.formatter -> t -> unit
-
-  val replace_witnesses : Witnesses.t -> t -> t
+  val print : Format.formatter -> t -> unit
 
   val compare : t -> t -> int
 end = struct
   module T = struct
     type t =
       { name : string;
-        tag : Tag.t;
-        witnesses : Witnesses.t
+        tag : Tag.t
       }
 
-    let compare { tag = tag1; name = name1; witnesses = w1 }
-        { tag = tag2; name = name2; witnesses = w2 } =
+    let compare { tag = tag1; name = name1 } { tag = tag2; name = name2 } =
       let c = String.compare name1 name2 in
-      if c <> 0
-      then c
-      else
-        let c = Tag.compare tag1 tag2 in
-        if c <> 0 then c else Witnesses.compare w1 w2
+      if c = 0 then Tag.compare tag1 tag2 else c
   end
 
   include T
@@ -186,15 +176,10 @@ end = struct
 
   let tag t = t.tag
 
-  let witnesses t = t.witnesses
+  let get name tag = { name; tag }
 
-  let get name tag witnesses = { name; tag; witnesses }
-
-  let print ~witnesses ppf { name; tag; witnesses = w } =
-    Format.fprintf ppf "%s.%s@ " name (Tag.print tag);
-    if witnesses then Witnesses.print ppf w
-
-  let replace_witnesses witnesses t = { t with witnesses }
+  let print ppf { name; tag } =
+    Format.fprintf ppf "%s.%s@ " name (Tag.print tag)
 end
 
 (** Abstract value for each component of the domain. *)
@@ -225,7 +210,7 @@ module V : sig
 
   val print : witnesses:bool -> Format.formatter -> t -> unit
 
-  val unresolved : Var.t -> t
+  val unresolved : Witnesses.t -> Var.t -> t
 
   val is_resolved : t -> bool
 
@@ -239,11 +224,14 @@ end = struct
 
   and u =
     | Const of t
-    | Var of Var.t
+    | Var of
+        { var : Var.t;
+          witnesses : Witnesses.t
+        }
     | Transform of u list
     | Join of u list
 
-  let unresolved var = Unresolved (Var var)
+  let unresolved witnesses var = Unresolved (Var { var; witnesses })
 
   let is_resolved t =
     match t with Top _ | Safe | Bot -> true | Unresolved _ -> false
@@ -262,7 +250,9 @@ end = struct
     match u with
     | Join tl -> Format.fprintf ppf "join %a@," pp tl
     | Transform tl -> Format.fprintf ppf "transform %a@," pp tl
-    | Var v -> Format.fprintf ppf "var %a@," (Var.print ~witnesses) v
+    | Var { var = v; witnesses = w } ->
+      Format.fprintf ppf "var %a@," Var.print v;
+      if witnesses then Witnesses.print ppf w
     | Const (Unresolved _) -> assert false
     | Const ((Top _ | Safe | Bot) as t) ->
       Format.fprintf ppf "%a" (print ~witnesses) t
@@ -289,7 +279,9 @@ end = struct
       | Const c1, Const c2 -> compare_t c1 c2
       | Const _, _ -> -1
       | _, Const _ -> 1
-      | Var v1, Var v2 -> Var.compare v1 v2
+      | Var { var = v1; witnesses = w1 }, Var { var = v2; witnesses = w2 } ->
+        let c = Var.compare v1 v2 in
+        if c = 0 then Witnesses.compare w1 w2 else c
       | Var _, _ -> -1
       | _, Var _ -> 1
       | Transform ul1, Transform ul2 -> List.compare compare ul1 ul2
@@ -583,7 +575,7 @@ end = struct
     match u with
     | Join tl -> Join (replace_witnesses_unresolved_list w tl)
     | Transform tl -> Transform (replace_witnesses_unresolved_list w tl)
-    | Var v -> Var (Var.replace_witnesses w v)
+    | Var { var; witnesses = _ } -> Var { var; witnesses = w }
     | Const t -> Const (replace_witnesses w t)
 
   and replace_witnesses_unresolved_list w tl =
@@ -618,7 +610,7 @@ end = struct
     match u with
     | Const (Unresolved _) -> assert false
     | Const ((Top _ | Bot | Safe) as t) -> t
-    | Var v -> env v
+    | Var { var; witnesses } -> replace_witnesses witnesses (env var)
     | Transform tl ->
       List.fold_left
         (fun acc u -> transform (apply_unresolved u ~env) acc)
@@ -686,9 +678,9 @@ end = struct
   let bot = { nor = V.Bot; exn = V.Bot; div = V.Bot }
 
   let unresolved name w =
-    { nor = Var.get name Tag.N w |> V.unresolved;
-      exn = Var.get name Tag.E w |> V.unresolved;
-      div = Var.get name Tag.D w |> V.unresolved
+    { nor = Var.get name Tag.N |> V.unresolved w;
+      exn = Var.get name Tag.E |> V.unresolved w;
+      div = Var.get name Tag.D |> V.unresolved w
     }
 
   let is_resolved t =
@@ -1622,8 +1614,7 @@ end = struct
     in
     let lookup env var =
       let v = Env.get_value (Var.name var) env in
-      let c = Value.get_component v (Var.tag var) in
-      V.replace_witnesses (Var.witnesses var) c
+      Value.get_component v (Var.tag var)
     in
     let rec loop env =
       Stats.fixpoint_incr !stats;
