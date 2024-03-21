@@ -72,7 +72,7 @@ module Witness = struct
       fprintf ppf "probe \"%s\" handler %s" name handler_code_sym
 
   let print ppf { kind; dbg } =
-    Format.fprintf ppf "%a %a" print_kind kind Debuginfo.print_compact dbg
+    Format.fprintf ppf "%a {%a}" print_kind kind Debuginfo.print_compact dbg
 end
 
 module Witnesses : sig
@@ -258,8 +258,8 @@ end = struct
     | Join tl -> Format.fprintf ppf "join %a@," pp tl
     | Transform tl -> Format.fprintf ppf "transform %a@," pp tl
     | Var { var = v; witnesses = w } ->
-      Format.fprintf ppf "var %a@," Var.print v;
-      if witnesses then Witnesses.print ppf w
+      Format.fprintf ppf "var %a" Var.print v;
+      if witnesses then Format.fprintf ppf "@ (%a)" Witnesses.print w
     | Const (Unresolved _) -> assert false
     | Const ((Top _ | Safe | Bot) as t) ->
       Format.fprintf ppf "%a" (print ~witnesses) t
@@ -478,7 +478,7 @@ end = struct
         if !Flambda_backend_flags.dump_checkmach
         then
           Format.fprintf Format.std_formatter "normalize: %a@."
-            (print_unresolved ~witnesses:false)
+            (print_unresolved ~witnesses:true)
             u;
         match u with
         | Const (Unresolved _) -> assert false
@@ -1510,7 +1510,8 @@ end = struct
       then next
       else
         let w = create_witnesses t (Alloc { bytes; dbginfo }) dbg in
-        transform_top t ~next ~exn:Value.bot w "heap allocation" dbg
+        let effect = Value.{ nor = Top w; exn = V.Bot; div = V.Bot } in
+        transform t ~effect ~next ~exn "heap allocation" dbg
     | Iprobe { name; handler_code_sym; enabled_at_init = __ } ->
       let desc = Printf.sprintf "probe %s handler %s" name handler_code_sym in
       let w = create_witnesses t (Probe { name; handler_code_sym }) dbg in
