@@ -1012,21 +1012,12 @@ module Func_info : sig
     { name : string;  (** function name *)
       dbg : Debuginfo.t;  (** debug info associated with the function *)
       mutable value : Value.t;  (** the result of the check *)
-      annotation : Annotation.t option;
+      annotation : Annotation.t option
           (** [value] must be lessequal than the expected value
           if there is user-defined annotation on this function. *)
-      saved_fun : Mach.fundecl option
-          (** If the function has callees that haven't been analyzed yet, keep function body
-          so it can be reanalyzed when the callees are available.  *)
     }
 
-  val create :
-    string ->
-    Value.t ->
-    Debuginfo.t ->
-    Annotation.t option ->
-    Mach.fundecl option ->
-    t
+  val create : string -> Value.t -> Debuginfo.t -> Annotation.t option -> t
 
   val print : witnesses:bool -> msg:string -> Format.formatter -> t -> unit
 
@@ -1036,16 +1027,12 @@ end = struct
     { name : string;  (** function name *)
       dbg : Debuginfo.t;  (** debug info associated with the function *)
       mutable value : Value.t;  (** the result of the check *)
-      annotation : Annotation.t option;
+      annotation : Annotation.t option
           (** [value] must be lessequal than the expected value
           if there is user-defined annotation on this function. *)
-      saved_fun : Mach.fundecl option
-          (** If the function has callees that haven't been analyzed yet, keep function body
-          so it can be reanalyzed when the callees are available.  *)
     }
 
-  let create name value dbg annotation saved_fun =
-    { name; dbg; value; annotation; saved_fun }
+  let create name value dbg annotation = { name; dbg; value; annotation }
 
   let print ~witnesses ~msg ppf t =
     Format.fprintf ppf "%s %s %a@." msg t.name (Value.print ~witnesses) t.value
@@ -1089,13 +1076,7 @@ module Unit_info : sig
   (** [recod t name v dbg a] name must be in the current compilation unit,
       and not previously recorded.  *)
   val record :
-    t ->
-    string ->
-    Value.t ->
-    Debuginfo.t ->
-    Annotation.t option ->
-    Mach.fundecl option ->
-    unit
+    t -> string -> Value.t -> Debuginfo.t -> Annotation.t option -> unit
 
   val iter : t -> f:(Func_info.t -> unit) -> unit
 
@@ -1115,11 +1096,11 @@ end = struct
   let fold t ~f ~init =
     String.Tbl.fold (fun _name func_info acc -> f func_info acc) t init
 
-  let record t name value dbg annotation saved_fun =
+  let record t name value dbg annotation =
     match String.Tbl.find_opt t name with
     | Some _ -> Misc.fatal_errorf "Duplicate symbol %s" name
     | None ->
-      let func_info = Func_info.create name value dbg annotation saved_fun in
+      let func_info = Func_info.create name value dbg annotation in
       String.Tbl.replace t name func_info
 end
 
@@ -1135,7 +1116,9 @@ module Stats : sig
 
   val dataflow : t -> int -> string -> unit
 
-  val print : Format.formatter -> Unit_info.t -> t -> unit
+  val unresolved : t -> Unit_info.t -> unit
+
+  val print : Format.formatter -> t -> unit
 end = struct
   type s =
     { mutable total_functions : int;
@@ -1192,15 +1175,20 @@ end = struct
         t.dataflow_max_iterations <- c;
         t.dataflow_max_fun_name <- name)
 
-  let print ppf unit_info t =
+  let unresolved t unit_info =
     match t with
     | None -> ()
     | Some t ->
       (* count selfrec and unresolved functions in this compilation unit *)
       Unit_info.iter unit_info ~f:(fun func_info ->
           t.total_functions <- t.total_functions + 1;
-          if Option.is_some func_info.saved_fun
-          then t.unresolved_functions <- t.unresolved_functions + 1);
+          if not (Value.is_resolved func_info.value)
+          then t.unresolved_functions <- t.unresolved_functions + 1)
+
+  let print ppf t =
+    match t with
+    | None -> ()
+    | Some t ->
       (* print all fields *)
       let h = "*** Checkmach stats" in
       Format.fprintf ppf "%s: Total number of functions: %d@." h
@@ -1240,10 +1228,6 @@ end = struct
     { ppf : Format.formatter;
       current_fun_name : string;
       future_funcnames : String.Set.t;
-      mutable approx : Value.t option;
-          (** Used for computing for self calls. *)
-      mutable unresolved : bool;
-          (** the current function contains calls to other unresolved functions (not including self calls) *)
       unit_info : Unit_info.t;  (** must be the current compilation unit.  *)
       keep_witnesses : bool
     }
@@ -1254,16 +1238,9 @@ end = struct
     | No_details -> false
     | At_most _ -> keep
 
-  let create ppf current_fun_name future_funcnames unit_info approx annot =
+  let create ppf current_fun_name future_funcnames unit_info annot =
     let keep_witnesses = should_keep_witnesses (Option.is_some annot) in
-    { ppf;
-      current_fun_name;
-      future_funcnames;
-      approx;
-      unresolved = false;
-      unit_info;
-      keep_witnesses
-    }
+    { ppf; current_fun_name; future_funcnames; unit_info; keep_witnesses }
 
   let analysis_name = Printcmm.property_to_string S.property
 
@@ -1346,36 +1323,24 @@ end = struct
       return ~msg v
     in
     let resolved v =
-      let msg = Printf.sprintf "resolved  %s" callee in
-      return ~msg v
+      if Value.is_resolved v
+      then
+        let msg = Printf.sprintf "resolved  %s" callee in
+        return ~msg v
+      else unresolved v "defined earlier with unresolved dependencies"
     in
     if is_future_funcname t callee
     then
-      if String.equal callee t.current_fun_name
-      then
-        (* Self call. *)
-        match t.approx with
-        | None ->
-          (* Summary is not computed yet. Conservative. *)
-          let v = Value.safe in
-          t.approx <- Some v;
-          unresolved (Value.unresolved callee) "self-call init"
-        | Some approx -> unresolved approx "self-call approx"
-      else
-        ((* Call is defined later in the current compilation unit. Summary of
+      if (* Call is defined later in the current compilation unit. Summary of
             this callee is not yet computed. *)
-         let res =
-           if !Flambda_backend_flags.disable_precise_checkmach
-           then
-             (* Conservatively return Top. Won't be able to prove any recursive
-                functions as non-allocating. *)
-             Value.top w
-           else (
-             t.unresolved <- true;
-             Value.unresolved callee)
-         in
-         unresolved res)
+         !Flambda_backend_flags.disable_precise_checkmach
+      then
+        unresolved (Value.top w)
           "conservative handling of forward or recursive call\nor tailcall"
+      else if String.equal callee t.current_fun_name
+      then (* Self call. *)
+        unresolved (Value.unresolved callee) "self call"
+      else unresolved (Value.unresolved callee) "foward call"
     else
       (* CR gyorsh: unresolved case here is impossible in the conservative
          analysis because all previous functions have been conservatively
@@ -1386,16 +1351,12 @@ end = struct
         match S.get_value_opt callee with
         | None ->
           unresolved (Value.top w)
-            "(missing summary: callee compiled without checks)"
+            "missing summary: callee compiled without checks"
         | Some v -> resolved v)
-      | Some callee_info -> (
-        (* Callee defined earlier in the same compilation unit. *)
-        match callee_info.saved_fun with
-        | None -> resolved callee_info.value
-        | Some _ ->
-          (* callee was unresolved, mark caller as unresolved *)
-          t.unresolved <- true;
-          unresolved callee_info.value "unresolved callee")
+      | Some callee_info ->
+        (* Callee defined earlier in the same compilation unit. May have
+           unresolved dependencies. *)
+        resolved callee_info.value
 
   let transform_return ~(effect : V.t) dst =
     (* Instead of calling [Value.transform] directly, first check for trivial
@@ -1568,56 +1529,17 @@ end = struct
 
   let analyze_body t (fd : Mach.fundecl) =
     let counter = ref 0 in
-    let rec fixpoint () =
+    let fixpoint () =
       let new_value = check_instr t fd.fun_body in
-      match t.approx with
-      | None -> new_value
-      | Some approx ->
-        (* Fixpoint here is only for the common case of "self" recursive
-           functions that do not have other unresolved dependencies. Other cases
-           will be recomputed simultaneously at the end of the compilation
-           unit. *)
-        if t.unresolved
-        then new_value
-        else (
-          incr counter;
-          if Value.lessequal new_value approx
-          then approx
-          else (
-            t.approx <- Some (Value.join new_value approx);
-            fixpoint ()))
+      new_value
+      (* CR gyorsh: todo optimize this case refactor fixpoint_symbolic so it can
+         be reused instead of having a separate loop. *)
     in
     if !Flambda_backend_flags.dump_checkmach
     then Printmach.phase "Checkmach" t.ppf fd;
     let res = fixpoint () in
     Stats.selfrec !stats !counter t.current_fun_name;
     res
-
-  (* let fixpoint_mach ppf unit_info =
-   *   report_unit_info ppf unit_info ~msg:"before fixpoint";
-   *   (* CR gyorsh: this is a really dumb iteration strategy. *)
-   *   let change = ref true in
-   *   let analyze_func (func_info : Func_info.t) =
-   *     match func_info.saved_fun with
-   *     | None -> ()
-   *     | Some fd ->
-   *       let t =
-   *         create ppf func_info.name String.Set.empty unit_info None
-   *           func_info.annotation
-   *       in
-   *       let new_value = analyze_body t fd in
-   *       if not (Value.lessequal new_value func_info.value)
-   *       then (
-   *         change := true;
-   *         report t new_value ~msg:"update" ~desc:"fixpoint" func_info.dbg;
-   *         Func_info.update func_info new_value)
-   *   in
-   *   while !change do
-   *     change := false;
-   *     Unit_info.iter unit_info ~f:analyze_func;
-   *     Stats.fixpoint_incr !stats;
-   *     report_unit_info ppf unit_info ~msg:"computing fixpoint"
-   *   done *)
 
   module Env : sig
     type t
@@ -1631,6 +1553,8 @@ end = struct
     val iter : t -> f:(Func_info.t -> Value.t -> unit) -> unit
 
     val map : t -> f:(Func_info.t -> Value.t -> Value.t) -> t
+
+    val print : msg:string -> Format.formatter -> t -> unit
   end = struct
     type data =
       { func_info : Func_info.t;
@@ -1653,17 +1577,25 @@ end = struct
       String.Map.map (fun d -> { d with approx = f d.func_info d.approx }) t
 
     let iter t ~f = String.Map.iter (fun _name d -> f d.func_info d.approx) t
+
+    let print ~msg ppf t =
+      if !Flambda_backend_flags.dump_checkmach
+      then
+        iter t ~f:(fun func_info approx ->
+            Format.fprintf ppf "Env %s: %s: %a@." msg func_info.name
+              (Value.print ~witnesses:true)
+              approx)
   end
 
   (* CR gyorsh: do we need join in the fixpoint computation or is the function
      body analysis/summary already monotone? *)
   let fixpoint_symbolic ppf unit_info =
-    report_unit_info ppf unit_info ~msg:"before fixpoint";
     let env =
       (* initialize [env] with Bot for all functions. *)
       Unit_info.fold unit_info ~init:Env.empty ~f:(fun func_info env ->
           Env.add func_info Value.bot env)
     in
+    Env.print ~msg:"before fixpoint" ppf env;
     let lookup env var =
       let v = Env.get_value (Var.name var) env in
       Value.get_component v (Var.tag var)
@@ -1677,24 +1609,33 @@ end = struct
             let v' = Value.apply func_info.value (lookup env) in
             assert (Value.is_resolved v');
             changed := not (Value.lessequal v' v);
+            if !Flambda_backend_flags.dump_checkmach
+            then
+              Format.fprintf ppf "fixpoint update: %s %a" func_info.name
+                (Value.print ~witnesses:true)
+                v';
             v')
           env
       in
-      report_unit_info ppf unit_info ~msg:"computing fixpoint";
+      Env.print ~msg:"computing fixpoint" ppf env;
       if !changed then loop env' else env'
     in
     let env = loop env in
     env
 
   let fixpoint ppf unit_info =
+    report_unit_info ppf unit_info ~msg:"before fixpoint";
+    Stats.unresolved !stats unit_info;
     let env = fixpoint_symbolic ppf unit_info in
-    Env.iter env ~f:(fun func_info v -> Func_info.update func_info v)
+    Env.iter env ~f:(fun func_info v -> Func_info.update func_info v);
+    report_unit_info ppf unit_info ~msg:"after fixpoint";
+    ()
 
   let record_unit unit_info ppf =
     Profile.record_call ~accumulate:true ("record_unit " ^ analysis_name)
       (fun () ->
         fixpoint ppf unit_info;
-        Stats.print ppf unit_info !stats;
+        Stats.print ppf !stats;
         record_unit ppf unit_info)
 
   let fundecl (f : Mach.fundecl) ~future_funcnames unit_info ppf =
@@ -1703,10 +1644,9 @@ end = struct
       let a =
         Annotation.find f.fun_codegen_options S.property fun_name f.fun_dbg
       in
-      let t = create ppf fun_name future_funcnames unit_info None a in
+      let t = create ppf fun_name future_funcnames unit_info a in
       let really_check () =
         let res = analyze_body t f in
-        let saved_fun = if t.unresolved then Some f else None in
         report t res ~msg:"finished" ~desc:"fundecl" f.fun_dbg;
         if (not t.keep_witnesses) && Value.is_resolved res
         then (
@@ -1714,7 +1654,7 @@ end = struct
           assert (Witnesses.is_empty nor);
           assert (Witnesses.is_empty exn);
           assert (Witnesses.is_empty div));
-        Unit_info.record unit_info fun_name res f.fun_dbg a saved_fun;
+        Unit_info.record unit_info fun_name res f.fun_dbg a;
         report_unit_info ppf unit_info ~msg:"after record"
       in
       let really_check () =
@@ -1724,14 +1664,14 @@ end = struct
              the summary is top. *)
           Unit_info.record unit_info fun_name
             (Value.top Witnesses.empty)
-            f.fun_dbg a None
+            f.fun_dbg a
         else really_check ()
       in
       match a with
       | Some a when Annotation.is_assume a ->
         let expected_value = Annotation.expected_value a in
         report t expected_value ~msg:"assumed" ~desc:"fundecl" f.fun_dbg;
-        Unit_info.record unit_info fun_name expected_value f.fun_dbg None None
+        Unit_info.record unit_info fun_name expected_value f.fun_dbg None
       | None -> really_check ()
       | Some a ->
         let expected_value = Annotation.expected_value a in
