@@ -158,6 +158,8 @@ module Var : sig
   val print : Format.formatter -> t -> unit
 
   val compare : t -> t -> int
+
+  module Map : Map.Make
 end = struct
   module T = struct
     type t =
@@ -355,10 +357,16 @@ end = struct
       type acc =
         { us : USet.t;
           joins : USet.t;
-          top : Witnesses.t option
+          top : Witnesses.t option;
+          vars : Witnesses.t Var.Map.t
         }
 
-      let empty = { joins = USet.empty; us = USet.empty; top = None }
+      let empty =
+        { joins = USet.empty;
+          us = USet.empty;
+          top = None;
+          vars = Var.Map.empty
+        }
 
       (* CR-someday gyorsh: symmetry in handling join and transform, factor
          out? *)
@@ -388,7 +396,8 @@ end = struct
           in
           { acc with top }
         | Unresolved (Const _) -> assert false
-        | Unresolved (Var _ as u) -> { acc with us = USet.add u acc.us }
+        | Unresolved (Var { var; witnesses }) ->
+          { acc with us = USet.add_var var witnesses acc.us }
         | Unresolved (Transform ul) -> List.fold_left flatten_transform acc ul
         | Unresolved (Join _ as u) -> { acc with joins = USet.add u acc.joins }
 
