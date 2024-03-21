@@ -149,25 +149,35 @@ end
 module Var : sig
   type t
 
-  val get : string -> Tag.t -> t
+  val get : string -> Tag.t -> Witnesses.t -> t
 
   val name : t -> string
 
   val tag : t -> Tag.t
 
-  val print : Format.formatter -> t -> unit
+  val witnesses : t -> Witnesses.t
+
+  val print : witnesses:bool -> Format.formatter -> t -> unit
+
+  val replace_witnesses : Witnesses.t -> t -> t
 
   val compare : t -> t -> int
 end = struct
   module T = struct
     type t =
       { name : string;
-        tag : Tag.t
+        tag : Tag.t;
+        witnesses : Witnesses.t
       }
 
-    let compare { tag = tag1; name = name1 } { tag = tag2; name = name2 } =
+    let compare { tag = tag1; name = name1; witnesses = w1 }
+        { tag = tag2; name = name2; witnesses = w2 } =
       let c = String.compare name1 name2 in
-      if c = 0 then Tag.compare tag1 tag2 else c
+      if c <> 0
+      then c
+      else
+        let c = Tag.compare tag1 tag2 in
+        if c <> 0 then c else Witnesses.compare w1 w2
   end
 
   include T
@@ -176,10 +186,15 @@ end = struct
 
   let tag t = t.tag
 
-  let get name tag = { name; tag }
+  let witnesses t = t.witnesses
 
-  let print ppf { name; tag } =
-    Format.fprintf ppf "%s.%s@ " name (Tag.print tag)
+  let get name tag witnesses = { name; tag; witnesses }
+
+  let print ~witnesses ppf { name; tag; witnesses = w } =
+    Format.fprintf ppf "%s.%s@ " name (Tag.print tag);
+    if witnesses then Witnesses.print ppf w
+
+  let replace_witnesses witnesses t = { t with witnesses }
 end
 
 (** Abstract value for each component of the domain. *)
@@ -240,14 +255,14 @@ end = struct
       if witnesses then Format.fprintf ppf " (%a)" Witnesses.print w
     | Safe -> Format.fprintf ppf "safe"
     | Unresolved u ->
-      Format.fprintf ppf "unresolved %a@," (print_unresolved ~witnesses) u
+      Format.fprintf ppf "unresolved (%a)@," (print_unresolved ~witnesses) u
 
   and print_unresolved ~witnesses ppf u =
     let pp ppf l = Format.pp_print_list (print_unresolved ~witnesses) ppf l in
     match u with
-    | Join tl -> Format.fprintf ppf "(join %a)@," pp tl
-    | Transform tl -> Format.fprintf ppf "(transform %a)@," pp tl
-    | Var v -> Format.fprintf ppf "(var %a)@," Var.print v
+    | Join tl -> Format.fprintf ppf "join %a@," pp tl
+    | Transform tl -> Format.fprintf ppf "transform %a@," pp tl
+    | Var v -> Format.fprintf ppf "var %a@," (Var.print ~witnesses) v
     | Const (Unresolved _) -> assert false
     | Const ((Top _ | Safe | Bot) as t) ->
       Format.fprintf ppf "%a" (print ~witnesses) t
@@ -558,25 +573,6 @@ end = struct
       Unresolved.transform (Const top) u
     | Unresolved u, Unresolved u' -> Unresolved.transform u u'
 
-  let rec apply t ~env =
-    assert_normal_form t;
-    match t with
-    | Bot | Safe | Top _ -> t
-    | Unresolved u -> apply_unresolved u ~env
-
-  and apply_unresolved : u -> env:(Var.t -> t) -> t =
-   fun u ~env ->
-    match u with
-    | Const (Unresolved _) -> assert false
-    | Const ((Top _ | Bot | Safe) as t) -> t
-    | Var v -> env v
-    | Transform tl ->
-      List.fold_left
-        (fun acc u -> transform (apply_unresolved u ~env) acc)
-        Safe tl
-    | Join l ->
-      List.fold_left (fun acc u -> join (apply_unresolved u ~env) acc) Bot l
-
   let rec replace_witnesses w t =
     match t with
     | Top _ -> Top w
@@ -587,7 +583,7 @@ end = struct
     match u with
     | Join tl -> Join (replace_witnesses_unresolved_list w tl)
     | Transform tl -> Transform (replace_witnesses_unresolved_list w tl)
-    | Var _ -> u
+    | Var v -> Var (Var.replace_witnesses w v)
     | Const t -> Const (replace_witnesses w t)
 
   and replace_witnesses_unresolved_list w tl =
@@ -610,6 +606,25 @@ end = struct
       Witnesses.empty
     | Safe, Bot -> Witnesses.empty
     | Top w, (Bot | Safe) -> w
+
+  let rec apply t ~env =
+    assert_normal_form t;
+    match t with
+    | Bot | Safe | Top _ -> t
+    | Unresolved u -> apply_unresolved u ~env
+
+  and apply_unresolved : u -> env:(Var.t -> t) -> t =
+   fun u ~env ->
+    match u with
+    | Const (Unresolved _) -> assert false
+    | Const ((Top _ | Bot | Safe) as t) -> t
+    | Var v -> env v
+    | Transform tl ->
+      List.fold_left
+        (fun acc u -> transform (apply_unresolved u ~env) acc)
+        Safe tl
+    | Join l ->
+      List.fold_left (fun acc u -> join (apply_unresolved u ~env) acc) Bot l
 end
 
 (** Abstract value associated with each program location in a function. *)
@@ -653,7 +668,7 @@ module Value : sig
 
   val diff_witnesses : expected:t -> actual:t -> Witnesses.components
 
-  val unresolved : string -> t
+  val unresolved : string -> Witnesses.t -> t
 
   val is_resolved : t -> bool
 
@@ -670,10 +685,10 @@ end = struct
 
   let bot = { nor = V.Bot; exn = V.Bot; div = V.Bot }
 
-  let unresolved name =
-    { nor = Var.get name Tag.N |> V.unresolved;
-      exn = Var.get name Tag.E |> V.unresolved;
-      div = Var.get name Tag.D |> V.unresolved
+  let unresolved name w =
+    { nor = Var.get name Tag.N w |> V.unresolved;
+      exn = Var.get name Tag.E w |> V.unresolved;
+      div = Var.get name Tag.D w |> V.unresolved
     }
 
   let is_resolved t =
@@ -1339,8 +1354,8 @@ end = struct
           "conservative handling of forward or recursive call\nor tailcall"
       else if String.equal callee t.current_fun_name
       then (* Self call. *)
-        unresolved (Value.unresolved callee) "self call"
-      else unresolved (Value.unresolved callee) "foward call"
+        unresolved (Value.unresolved callee w) "self call"
+      else unresolved (Value.unresolved callee w) "foward call"
     else
       (* CR gyorsh: unresolved case here is impossible in the conservative
          analysis because all previous functions have been conservatively
@@ -1607,7 +1622,8 @@ end = struct
     in
     let lookup env var =
       let v = Env.get_value (Var.name var) env in
-      Value.get_component v (Var.tag var)
+      let c = Value.get_component v (Var.tag var) in
+      V.replace_witnesses (Var.witnesses var) c
     in
     let rec loop env =
       Stats.fixpoint_incr !stats;
