@@ -234,6 +234,25 @@ end = struct
   let is_resolved t =
     match t with Top _ | Safe | Bot -> true | Unresolved _ -> false
 
+  let rec print ~witnesses ppf = function
+    | Bot -> Format.fprintf ppf "bot"
+    | Top w ->
+      Format.fprintf ppf "top";
+      if witnesses then Format.fprintf ppf " (%a)" Witnesses.print w
+    | Safe -> Format.fprintf ppf "safe"
+    | Unresolved u ->
+      Format.fprintf ppf "unresolved %a@" (print_unresolved ~witnesses) u
+
+  and print_unresolved ~witnesses ppf u =
+    let pp ppf l = Format.pp_print_list (print_unresolved ~witnesses) ppf l in
+    match u with
+    | Join tl -> Format.fprintf ppf "(join %a)@," pp tl
+    | Transform tl -> Format.fprintf ppf "(transform %a)@," pp tl
+    | Var v -> Format.fprintf ppf "(var %a)@," Var.print v
+    | Const (Unresolved _) -> assert false
+    | Const ((Top _ | Safe | Bot) as t) ->
+      Format.fprintf ppf "%a" (print ~witnesses) t
+
   (* [Unresolved] module groups functions that operate on [u]. Note that some of
      these functions return [t] to keep [u] in normal form, in cases when the
      value can be resolved as a result of an operation. *)
@@ -282,6 +301,39 @@ end = struct
       let compare = compare
     end)
 
+    let rec assert_normal_form u =
+      match u with
+      | Const _ -> assert false
+      | Var _ -> ()
+      | Transform ul -> assert_normal_form_transform ul
+      | Join ul ->
+        (* only (Const Safe), Var, or Transform in normal form, at least two
+           elements. *)
+        ul |> get_elements
+        |> USet.iter (function
+             | Const Safe -> ()
+             | Var _ -> ()
+             | Transform ul -> assert_normal_form_transform ul
+             | Join _ -> assert false
+             | Const (Top _ | Bot | Unresolved _) -> assert false)
+
+    and assert_normal_form_transform ul =
+      (* only (Const Top) or Var, at least two elements, sorted, no
+         duplicates *)
+      ul |> get_elements
+      |> USet.iter (function
+           | Const (Top _) -> ()
+           | Var _ -> ()
+           | Const (Bot | Safe | Unresolved _) | Transform _ | Join _ ->
+             assert false)
+
+    and get_elements ul =
+      (* ensures: sorted, no duplicates, at least two elements *)
+      let us = USet.of_list ul in
+      assert (USet.cardinal us >= 2);
+      assert (List.equal equal (USet.elements us) ul);
+      us
+
     module N : sig
       val normalize : u -> t
     end = struct
@@ -297,6 +349,11 @@ end = struct
          out? *)
       let rec normalize : u -> t =
        fun u ->
+        if !Flambda_backend_flags.dump_checkmach
+        then
+          Format.fprintf Format.std_formatter "normalize: %a@."
+            (print_unresolved ~witnesses:false)
+            u;
         match u with
         | Const (Unresolved _) -> assert false
         | Const ((Top _ | Safe | Bot) as t) -> t
@@ -323,7 +380,7 @@ end = struct
       and mk_transform res =
         assert (USet.is_empty res.joins);
         if USet.mem (Const Bot) res.us
-        then Const Bot
+        then Bot
         else
           let us =
             match res.top with
@@ -331,18 +388,22 @@ end = struct
             | Some w -> USet.add (Const (Top w)) res.us
           in
           match USet.elements us with
-          | [] -> Const Safe
-          | [u] -> u
-          | ul -> Transform ul
+          | [] -> Safe
+          | [u] -> (
+            match u with
+            | Const (Unresolved _ | Safe | Bot) | Join _ -> assert false
+            | Const (Top _ as t) -> t
+            | Var _ | Transform _ -> Unresolved u)
+          | ul -> Unresolved (Transform ul)
 
       and distribute_transform_over_join acc =
         (* worst-case exponential in the number of variables *)
         match USet.choose_opt acc.joins with
-        | None -> [acc]
+        | None -> acc |> mk_transform
         | Some (Join ul as j) ->
           let acc = { acc with joins = USet.remove j acc.joins } in
           let f u = distribute_transform_over_join (flatten_transform acc u) in
-          List.concat_map f ul
+          ul |> List.map f |> join_list
         | Some (Const _ | Transform _ | Var _) -> assert false
 
       and normalize_transform ul =
@@ -351,10 +412,8 @@ end = struct
         if USet.mem (Const Bot) res.us
         then Bot
         else if USet.is_empty res.joins
-        then mk_transform res |> normalize
-        else
-          res |> distribute_transform_over_join |> List.map mk_transform
-          |> normalize_join
+        then mk_transform res
+        else res |> distribute_transform_over_join
 
       and flatten_join acc u =
         match normalize u with
@@ -387,38 +446,42 @@ end = struct
             | Const (Top _ | Bot | Unresolved _) | Join _ -> assert false
             | (Var _ | Transform _) as u -> Unresolved u)
           | ul -> Unresolved (Join ul))
-    end
 
-    let rec assert_normal_form u =
-      let get_elements ul =
-        (* ensures: sorted, no duplicates, at least two elements *)
-        let us = USet.of_list ul in
-        assert (USet.cardinal us >= 2);
-        assert (List.equal equal (USet.elements us) ul);
-        us
-      in
-      match u with
-      | Const _ -> assert false
-      | Var _ -> ()
-      | Transform ul ->
-        (* only (Const Top) or Var, at least two elements, sorted, no
-           duplicates *)
-        ul |> get_elements
-        |> USet.iter (function
-             | Const (Top _) -> ()
-             | Var _ -> ()
-             | Const (Bot | Safe | Unresolved _) | Transform _ | Join _ ->
-               assert false)
-      | Join ul ->
-        (* only (Const Safe), Var, or Transform in normal form, at least two
-           elements. *)
-        ul |> get_elements
-        |> USet.iter (function
-             | Const Safe -> ()
-             | Var _ -> ()
-             | Transform ul -> List.iter assert_normal_form ul
-             | Join _ -> assert false
-             | Const (Top _ | Bot | Unresolved _) -> assert false)
+      and join_list tl =
+        match tl with
+        | [] -> Bot
+        | [t] -> t
+        | t :: tl -> join_t t (join_list tl)
+
+      and join_t t1 t2 =
+        (* CR gyorsh: fixme, copy of join from below, except doesn't
+           normalize. *)
+        let assert_not_join u =
+          assert_normal_form u;
+          match u with
+          | Const _ -> assert false
+          | Join _ -> assert false
+          | Transform _ | Var _ -> ()
+        in
+        match t1, t2 with
+        | Bot, Bot -> Bot
+        | Safe, Safe -> Safe
+        | Top w1, Top w2 -> Top (Witnesses.join w1 w2)
+        | Safe, Bot | Bot, Safe -> Safe
+        | Top _, Bot | Top _, Safe -> t1
+        | Bot, Top _ | Safe, Top _ -> t2
+        | Top _, Unresolved _ -> t1
+        | Unresolved _, Top _ -> t2
+        | Bot, Unresolved _ -> t2
+        | Unresolved _, Bot -> t1
+        | Safe, Unresolved u | Unresolved u, Safe ->
+          assert_not_join u;
+          Unresolved (Join [Const Safe; u])
+        | Unresolved u1, Unresolved u2 ->
+          assert_not_join u1;
+          assert_not_join u2;
+          Unresolved (Join [u1; u2])
+    end
 
     let join u1 u2 = Join [u1; u2] |> N.normalize
 
@@ -552,25 +615,6 @@ end = struct
       Witnesses.empty
     | Safe, Bot -> Witnesses.empty
     | Top w, (Bot | Safe) -> w
-
-  let rec print ~witnesses ppf = function
-    | Bot -> Format.fprintf ppf "bot"
-    | Top w ->
-      Format.fprintf ppf "top";
-      if witnesses then Format.fprintf ppf " (%a)" Witnesses.print w
-    | Safe -> Format.fprintf ppf "safe"
-    | Unresolved u ->
-      Format.fprintf ppf "unresolved %a@" (print_unresolved ~witnesses) u
-
-  and print_unresolved ~witnesses ppf u =
-    let pp ppf l = Format.pp_print_list (print_unresolved ~witnesses) ppf l in
-    match u with
-    | Join tl -> Format.fprintf ppf "(join %a)@," pp tl
-    | Transform tl -> Format.fprintf ppf "(transform %a)@," pp tl
-    | Var v -> Format.fprintf ppf "(var %a)@," Var.print v
-    | Const (Unresolved _) -> assert false
-    | Const ((Top _ | Safe | Bot) as t) ->
-      Format.fprintf ppf "%a" (print ~witnesses) t
 end
 
 (** Abstract value associated with each program location in a function. *)
@@ -1710,7 +1754,7 @@ end = struct
         let res = analyze_body t f in
         let saved_fun = if t.unresolved then Some f else None in
         report t res ~msg:"finished" ~desc:"fundecl" f.fun_dbg;
-        if not t.keep_witnesses
+        if (not t.keep_witnesses) && Value.is_resolved res
         then (
           let { Witnesses.nor; exn; div } = Value.get_witnesses res in
           assert (Witnesses.is_empty nor);
