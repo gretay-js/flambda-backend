@@ -179,7 +179,7 @@ end = struct
   let get name tag = { name; tag }
 
   let print ppf { name; tag } =
-    Format.fprintf ppf "%s.%s@," name (Tag.print tag)
+    Format.fprintf ppf "%s.%s@ " name (Tag.print tag)
 end
 
 (** Abstract value for each component of the domain. *)
@@ -240,7 +240,7 @@ end = struct
       if witnesses then Format.fprintf ppf " (%a)" Witnesses.print w
     | Safe -> Format.fprintf ppf "safe"
     | Unresolved u ->
-      Format.fprintf ppf "unresolved %a@" (print_unresolved ~witnesses) u
+      Format.fprintf ppf "unresolved %a@," (print_unresolved ~witnesses) u
 
   and print_unresolved ~witnesses ppf u =
     let pp ppf l = Format.pp_print_list (print_unresolved ~witnesses) ppf l in
@@ -736,7 +736,7 @@ end = struct
 
   let print ~witnesses ppf { nor; exn; div } =
     let pp = V.print ~witnesses in
-    Format.fprintf ppf "{ nor=%a; exn=%a; div=%a }" pp nor pp exn pp div
+    Format.fprintf ppf "{ nor=%a;@,exn=%a;@,div=%a }@," pp nor pp exn pp div
 end
 
 (**  Representation of user-provided annotations as abstract values *)
@@ -1589,47 +1589,54 @@ end = struct
 
   (* CR gyorsh: do we need join in the fixpoint computation or is the function
      body analysis/summary already monotone? *)
-  let fixpoint_symbolic ppf unit_info =
-    let env =
+  let fixpoint ppf unit_info =
+    report_unit_info ppf unit_info ~msg:"before fixpoint";
+    Stats.unresolved !stats unit_info;
+    let found_unresolved = ref false in
+    let init_env =
       (* initialize [env] with Bot for all functions. *)
       Unit_info.fold unit_info ~init:Env.empty ~f:(fun func_info env ->
-          Env.add func_info Value.bot env)
+          let v =
+            if Value.is_resolved func_info.value
+            then func_info.value
+            else (
+              found_unresolved := true;
+              Value.bot)
+          in
+          Env.add func_info v env)
     in
-    Env.print ~msg:"before fixpoint" ppf env;
     let lookup env var =
       let v = Env.get_value (Var.name var) env in
       Value.get_component v (Var.tag var)
     in
     let rec loop env =
       Stats.fixpoint_incr !stats;
+      Env.print ~msg:"computing fixpoint" ppf env;
       let changed = ref false in
       let env' =
         Env.map
           ~f:(fun func_info v ->
             let v' = Value.apply func_info.value (lookup env) in
             assert (Value.is_resolved v');
-            changed := not (Value.lessequal v' v);
-            if !Flambda_backend_flags.dump_checkmach
-            then
-              Format.fprintf ppf "fixpoint update: %s %a" func_info.name
-                (Value.print ~witnesses:true)
-                v';
+            if not (Value.lessequal v' v)
+            then (
+              changed := true;
+              if !Flambda_backend_flags.dump_checkmach
+              then
+                Format.fprintf ppf "fixpoint update: %s %a@." func_info.name
+                  (Value.print ~witnesses:true)
+                  v');
             v')
           env
       in
-      Env.print ~msg:"computing fixpoint" ppf env;
       if !changed then loop env' else env'
     in
-    let env = loop env in
-    env
-
-  let fixpoint ppf unit_info =
-    report_unit_info ppf unit_info ~msg:"before fixpoint";
-    Stats.unresolved !stats unit_info;
-    let env = fixpoint_symbolic ppf unit_info in
-    Env.iter env ~f:(fun func_info v -> Func_info.update func_info v);
-    report_unit_info ppf unit_info ~msg:"after fixpoint";
-    ()
+    if !found_unresolved
+    then (
+      let env = loop init_env in
+      Env.iter env ~f:(fun func_info v -> Func_info.update func_info v);
+      Env.print ~msg:"after fixpoint" ppf env;
+      report_unit_info ppf unit_info ~msg:"after fixpoint")
 
   let record_unit unit_info ppf =
     Profile.record_call ~accumulate:true ("record_unit " ^ analysis_name)
