@@ -462,15 +462,6 @@ end = struct
         | t :: tl -> join_t t (join_list tl)
 
       and join_t t1 t2 =
-        (* CR gyorsh: fixme, copy of join from below, except doesn't
-           normalize. *)
-        let assert_not_join u =
-          assert_normal_form u;
-          match u with
-          | Const _ -> assert false
-          | Join _ -> assert false
-          | Transform _ | Var _ -> ()
-        in
         match t1, t2 with
         | Bot, Bot -> Bot
         | Safe, Safe -> Safe
@@ -483,12 +474,8 @@ end = struct
         | Bot, Unresolved _ -> t2
         | Unresolved _, Bot -> t1
         | Safe, Unresolved u | Unresolved u, Safe ->
-          assert_not_join u;
           normalize_join [Const Safe; u]
-        | Unresolved u1, Unresolved u2 ->
-          assert_not_join u1;
-          assert_not_join u2;
-          normalize_join [u1; u2]
+        | Unresolved u1, Unresolved u2 -> normalize_join [u1; u2]
     end
 
     let join u1 u2 = Join [u1; u2] |> N.normalize
