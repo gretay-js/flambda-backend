@@ -197,7 +197,6 @@ module V : sig
 
   (** [equal] is structural equality on terms,
       not the order of the abstract domain. *)
-  val equal : t -> t -> bool
 
   val join : t -> t -> t
 
@@ -252,6 +251,9 @@ end = struct
     | Const (Unresolved _) -> assert false
     | Const ((Top _ | Safe | Bot) as t) ->
       Format.fprintf ppf "%a" (print ~witnesses) t
+
+  let print_unresolved_list ~witnesses ppf ul =
+    Format.pp_print_list (print_unresolved ~witnesses) ppf ul
 
   (* [Unresolved] module groups functions that operate on [u]. Note that some of
      these functions return [t] to keep [u] in normal form, in cases when the
@@ -331,7 +333,13 @@ end = struct
       (* ensures: sorted, no duplicates, at least two elements *)
       let us = USet.of_list ul in
       assert (USet.cardinal us >= 2);
-      assert (List.equal equal (USet.elements us) ul);
+      if not (List.equal equal (USet.elements us) ul)
+      then
+        Misc.fatal_errorf "input: %a@.sorted:%a@."
+          (print_unresolved_list ~witnesses:true)
+          ul
+          (print_unresolved_list ~witnesses:true)
+          (USet.elements us);
       us
 
     module N : sig
@@ -476,11 +484,11 @@ end = struct
         | Unresolved _, Bot -> t1
         | Safe, Unresolved u | Unresolved u, Safe ->
           assert_not_join u;
-          Unresolved (Join [Const Safe; u])
+          normalize_join [Const Safe; u]
         | Unresolved u1, Unresolved u2 ->
           assert_not_join u1;
           assert_not_join u2;
-          Unresolved (Join [u1; u2])
+          normalize_join [u1; u2]
     end
 
     let join u1 u2 = Join [u1; u2] |> N.normalize
@@ -665,9 +673,6 @@ module Value : sig
   val get_component : t -> Tag.t -> V.t
 
   val apply : t -> (Var.t -> V.t) -> t
-
-  (** structural equality, as opposed to [lesseq] that is the order of the domain *)
-  val equal : t -> t -> bool
 end = struct
   (** Lifts V to triples  *)
   type t =
@@ -686,9 +691,6 @@ end = struct
 
   let is_resolved t =
     V.is_resolved t.nor && V.is_resolved t.exn && V.is_resolved t.div
-
-  let equal t1 t2 =
-    V.equal t1.nor t2.nor && V.equal t1.exn t2.exn && V.equal t1.div t2.div
 
   let get_component t (tag : Tag.t) =
     match tag with N -> t.nor | E -> t.exn | D -> t.div
@@ -1604,31 +1606,31 @@ end = struct
     Stats.selfrec !stats !counter t.current_fun_name;
     res
 
-  let fixpoint_mach ppf unit_info =
-    report_unit_info ppf unit_info ~msg:"before fixpoint";
-    (* CR gyorsh: this is a really dumb iteration strategy. *)
-    let change = ref true in
-    let analyze_func (func_info : Func_info.t) =
-      match func_info.saved_fun with
-      | None -> ()
-      | Some fd ->
-        let t =
-          create ppf func_info.name String.Set.empty unit_info None
-            func_info.annotation
-        in
-        let new_value = analyze_body t fd in
-        if not (Value.lessequal new_value func_info.value)
-        then (
-          change := true;
-          report t new_value ~msg:"update" ~desc:"fixpoint" func_info.dbg;
-          Func_info.update func_info new_value)
-    in
-    while !change do
-      change := false;
-      Unit_info.iter unit_info ~f:analyze_func;
-      Stats.fixpoint_incr !stats;
-      report_unit_info ppf unit_info ~msg:"computing fixpoint"
-    done
+  (* let fixpoint_mach ppf unit_info =
+   *   report_unit_info ppf unit_info ~msg:"before fixpoint";
+   *   (* CR gyorsh: this is a really dumb iteration strategy. *)
+   *   let change = ref true in
+   *   let analyze_func (func_info : Func_info.t) =
+   *     match func_info.saved_fun with
+   *     | None -> ()
+   *     | Some fd ->
+   *       let t =
+   *         create ppf func_info.name String.Set.empty unit_info None
+   *           func_info.annotation
+   *       in
+   *       let new_value = analyze_body t fd in
+   *       if not (Value.lessequal new_value func_info.value)
+   *       then (
+   *         change := true;
+   *         report t new_value ~msg:"update" ~desc:"fixpoint" func_info.dbg;
+   *         Func_info.update func_info new_value)
+   *   in
+   *   while !change do
+   *     change := false;
+   *     Unit_info.iter unit_info ~f:analyze_func;
+   *     Stats.fixpoint_incr !stats;
+   *     report_unit_info ppf unit_info ~msg:"computing fixpoint"
+   *   done *)
 
   module Env : sig
     type t
@@ -1666,6 +1668,8 @@ end = struct
     let iter t ~f = String.Map.iter (fun _name d -> f d.func_info d.approx) t
   end
 
+  (* CR gyorsh: do we need join in the fixpoint computation or is the function
+     body analysis/summary already monotone? *)
   let fixpoint_symbolic ppf unit_info =
     report_unit_info ppf unit_info ~msg:"before fixpoint";
     let env =
@@ -1678,6 +1682,7 @@ end = struct
       Value.get_component v (Var.tag var)
     in
     let rec loop env =
+      Stats.fixpoint_incr !stats;
       let changed = ref false in
       let env' =
         Env.map
@@ -1694,46 +1699,8 @@ end = struct
     let env = loop env in
     env
 
-  let _fixpoint_symbolic_optimized _ppf _unit_info =
-    Misc.fatal_error "not implemented"
-
-  let check_fixpoint ppf unit_info env =
-    fixpoint_mach ppf unit_info;
-    (* let opt_env = fixpoint_symbolic_optimized ppf unit_info in *)
-    let pv ppf v = Value.print ppf ~witnesses:false v in
-    Unit_info.iter unit_info ~f:(fun func_info ->
-        let name = func_info.name in
-        let expected_value = Env.get_value name env in
-        if not (Value.is_resolved expected_value)
-        then
-          Misc.fatal_errorf "expected value for function %s is not resolved"
-            name;
-        if not (Value.is_resolved func_info.value)
-        then
-          Misc.fatal_errorf "recorded value for function %s is not resolved"
-            name;
-        if not (Value.equal expected_value func_info.value)
-        then
-          Misc.fatal_errorf "Expected value %a for function %s, recorded %a" pv
-            expected_value name pv func_info.value;
-        (* let actual_value = Env.get_value name actual in
-         * if not (Value.is_resolved actual_value)
-         * then
-         *   Misc.fatal_errorf "actual value for function %s is not resolved" name;
-         * if not (Value.equal expected_value actual_value)
-         * then
-         *   Misc.fatal_errorf
-         *     "Recorded value %a for function %s does not match expected %a" pv
-         *     expected_value name pv actual_value; *)
-        ())
-
-  let debug = true
-
-  (* CR gyorsh: do we need join in the fixpoint computation or is the function
-     body analysis/summary already monotone? *)
   let fixpoint ppf unit_info =
     let env = fixpoint_symbolic ppf unit_info in
-    if debug then check_fixpoint ppf unit_info env;
     Env.iter env ~f:(fun func_info v -> Func_info.update func_info v)
 
   let record_unit unit_info ppf =
