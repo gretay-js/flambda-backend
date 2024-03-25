@@ -72,7 +72,7 @@ module Witness = struct
       fprintf ppf "probe \"%s\" handler %s" name handler_code_sym
 
   let print ppf { kind; dbg } =
-    Format.fprintf ppf "%a {%a}" print_kind kind Debuginfo.print_compact dbg
+    Format.fprintf ppf "%a {%a}@," print_kind kind Debuginfo.print_compact dbg
 end
 
 module Witnesses : sig
