@@ -615,7 +615,7 @@ end = struct
      t')
 
      The implementation is an optimized version of the above definition that
-     "inlines" and "specializes" join: efficently handle definitvie cases and
+     "inlines" and "specializes" join: efficently handle definitive cases and
      preserve normal form of unresolved.
 
      Soundness (intuitively): If a return is unreachable from the program
