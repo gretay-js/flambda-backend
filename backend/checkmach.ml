@@ -1055,8 +1055,8 @@ end = struct
       then next
       else
         let w = create_witnesses t (Alloc { bytes; dbginfo }) dbg in
-        let r = Value.transform w next in
-        check t r "heap allocation" dbg
+        let effect = Value.{ nor = Top w; exn = V.Bot; div = V.Bot } in
+        transform t ~effect ~next ~exn "heap allocation" dbg
     | Iprobe { name; handler_code_sym; enabled_at_init = __ } ->
       let desc = Printf.sprintf "probe %s handler %s" name handler_code_sym in
       let w = create_witnesses t (Probe { name; handler_code_sym }) dbg in
