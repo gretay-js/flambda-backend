@@ -408,7 +408,7 @@ end = struct
 
       let contains_bot t = USet.mem Bot t.us
 
-      let contains_safe t = USet.mem Bot t.us
+      let contains_safe t = USet.mem Safe t.us
 
       let contains_join t = not (USet.is_empty t.joins)
 
