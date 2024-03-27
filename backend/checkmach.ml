@@ -814,8 +814,6 @@ end = struct
     { ppf : Format.formatter;
       current_fun_name : string;
       future_funcnames : String.Set.t;
-      mutable approx : Value.t option;
-          (** Used for computing for self calls. *)
       mutable unresolved : bool;
           (** the current function contains calls to other unresolved functions (not including self calls) *)
       unit_info : Unit_info.t;  (** must be the current compilation unit.  *)
@@ -828,12 +826,11 @@ end = struct
     | No_details -> false
     | At_most _ -> keep
 
-  let create ppf current_fun_name future_funcnames unit_info approx annot =
+  let create ppf current_fun_name future_funcnames unit_info annot =
     let keep_witnesses = should_keep_witnesses (Option.is_some annot) in
     { ppf;
       current_fun_name;
       future_funcnames;
-      approx;
       unresolved = false;
       unit_info;
       keep_witnesses
@@ -914,6 +911,8 @@ end = struct
   let[@inline always] create_witnesses t kind dbg =
     if t.keep_witnesses then Witnesses.create kind dbg else Witnesses.empty
 
+  let init_val = Value.{ nor = V.Bot; exn = V.Bot; div = V.Safe }
+
   (* [find_callee] returns the value associated with the callee. *)
   let find_callee t callee ~desc dbg w =
     let return ~msg v =
@@ -933,31 +932,17 @@ end = struct
     in
     if is_future_funcname t callee
     then
-      if String.equal callee t.current_fun_name
+      if (* Call is defined later in the current compilation unit. Summary of
+            this callee is not yet computed. *)
+         !Flambda_backend_flags.disable_precise_checkmach
       then
-        (* Self call. *)
-        match t.approx with
-        | None ->
-          (* Summary is not computed yet. Conservative. *)
-          let v = Value.safe in
-          t.approx <- Some v;
-          unresolved v "self-call init"
-        | Some approx -> unresolved approx "self-call approx"
-      else
-        let res =
-          if (* Call is defined later in the current compilation unit. Summary
-                of this callee is not yet computed. *)
-             !Flambda_backend_flags.disable_precise_checkmach
-          then
-            (* Conservatively return Top. Won't be able to prove any recursive
-               functions as non-allocating. *)
-            Value.top w
-          else (
-            t.unresolved <- true;
-            Value.safe)
-        in
-        unresolved res
+        (* Conservatively return Top. Won't be able to prove any recursive
+           functions as non-allocating. *)
+        unresolved (Value.top w)
           "conservative handling of forward or recursive call\nor tailcall"
+      else (
+        t.unresolved <- true;
+        unresolved init_val "conservative handling of forward call or self call")
     else
       (* CR gyorsh: unresolved case here is impossible in the conservative
          analysis because all previous functions have been conservatively
@@ -1148,24 +1133,9 @@ end = struct
 
   let analyze_body t (fd : Mach.fundecl) =
     let counter = ref 0 in
-    let rec fixpoint () =
+    let fixpoint () =
       let new_value = check_instr t fd.fun_body in
-      match t.approx with
-      | None -> new_value
-      | Some approx ->
-        (* Fixpoint here is only for the common case of "self" recursive
-           functions that do not have other unresolved dependencies. Other cases
-           will be recomputed simultaneously at the end of the compilation
-           unit. *)
-        if t.unresolved
-        then new_value
-        else (
-          incr counter;
-          if Value.lessequal new_value approx
-          then approx
-          else (
-            t.approx <- Some (Value.join new_value approx);
-            fixpoint ()))
+      new_value
     in
     if !Flambda_backend_flags.dump_checkmach
     then Printmach.phase "Checkmach" t.ppf fd;
@@ -1182,7 +1152,7 @@ end = struct
       | None -> ()
       | Some fd ->
         let t =
-          create ppf func_info.name String.Set.empty unit_info None
+          create ppf func_info.name String.Set.empty unit_info
             func_info.annotation
         in
         let new_value = analyze_body t fd in
@@ -1212,7 +1182,7 @@ end = struct
       let a =
         Annotation.find f.fun_codegen_options S.property fun_name f.fun_dbg
       in
-      let t = create ppf fun_name future_funcnames unit_info None a in
+      let t = create ppf fun_name future_funcnames unit_info a in
       let really_check () =
         let res = analyze_body t f in
         let saved_fun = if t.unresolved then Some f else None in
