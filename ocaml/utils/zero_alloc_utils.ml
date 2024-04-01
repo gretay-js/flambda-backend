@@ -17,11 +17,11 @@ module type Component = sig
 
   type witnesses
 
-  val bot : t
-
   val top : witnesses -> t
 
   val safe : t
+
+  val bot : t
 
   val lessequal : t -> t -> bool
 

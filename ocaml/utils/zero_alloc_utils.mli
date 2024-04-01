@@ -18,15 +18,19 @@ module type WS = sig
 end
 
 module type Component = sig
+  (** Abstract value for each component of the domain. *)
   type t
 
   type witnesses
 
-  val bot : t
-
+  (** Property may not hold on some paths. *)
   val top : witnesses -> t
 
+  (** Property holds on all paths.  *)
   val safe : t
+
+  (** Not reachable. *)
+  val bot : t
 
   val lessequal : t -> t -> bool
 
@@ -41,15 +45,8 @@ module type Component = sig
   val print : witnesses:bool -> Format.formatter -> t -> unit
 end
 
-module Make_component (Witnesses : WS) : sig
-  (** Abstract value for each component of the domain. *)
-  type t =
-    | Top of Witnesses.t  (** Property may not hold on some paths. *)
-    | Safe  (** Property holds on all paths.  *)
-    | Bot  (** Not reachable. *)
-
-  include Component with type t := t and type witnesses := Witnesses.t
-end
+module Make_component (Witnesses : WS) :
+  Component with type witnesses := Witnesses.t
 
 module Make_value
     (Witnesses : WS)
