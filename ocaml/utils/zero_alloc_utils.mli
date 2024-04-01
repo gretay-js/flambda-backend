@@ -49,8 +49,9 @@ module Make (Witnesses : WS) : sig
   end
 end
 
-(* CR gyorsh: tie witnesses type of component to the other argument of the functor. *)
-module Make_value (Witnesses : WS, V : Component) : sig
+module Make_value
+    (Witnesses : WS)
+    (V : Component with type witnesses := Witnesses.t) : sig
   (** Abstract value associated with each program location in a function. *)
   module Value : sig
     type t =
