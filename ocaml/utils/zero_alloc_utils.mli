@@ -31,7 +31,7 @@ module type Component = sig
   val print : witnesses:bool -> Format.formatter -> t -> unit
 end
 
-module Make (Witnesses : WS) : sig
+module Make_component (Witnesses : WS) : sig
   (** Abstract value for each component of the domain. *)
   module V : sig
     type t =
@@ -39,13 +39,7 @@ module Make (Witnesses : WS) : sig
       | Safe  (** Property holds on all paths.  *)
       | Bot  (** Not reachable. *)
 
-    val lessequal : t -> t -> bool
-
-    val join : t -> t -> t
-
-    val meet : t -> t -> t
-
-    val print : witnesses:bool -> Format.formatter -> t -> unit
+    include Component with type t := t
   end
 end
 

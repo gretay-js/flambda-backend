@@ -12,7 +12,21 @@ module type WS = sig
   val compare : t -> t -> int
 end
 
-module Make (Witnesses : WS) = struct
+module type Component = sig
+  type t
+
+  type witnesses
+
+  val lessequal : t -> t -> bool
+
+  val join : t -> t -> t
+
+  val meet : t -> t -> t
+
+  val print : witnesses:bool -> Format.formatter -> t -> unit
+end
+
+module Make_component (Witnesses : WS) = struct
   (** Abstract value for each component of the domain. *)
   module V = struct
     type t =
@@ -65,7 +79,12 @@ module Make (Witnesses : WS) = struct
         if witnesses then Format.fprintf ppf " (%a)" Witnesses.print w
       | Safe -> Format.fprintf ppf "safe"
   end
+end
 
+module Make_value
+    (Witnesses : WS)
+    (V : Component with type witnesses := Witnesses.t) =
+struct
   module Value = struct
     (** Lifts V to triples  *)
     type t =
