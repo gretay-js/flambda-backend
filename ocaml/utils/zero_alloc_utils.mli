@@ -31,8 +31,6 @@ module Make (Witnesses : WS) : sig
 
     val meet : t -> t -> t
 
-    val is_not_safe : t -> bool
-
     val print : witnesses:bool -> Format.formatter -> t -> unit
   end
 

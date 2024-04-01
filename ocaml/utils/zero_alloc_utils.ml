@@ -58,8 +58,6 @@ module Make (Witnesses : WS) = struct
       | Safe, Top _ -> -1
       | Top _, Safe -> 1
 
-    let is_not_safe = function Top _ -> true | Safe | Bot -> false
-
     let print ~witnesses ppf = function
       | Bot -> Format.fprintf ppf "bot"
       | Top w ->
