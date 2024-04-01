@@ -20,7 +20,7 @@ module Witnesses : sig
   val compare : t -> t -> int
 end
 
-include module type of Zero_alloc_utils.Make_component (Witnesses)
-include module type of Zero_alloc_utils.Make_value (Witnesses) (V)
+module V : module type of Zero_alloc_utils.Make_component (Witnesses)
+module Value : module type of Zero_alloc_utils.Make_value (Witnesses) (V)
 
 val get_value : t -> Value.t option

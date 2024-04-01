@@ -194,7 +194,6 @@ end
 
 (** Abstract value for each component of the domain. *)
 module Unresolved : sig
-
   type t =
     | Top of Witnesses.t  (** Property may not hold on some paths. *)
     | Safe  (** Property holds on all paths.  *)
@@ -231,8 +230,6 @@ module Unresolved : sig
 
   val apply : t -> env:(Var.t -> t) -> t
 end = struct
-
-
   type t =
     | Top of Witnesses.t
     | Safe
@@ -673,6 +670,8 @@ end = struct
     | Join l -> List.fold_left (fun acc u -> join (apply u ~env) acc) Bot l
 end
 
+module Resolved = Zero_alloc_utils.Make_component (Witnesses)
+
 module V : sig
   type t
 
@@ -699,18 +698,22 @@ module V : sig
   val is_resolved : t -> bool
 
   val apply : t -> env:(Var.t -> t) -> t
-
 end = struct
-
-  module Resolved = Zero_alloc_utils.Make (Witnesses)
-
   type t =
     | Resolved of Resolved.t
     | Unresolved of Unresolved.t
+
+  let lessequal t1 t2 =
+    match t1, t2 with
+    | Resolved r1, Resolved r2 -> Resolved.lessequal r1 r2
+    | Unresolved u1, Unresolved u2 -> Unresolved.lessequal u1 u2
+    | Resolved r, Unresolved u -> Unresolved.lessequal t1 t2
 end
 
+module T = Zero_alloc_utils.Make_value (Witnesses) (V)
+
 module Value : sig
-  include module type of T.Value
+  include module type of T.V
 
   val transform : V.t -> t -> t
 
@@ -728,7 +731,7 @@ module Value : sig
 
   val apply : t -> (Var.t -> V.t) -> t
 end = struct
-  include T.Value
+  include T.V
 
   let unresolved name w =
     { nor = Var.get name Tag.N |> V.unresolved w;
@@ -771,7 +774,6 @@ end = struct
       Witnesses.exn = V.get_witnesses t.exn;
       Witnesses.div = V.get_witnesses t.div
     }
-
 end
 
 (**  Representation of user-provided annotations as abstract values *)
@@ -1397,20 +1399,20 @@ end = struct
       else unresolved v "defined earlier with unresolved dependencies"
     in
     if is_future_funcname t callee
-    then (
+    then
       if !Flambda_backend_flags.disable_precise_checkmach
       then
-                (* Conservatively return Top. Won't be able to prove any recursive
+        (* Conservatively return Top. Won't be able to prove any recursive
            functions as non-allocating. *)
         unresolved (Value.top w)
           "conservative handling of forward or recursive call\nor tailcall"
-      else ( if String.equal callee t.current_fun_name
+      else if String.equal callee t.current_fun_name
       then (* Self call. *)
         unresolved (Value.unresolved callee w) "self call"
       else
         (* Call is defined later in the current compilation unit. Summary of
-            this callee is not yet computed. *)
-        unresolved (Value.unresolved callee w) "foward call"))
+           this callee is not yet computed. *)
+        unresolved (Value.unresolved callee w) "foward call"
     else
       (* CR gyorsh: unresolved case here is impossible in the conservative
          analysis because all previous functions have been conservatively
@@ -1503,7 +1505,7 @@ end = struct
     | Ialloc { mode = Alloc_local; _ } ->
       assert (not (Mach.operation_can_raise op));
       next
-    | Ialloc { mode = Alloc_heap; bytes; dbginfo } -> (
+    | Ialloc { mode = Alloc_heap; bytes; dbginfo } ->
       assert (not (Mach.operation_can_raise op));
       let w = create_witnesses t (Alloc { bytes; dbginfo }) dbg in
       let effect =
@@ -1511,7 +1513,7 @@ end = struct
         | Some effect -> effect
         | None ->
           (* Value.{ nor = Top w; exn = V.Bot; div = V.Bot } in *)
-          Value.top
+          Value.top w
       in
       transform t ~effect ~next ~exn "heap allocation" dbg
     | Iprobe { name; handler_code_sym; enabled_at_init = __ } ->
@@ -1600,8 +1602,8 @@ end = struct
     |> fst
 
   let analyze_body t body =
-    (* CR gyorsh: Optimize the common case of self-recursive functions.  Refactor fixpoint
-       so it can be reused instead of having a separate loop. *)
+    (* CR gyorsh: Optimize the common case of self-recursive functions. Refactor
+       fixpoint so it can be reused instead of having a separate loop. *)
     let counter = ref 0 in
     let fixpoint () =
       let new_value = check_instr t fd.fun_body in
