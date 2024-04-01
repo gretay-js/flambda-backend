@@ -17,6 +17,20 @@ module type WS = sig
   val compare : t -> t -> int
 end
 
+module type Component = sig
+  type t
+
+  type witnesses
+
+  val lessequal : t -> t -> bool
+
+  val join : t -> t -> t
+
+  val meet : t -> t -> t
+
+  val print : witnesses:bool -> Format.formatter -> t -> unit
+end
+
 module Make (Witnesses : WS) : sig
   (** Abstract value for each component of the domain. *)
   module V : sig
@@ -33,7 +47,10 @@ module Make (Witnesses : WS) : sig
 
     val print : witnesses:bool -> Format.formatter -> t -> unit
   end
+end
 
+(* CR gyorsh: tie witnesses type of component to the other argument of the functor. *)
+module Make_value (Witnesses : WS, V : Component) : sig
   (** Abstract value associated with each program location in a function. *)
   module Value : sig
     type t =

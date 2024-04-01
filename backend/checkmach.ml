@@ -707,7 +707,6 @@ end = struct
   type t =
     | Resolved of Resolved.t
     | Unresolved of Unresolved.t
-
 end
 
 module Value : sig
