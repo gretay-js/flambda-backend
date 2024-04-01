@@ -32,6 +32,7 @@ module type Component = sig
   (** Not reachable. *)
   val bot : t
 
+  (** Order of the abstract domain  *)
   val lessequal : t -> t -> bool
 
   val join : t -> t -> t

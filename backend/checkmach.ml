@@ -193,7 +193,7 @@ end = struct
 end
 
 (** Abstract value for each component of the domain. *)
-module Unresolved : sig
+module V : sig
   type t =
     | Top of Witnesses.t  (** Property may not hold on some paths. *)
     | Safe  (** Property holds on all paths.  *)
@@ -668,46 +668,6 @@ end = struct
     | Transform tl ->
       List.fold_left (fun acc u -> transform (apply u ~env) acc) Safe tl
     | Join l -> List.fold_left (fun acc u -> join (apply u ~env) acc) Bot l
-end
-
-module Resolved = Zero_alloc_utils.Make_component (Witnesses)
-
-module V : sig
-  type t
-
-  (** order of the abstract domain  *)
-  val lessequal : t -> t -> bool
-
-  (** [equal] is structural equality on terms,
-      not the order of the abstract domain. *)
-
-  val join : t -> t -> t
-
-  val transform : t -> t -> t
-
-  val replace_witnesses : Witnesses.t -> t -> t
-
-  val diff_witnesses : expected:t -> actual:t -> Witnesses.t
-
-  val get_witnesses : t -> Witnesses.t
-
-  val print : witnesses:bool -> Format.formatter -> t -> unit
-
-  val unresolved : Witnesses.t -> Var.t -> t
-
-  val is_resolved : t -> bool
-
-  val apply : t -> env:(Var.t -> t) -> t
-end = struct
-  type t =
-    | Resolved of Resolved.t
-    | Unresolved of Unresolved.t
-
-  let lessequal t1 t2 =
-    match t1, t2 with
-    | Resolved r1, Resolved r2 -> Resolved.lessequal r1 r2
-    | Unresolved u1, Unresolved u2 -> Unresolved.lessequal u1 u2
-    | Resolved r, Unresolved u -> Unresolved.lessequal t1 t2
 end
 
 module T = Zero_alloc_utils.Make_value (Witnesses) (V)

@@ -35,7 +35,7 @@ module type Component = sig
 end
 
 module Make_component (Witnesses : WS) = struct
-  (** Abstract value for each component of the domain. *)
+  (* keep in sync with "resolved" values in Checkmach. *)
   type t =
     | Top of Witnesses.t
     | Safe
