@@ -161,7 +161,7 @@ module Var : sig
 
   val print : Format.formatter -> t -> unit
 
-  val compare : t -> t -> int
+  (* val compare : t -> t -> int *)
 
   module Set : Set.S with type elt = t
 
@@ -182,6 +182,8 @@ end = struct
   module Set = Set.Make (T)
   module Map = Map.Make (T)
 
+  let equal t1 t2 = compare t1 t2 = 0
+
   let name t = t.name
 
   let tag t = t.tag
@@ -194,17 +196,7 @@ end
 
 (** Abstract value for each component of the domain. *)
 module V : sig
-  type t =
-    | Top of Witnesses.t  (** Property may not hold on some paths. *)
-    | Safe  (** Property holds on all paths.  *)
-    | Bot  (** Not reachable. *)
-    (* unresolved *)
-    | Var of
-        { var : Var.t;
-          witnesses : Witnesses.t
-        }
-    | Transform of t list
-    | Join of t list
+  type t
 
   (** order of the abstract domain  *)
   val lessequal : t -> t -> bool
@@ -231,6 +223,15 @@ module V : sig
   val apply : t -> env:(Var.t -> t) -> t
 end = struct
 
+
+  let union_witnesses _var w1 w2 =
+    Some (Witnesses.join w1 w2)
+
+  let update_witnesses ~witnesses w =
+    match w with
+    | None -> Some witnesses
+    | Some w -> Some (Witnesses.join w witnesses)
+
   (** normal form of Transform *)
   module Transform : sig
     type t
@@ -239,7 +240,9 @@ end = struct
     let create : var1:Var.t -> w1:Witnesses.t -> var2:Var.t -> w2:Witnesses.t -> t
     let add_top : t -> Witnesses.t -> t
     let add_var : t -> Var.t -> Witnesses.t -> t
+    let vars :
     let print : Format.formatter -> t -> unit
+    let equal : t -> t -> bool
     module Set : Set.S with type elt = t
   end = struct
     type t = private
@@ -260,12 +263,13 @@ end = struct
       let c = Top.compare top1 top2 in
       if c <> 0 then c else Var.Set.compare vars1 vars2
 
+    let equal t1 t2 = compare t1 t2 = 0
     let create_with_top ~top_witnesses:w v ~var_witnesses:w =
       let vars = Var.Map.singleton var w in
       Args_with_top { w; vars }
 
-    let create ~var1 ~w1 ~var2 ~w2 =
-      assert (Var.compare var1 var2 != 0)
+    let vars ~var1 ~w1 ~var2 ~w2 =
+      assert (not (Var.equal var1 var2))
       Args vars (Var.Map.singleton v1 w1 |> Var.Map.add v2)
 
     (* let contains_top t =
@@ -281,35 +285,67 @@ end = struct
         Args_with_top { w = Witnesses.join w w'; vars }
 
     let add_var t var witness =
-      let f w =
-        match w with
-        | None -> Some witness
-        | Some w -> Some (Witnesses.join w witness)
-      in
-      let update vars = Var.Map.update var f t
+      (* CR gyorsh: future optimization is to return [t] when vars is
+         phys equal to (update vars).*)
+      let update vars = Var.Map.update var (update_witnesses ~witnesses)  t
       in
       match t with
       | Args vars -> Args (update vars)
       | Arg_with_top { w; vars } -> Args { w; vars = update vars }
 
+    let flatten tr1 tr2 =
+      match tr1,tr2 with
+      | Args_with_top { w = w1; vars = vars1 },
+        Args_with_top { w = w2; vars = vars2 } ->
+        Args_with_top { w = Witneses.join w1 w2;
+                        vars = Var.Set.union union_witnesses vars1 vars2 }
+      | Args_with_top { w; vars }, Args vars'
+      | Args vars', Args_with_top { w; vars }
+        -> Args_with_top { w; vars = Var.Set.union union_witnesses vars vars' }
+      | Args vars1, Args var2 ->
+        Args (Var.Set.union union_witnesses vars1 vars2 )
+
     include Set.Make (Var.Set)
   end
 
+  (* CR gyorsh: treatment of vars and top is duplicated between Args and Transform,
+     is there a nice way to factor it out? *)
   module Args : sig
     type t
-    val empty
-    val add_transform : t -> Transform.t -> t
-    val add_var : t -> Var.t -> t
+    val add_tr : t -> Tranform.t -> t
+    val add_var : t -> Var.t -> Witnesses.t -> t
+    val empty : t
+    val join : t -> t -> t
 
+    (** [transform t tr] apply "tr" to each element of [t]. *)
+    val transform : t -> Transform.t -> t
   end = struct
     type t = { vars : Var.Map.t; trs : Transform.Set.t }
+    let empty = { vars = Var.Map.empty; trs = Transfrom.Set.empty }
+    let add_var t var witnesses =
+      (* CR gyorsh: future optimization is to return [t] when vars is
+         phys equal to (update vars). Same for join and add_tr. *)
+      let update vars =
+        Var.Map.update var (update_witnesses ~witnesses) t.vars
+      in
+      { t with vars = update vars }
 
-    let empty = { vars = Var.Map.empty; trs = Transform.Set.empty }
-    let add_transform t tr =
-      { t with trs = Transform.Set.add tr t.trs }
 
-    let add_var t var =
-      { t with trs = Transform.Set.add tr t.trs }
+    let add_tr t tr = { t  with trs = Transforms.Set.add tr t.trs }
+
+    let join { vars = v1; trs = trs1 } { vars = v2; trs = trs2 } =
+      { vars = Var.Map.union union_witnesses v1 v2 ;
+        trs = Transform.Set.union trs1 trs2 }
+
+    let transform { vars; trs; } tr =
+      let from_vars = Var.Map.fold (fun var w acc acc ->
+        Transform.Set.add (Transform.add_var tr var w) acc)
+        vars Transform.Set.empty
+      in
+      let from_trs = Tranform.Set.map (fun tr' ->
+        Transform.flatten tr tr') trs
+      in
+      {vars = Var.Set.empty; trs = Tranform.Set.union from_vars from_trs}
   end
 
   module Join : sig
@@ -318,18 +354,17 @@ end = struct
     let print : Format.formatter -> t -> unit
   end = struct
 
-    (* CR gyorsh: ugly copy-paste to avoid another indirection - is it worth it? *)
     type t =
-      | Args_with_safe of { vars : Var.Map.t; trs : Transform.Set.t }
-      | Args_with_top of { Witnesses.t; vars : Var.Map.t; trs : Transform.Set.t  }
-      | Args of { vars : Var.Map.t; trs : Transform.Set.t }
+      | Args_with_safe of Args.t
+      | Args_with_top of { w : Witnesses.t; args : Args.t }
+      | Args of Args.t
 
     (* Tracks "top" to preserve witnesses. For example simplifying
      * "join (Top  w) (Var v w')" to "Top w"
      * loses the witness w' when w' is non-empty and v resolved to Top at the end.
      * Simplifying to "Top (join w w')" is wrong if v is resolved to Safe or Bot. *)
 
-    (* Only top or safe are allowed not both. At least two elements must be
+    (* Only Top or Safe are allowed not both. At least two elements must be
        present in the join: if one of the constants is present then at least one
        of vars or transforms must be non-empty. If no constants, then
        vars or transforms have at least two elements between them.
@@ -337,31 +372,62 @@ end = struct
     *)
 
     let tr_with_safe tr =
-      Args_with_safe { transforms = Transform.Set.singleton tr; vars = Var.Set.empty; }
+      Args_with_safe Args.(add_tr tr empty)
 
     let tr_with_top w tr =
-      Args_with_top
-        { transforms = Transform.Set.singleton tr; vars = Var.Set.empty; }
+      Args_with_top { w; args = Args.(add_tr tr empty) }
 
-    let var_with_top w tr =
-      Args_with_top { w;  transforms = Transform.Set.singleton tr; vars = Var.Set.empty; }
+    let var_with_top w var w =
+      Args_with_top { w; args = Args.(add_tr var w empty)  }
 
     let var_with_safe tr =
-      Args_with_safe {transforms = Transform.Set.singleton tr; vars = Var.Set.empty;}
+      Args_with_safe Args.(add_tr tr empty)
 
     let trs tr1 tr2 =
-      assert (Transform.compare tr1 tr2 <> 0);
-      let transforms = Transform.Set.(add tr2 (singleton tr1)) in
-      Args { transforms; vars = Var.Set.empty; }
+      assert (not (Transform.equal tr1 tr2));
+      Args Args.(add_tr tr2 (add_tr tr1 empty))
 
-    let vars var1 w1 var2 w2 =
-      assert (Var.compare var1 var2 <> 0);
-      let vars = Var.Map.(add var2 w2 (singleton var w1)) in
-      Args { transforms = Transforms.Set.empty; vars; }
+    let vars ~var1 ~w1 ~var2 ~w2 =
+      assert (not (Var.equal var1 var2));
+      Args Args.(add_var var1 w1 (add_var var2 w2 empty))
 
     let var_with_tr var w tr =
-      let args = { transforms = Transforms.Set.singleton tr;  vars = Var.Map.singleton var w }
-      Args { args }
+      Args Args.(add_var var w (add_tr tr empty))
+
+    let add_safe t =
+      match t with
+      | Args_with_top _ -> t
+      | Args_with_safe -> t
+      | Args args -> Args_with_safe args
+
+    let add_top t witnesses =
+      match t with
+      | Args_with_top { w; args } -> Args_with_top { w = Witnesses.join w witnesses; args }
+      | Args_with_safe args | Args_with_top args -> Args_with_top { w = witnesses; args }
+
+    let flatten t1 t2 =
+      match t1, t2 with
+      | Args a1, Args a2 -> Args Args.join a1 a2
+      | Args_with_safe a1, Args_with_safe a2 -> Args_with_safe Args.join a1 a2
+      | Args_with_top { w; args = a1 }, (Args a2 | Args_with_safe a2)
+      | (Args a2 | Args_with_safe a2), Args_with_top { w; args = a1 }
+        ->
+        Args_with_top { w; args = Args.join a1 a2 }
+      | Args_with_top { w = w1; args = a1 }, Args_with_top { w = w2; args = a2} ->
+        Args_with_top { w = Witnesses.join w1 w2; args = Args.join a1 a2 }
+
+    let distribute_transform_over_join t tr =
+      match j with
+      | Args_with_safe args ->
+        let args =
+          Args.(add_tr (transform args tr) tr)
+        in
+        Args args
+      | Args_with_top { w; args } ->
+        let tr' = Transform.add_top tr w in
+        let args = Args.(add_tr (transform args tr) tr') in
+        Args args
+      | Args args = Args (Args.transform args tr)
   end
 
   type t =
@@ -406,6 +472,19 @@ end = struct
       List.fold_left
         (fun acc u -> Witnesses.join acc (get_witnesses u))
         Witnesses.empty ul
+
+  (* structural *)
+  let equal t1 t2 =
+    match t1, t2 with
+    | Safe, Safe -> true
+    | Bot, Bot -> true
+    | Top w1, Top w2 -> Witnesses.equal w1 w2
+    | Var {var = v1; witnesses = w1 }, Var {var=v2; witnesses=w2 } ->
+      Var.equal v1 v2 && Witnesses.equal w1 w2
+    | Transform tr1, Transform tr2 -> Transform.equal tr1 tr2
+    | Join j1, Join j2 -> Join.equal j1 j2
+    | (Bot|Safe|Top _| Var _
+                       | Transform _ | Join _), _ -> false
 
   (* [Unresolved] module groups functions that operate on [u]. Note that some of
      these functions return [t] to keep [u] in normal form, in cases when the
@@ -634,32 +713,31 @@ end = struct
     | Bot, Top _ | Safe, Top _ -> t2
     | Bot, (Var _ | Transform _ | Join _) -> t2
     | Safe, Transform _ as tr | Transform tr, Safe ->
-      Join.tr_with_safe tr
+      Join (Join.tr_with_safe tr)
+    | Var { var = var1; witnesses = w1 }, Var { var = var2; witnesses= w2 } ->
+      if Vars.equal var1 var2  then
+        Var { var = var1 ; witnesses = Witnesses.join w1 w2 }
+      else
+        Join (Join.vars ~var1 ~w1 ~var2 ~w2)
     | Var { var; witnesses; }, Tranform tr
     | Tranform tr, Var { var; witnesses; } ->
       Join.var_with_tr var witnesses tr
     | Transform tr1, Transform tr2 ->
-      if Transform.compare tr1 tr2 = 0 then
+      if Transform.equal tr1 tr2 then
         t1
       else
-        Join.trs tr1 tr2
+        Join (Join.trs tr1 tr2)
     | Top w, Transform tr | Transform tr, Top w ->
-      Join.tr_with_top w tr
+      Join (Join.tr_with_top w tr)
     | Safe, Join j | Join j, Safe ->
-      if Join.contains_top then
-      Join.add_safe j
-    | Top w, Join j | Join j, Top w -> Join.add_top j w
-    |
+      Join (Join.add_safe j)
+    | Top w, Join j | Join j, Top w -> Join (Join.add_top j w)
+    | Join j1 j2 ->
+      Join (Join.flatten t1 t2)
 
 
-    | (Var _ | Transform _ | Join _), Bot -> t1
-    | (Safe | Top _ | Var _), Transform _
-    | Transform _ , (Safe | Top _ | Var _) ->
-    |
-      Join t1 t2
-
-    | (Safe | Top _ | Var _ | Transform _ | Join _), _ -> Join.create t1 t2
-
+  (* CR gyorsh: Handling of constant cases here is an optimization, instead of going
+     directly to [join]. *)
   let lessequal t1 t2 =
     match t1, t2 with
     | Bot, Bot -> true
@@ -673,8 +751,8 @@ end = struct
     | Bot, (Var _ | Transform _ | Join _) -> true
     | (Var _ | Transform _ | Join _), Bot -> false
     | (Safe | Top _ | Var _ | Transform _ | Join _), _ ->
-      (* structural equality on normal form *)
-      Unresolved.equal (Unresolved.join t1 t2) t2
+      (* structural equality on the normal form *)
+      equal (join t1 t2) t2
 
   (* Abstract transformer. Commutative and Associative.
 
@@ -689,16 +767,24 @@ end = struct
      location immediately after the statement, or the statement does not return,
      then return is unreachable from the program location immediately before the
      statement. *)
-  let transform t t' =
-    assert_normal_form t;
-    assert_normal_form t';
+  let rec transform t t' =
     match t, t' with
     | Bot, _ -> Bot
     | _, Bot -> Bot
     | Safe, t' -> t'
     | t, Safe -> t
     | Top w, Top w' -> Top (Witnesses.join w w')
-    | (Top _ | Var _ | Transform _ | Join _), _ -> Unresolved.transform t t'
+    | Top w, Transform tr | Transform tr, Top w ->
+      Transform (Transform.add_top tr w)
+    | Var { var; witnesses }, Transform tr | Transform tr, Var { var; witnesses; } ->
+      Transform (Transform.add_var tr var witnesses)
+    | Var { var=var1; witnesses=w1 }, Var { var=var2; witnesses=w2 },
+      if Var.equal var1 var2 then Var { var = vars; witnesses = Witnesses.join w1 w2 }
+      else Transform (Transform.vars ~var1 ~w1 ~var2 ~w2)
+    | Transform tr1, Transform tr2 ->
+      Transform (Transform.flatten tr1 tr2)
+    | Transform tr, Join j | Join j, Transform tr ->
+      Join (Join.distribute_transform_over_join tr j)
 
   let rec replace_witnesses w t =
     match t with
