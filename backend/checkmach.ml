@@ -230,6 +230,140 @@ module V : sig
 
   val apply : t -> env:(Var.t -> t) -> t
 end = struct
+
+  (** normal form of Transform *)
+  module Transform : sig
+    type t
+
+    let create_with_top : Witnesses.t -> Var.Set.t -> t
+    let create : var1:Var.t -> w1:Witnesses.t -> var2:Var.t -> w2:Witnesses.t -> t
+    let add_top : t -> Witnesses.t -> t
+    let add_var : t -> Var.t -> Witnesses.t -> t
+    let print : Format.formatter -> t -> unit
+    module Set : Set.S with type elt = t
+  end = struct
+    type t = private
+      | Args of Var.Map.t
+      | Args_with_top of { w : Witnesses.t; vars : Var.Map.t }
+
+    (* The binary "transform" is commutative and associative, so a nested
+       "transform" can be flattened in the normal form. The arguments are
+       represented as a set of variables and optionally top. if top is absent,
+       [vars] must contain at least two elements. if top is present, [vars] must
+       have at least one element. This is enforced by the available
+       constructors.
+
+       We never need to represent other constants because these cases can be
+       simplified to either a constant or a variable. *)
+
+    let compare { top = top1; vars = vars1 } { top = top2; vars = vars2 } =
+      let c = Top.compare top1 top2 in
+      if c <> 0 then c else Var.Set.compare vars1 vars2
+
+    let create_with_top ~top_witnesses:w v ~var_witnesses:w =
+      let vars = Var.Map.singleton var w in
+      Args_with_top { w; vars }
+
+    let create ~var1 ~w1 ~var2 ~w2 =
+      assert (Var.compare var1 var2 != 0)
+      Args vars (Var.Map.singleton v1 w1 |> Var.Map.add v2)
+
+    (* let contains_top t =
+     *   match t with
+     *   | Args _ -> false
+     *   | Args_with_top _ -> true *)
+
+    let add_top t w =
+      match t with
+      | Arg vars ->
+        Args_with_top { w; vars }
+      | Args_with_top { w = w'; vars = vars } ->
+        Args_with_top { w = Witnesses.join w w'; vars }
+
+    let add_var t var witness =
+      let f w =
+        match w with
+        | None -> Some witness
+        | Some w -> Some (Witnesses.join w witness)
+      in
+      let update vars = Var.Map.update var f t
+      in
+      match t with
+      | Args vars -> Args (update vars)
+      | Arg_with_top { w; vars } -> Args { w; vars = update vars }
+
+    include Set.Make (Var.Set)
+  end
+
+  module Args : sig
+    type t
+    val empty
+    val add_transform : t -> Transform.t -> t
+    val add_var : t -> Var.t -> t
+
+  end = struct
+    type t = { vars : Var.Map.t; trs : Transform.Set.t }
+
+    let empty = { vars = Var.Map.empty; trs = Transform.Set.empty }
+    let add_transform t tr =
+      { t with trs = Transform.Set.add tr t.trs }
+
+    let add_var t var =
+      { t with trs = Transform.Set.add tr t.trs }
+  end
+
+  module Join : sig
+    (** normal form of Join *)
+    type t
+    let print : Format.formatter -> t -> unit
+  end = struct
+
+    (* CR gyorsh: ugly copy-paste to avoid another indirection - is it worth it? *)
+    type t =
+      | Args_with_safe of { vars : Var.Map.t; trs : Transform.Set.t }
+      | Args_with_top of { Witnesses.t; vars : Var.Map.t; trs : Transform.Set.t  }
+      | Args of { vars : Var.Map.t; trs : Transform.Set.t }
+
+    (* Tracks "top" to preserve witnesses. For example simplifying
+     * "join (Top  w) (Var v w')" to "Top w"
+     * loses the witness w' when w' is non-empty and v resolved to Top at the end.
+     * Simplifying to "Top (join w w')" is wrong if v is resolved to Safe or Bot. *)
+
+    (* Only top or safe are allowed not both. At least two elements must be
+       present in the join: if one of the constants is present then at least one
+       of vars or transforms must be non-empty. If no constants, then
+       vars or transforms have at least two elements between them.
+       The following constructor ensure it.
+    *)
+
+    let tr_with_safe tr =
+      Args_with_safe { transforms = Transform.Set.singleton tr; vars = Var.Set.empty; }
+
+    let tr_with_top w tr =
+      Args_with_top
+        { transforms = Transform.Set.singleton tr; vars = Var.Set.empty; }
+
+    let var_with_top w tr =
+      Args_with_top { w;  transforms = Transform.Set.singleton tr; vars = Var.Set.empty; }
+
+    let var_with_safe tr =
+      Args_with_safe {transforms = Transform.Set.singleton tr; vars = Var.Set.empty;}
+
+    let trs tr1 tr2 =
+      assert (Transform.compare tr1 tr2 <> 0);
+      let transforms = Transform.Set.(add tr2 (singleton tr1)) in
+      Args { transforms; vars = Var.Set.empty; }
+
+    let vars var1 w1 var2 w2 =
+      assert (Var.compare var1 var2 <> 0);
+      let vars = Var.Map.(add var2 w2 (singleton var w1)) in
+      Args { transforms = Transforms.Set.empty; vars; }
+
+    let var_with_tr var w tr =
+      let args = { transforms = Transforms.Set.singleton tr;  vars = Var.Map.singleton var w }
+      Args { args }
+  end
+
   type t =
     | Top of Witnesses.t
     | Safe
@@ -239,8 +373,8 @@ end = struct
         { var : Var.t;
           witnesses : Witnesses.t
         }
-    | Transform of t list
-    | Join of t list
+    | Transform of Transform.t
+    | Join of Join.t
 
   let unresolved witnesses var = Var { var; witnesses }
 
@@ -258,13 +392,10 @@ end = struct
     | Bot -> Format.fprintf ppf "bot"
     | Top w -> Format.fprintf ppf "(top%a)" pp_w w
     | Safe -> Format.fprintf ppf "safe"
-    | Join tl -> Format.fprintf ppf "(join %a)@," pp tl
-    | Transform tl -> Format.fprintf ppf "(transform %a)@," pp tl
+    | Join j -> Format.fprintf ppf "(join %a)@," Join.print j
+    | Transform tr -> Format.fprintf ppf "(transform %a)@," Transform.print tr
     | Var { var = v; witnesses = w } ->
       Format.fprintf ppf "(var %a%a)" Var.print v pp_w w
-
-  and print_list ~witnesses ppf tl =
-    Format.pp_print_list (print ~witnesses) ppf tl
 
   let rec get_witnesses t =
     match t with
@@ -288,89 +419,6 @@ end = struct
 
     val assert_normal_form : t -> unit
   end = struct
-    (* structural comparison on terms, not the ordering on the abstract
-       domain. *)
-    let rec compare t1 t2 =
-      match t1, t2 with
-      | Bot, Bot -> 0
-      | Bot, _ -> -1
-      | _, Bot -> 1
-      | Safe, Safe -> 0
-      | Safe, _ -> -1
-      | _, Safe -> 1
-      | Top w1, Top w2 -> Witnesses.compare w1 w2
-      | Top _, (Var _ | Transform _ | Join _) -> -1
-      | (Var _ | Transform _ | Join _), Top _ -> 1
-      | Var { var = v1; witnesses = w1 }, Var { var = v2; witnesses = w2 } ->
-        let c = Var.compare v1 v2 in
-        if c = 0 then Witnesses.compare w1 w2 else c
-      | Var _, _ -> -1
-      | _, Var _ -> 1
-      | Transform ul1, Transform ul2 -> List.compare compare ul1 ul2
-      | Transform _, _ -> -1
-      | _, Transform _ -> 1
-      | Join ul1, Join ul2 -> List.compare compare ul1 ul2
-
-    let equal u1 u2 = compare u1 u2 = 0
-
-    module USet = Set.Make (struct
-      type nonrec t = t
-
-      let compare = compare
-    end)
-
-    (* independently of normalize, check that u is in normal form *)
-    let rec assert_normal_form u =
-      match u with
-      | Top _ | Safe | Bot -> ()
-      | Var _ -> ()
-      | Transform ul -> assert_normal_form_transform ul
-      | Join ul -> assert_normal_form_join ul
-
-    and assert_normal_form_join ul =
-      (* only Safe, Top, Var, or Transform in normal form, at least two
-         elements, sorted, no duplicates. *)
-      let found_top = ref false in
-      let found_vars = ref Var.Set.empty in
-      ul |> get_elements
-      |> USet.iter (function
-           | Safe -> ()
-           | Top _ ->
-             assert (not !found_top);
-             found_top := true
-           | Var { var; witnesses = _ } ->
-             assert (not (Var.Set.mem var !found_vars));
-             found_vars := Var.Set.add var !found_vars
-           | Transform ul -> assert_normal_form_transform ul
-           | Join _ -> assert false
-           | Bot -> assert false)
-
-    and assert_normal_form_transform ul =
-      (* only Top, Var, at least two elements, sorted, no duplicates. *)
-      let found_top = ref false in
-      let found_vars = ref Var.Set.empty in
-      ul |> get_elements
-      |> USet.iter (function
-           | Top _ ->
-             assert (not !found_top);
-             found_top := true
-           | Var { var; witnesses = _ } ->
-             assert (not (Var.Set.mem var !found_vars));
-             found_vars := Var.Set.add var !found_vars
-           | Bot | Safe | Transform _ | Join _ -> assert false)
-
-    and get_elements ul =
-      (* ensures: sorted, no duplicates, at least two elements *)
-      let us = USet.of_list ul in
-      assert (USet.cardinal us >= 2);
-      if not (List.equal equal (USet.elements us) ul)
-      then
-        Misc.fatal_errorf "input: %a@.sorted:%a@."
-          (print_list ~witnesses:true)
-          ul
-          (print_list ~witnesses:true)
-          (USet.elements us);
-      us
 
     module Acc : sig
       (* Used during normalization. Someday: use this as the canonical
@@ -575,15 +623,8 @@ end = struct
     let transform u1 u2 = Transform [u1; u2] |> N.normalize
   end
 
-  let debug = true
-
-  let assert_normal_form t = if debug then Unresolved.assert_normal_form t
-
-  (* Keep [join] and [lessequal] in sync. Handling of constant cases here is an
-     optimization, instead of going directly to [Unresolved]. *)
+  (* Keep [join] and [lessequal] in sync. *)
   let join t1 t2 =
-    assert_normal_form t1;
-    assert_normal_form t2;
     match t1, t2 with
     | Bot, Bot -> Bot
     | Safe, Safe -> Safe
@@ -592,12 +633,34 @@ end = struct
     | Top _, Bot | Top _, Safe -> t1
     | Bot, Top _ | Safe, Top _ -> t2
     | Bot, (Var _ | Transform _ | Join _) -> t2
+    | Safe, Transform _ as tr | Transform tr, Safe ->
+      Join.tr_with_safe tr
+    | Var { var; witnesses; }, Tranform tr
+    | Tranform tr, Var { var; witnesses; } ->
+      Join.var_with_tr var witnesses tr
+    | Transform tr1, Transform tr2 ->
+      if Transform.compare tr1 tr2 = 0 then
+        t1
+      else
+        Join.trs tr1 tr2
+    | Top w, Transform tr | Transform tr, Top w ->
+      Join.tr_with_top w tr
+    | Safe, Join j | Join j, Safe ->
+      if Join.contains_top then
+      Join.add_safe j
+    | Top w, Join j | Join j, Top w -> Join.add_top j w
+    |
+
+
     | (Var _ | Transform _ | Join _), Bot -> t1
-    | (Safe | Top _ | Var _ | Transform _ | Join _), _ -> Unresolved.join t1 t2
+    | (Safe | Top _ | Var _), Transform _
+    | Transform _ , (Safe | Top _ | Var _) ->
+    |
+      Join t1 t2
+
+    | (Safe | Top _ | Var _ | Transform _ | Join _), _ -> Join.create t1 t2
 
   let lessequal t1 t2 =
-    assert_normal_form t1;
-    assert_normal_form t2;
     match t1, t2 with
     | Bot, Bot -> true
     | Safe, Safe -> true
