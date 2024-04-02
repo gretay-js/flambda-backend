@@ -528,9 +528,9 @@ end = struct
     let transform_join t { vars; trs } =
       let acc =
         Vars.fold vars ~init:empty ~f:(fun var witnesses acc ->
-            transform_var acc var witnesses)
+            join acc (transform_var t var witnesses))
       in
-      Transform.Set.fold (fun tr acc -> transform t tr) trs
+      Transform.Set.fold (fun tr acc -> join acc (transform t tr)) trs acc
 
     let has_witnesses { vars; trs } =
       Vars.has_witnesses vars
@@ -710,16 +710,16 @@ end = struct
 
     let distribute_transform_over_joins t1 t2 =
       match t1, t2 with
-      | Args a1, Args a2 -> Args (Args.transform_joins a1 a2)
+      | Args a1, Args a2 -> Args (Args.transform_join a1 a2)
       | Args_with_safe a1, Args_with_safe a2 ->
-        let new_args = Args.transform_joins a1 a2 in
+        let new_args = Args.transform_join a1 a2 in
         Args_with_safe (Args.join a1 (Args.join a2 new_args))
       | Args_with_safe a1, Args a2 | Args a2, Args_with_safe a1 ->
-        let new_args = Args.transform_joins a1 a2 in
+        let new_args = Args.transform_join a1 a2 in
         Args (Args.join a2 new_args)
       | Args_with_top { w = w1; args = a1 }, Args_with_top { w = w2; args = a2 }
         ->
-        let new_args = Args.transform_joins a1 a2 in
+        let new_args = Args.transform_join a1 a2 in
         let args_top =
           Args.join (Args.transform_top a1 w2) (Args.transform_top a2 w1)
         in
@@ -727,12 +727,12 @@ end = struct
           { w = Witnesses.join w1 w2; args = Args.join new_args args_top }
       | Args_with_top { w; args = a1 }, Args a2
       | Args a2, Args_with_top { w; args = a1 } ->
-        let new_args = Args.transform_joins a1 a2 in
+        let new_args = Args.transform_join a1 a2 in
         let args_top = Args.transform_top a2 w in
         Args (Args.join new_args args_top)
       | Args_with_top { w; args = a1 }, Args_with_safe a2
       | Args_with_safe a2, Args_with_top { w; args = a1 } ->
-        let new_args = Args.transform_joins a1 a2 in
+        let new_args = Args.transform_join a1 a2 in
         let args_top = Args.transform_top a2 w in
         let args = Args.join new_args args_top in
         Args_with_top { w; args }
