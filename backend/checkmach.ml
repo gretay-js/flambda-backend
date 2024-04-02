@@ -442,8 +442,18 @@ end = struct
 
     val get : t -> Vars.t * Transform.Set.t
 
-    (** [transform t tr] apply "tr" to each element of [t]. *)
+    (** [transform t tr] replace each element x of [t] with "transform x tr" *)
     val transform : t -> Transform.t -> t
+
+    (** [transform_var t var w]
+        replace each element x of [t] with "transfrom x var". *)
+    val transform_var : t -> Var.t -> Witnesses.t -> t
+
+    (** [transform_top t w] replace each element x of [t] with
+        "transform t (Top w)" *)
+    val transform_top : t -> Witnesses.t -> t
+
+    val transform_join : t -> t -> t
 
     val has_witnesses : t -> bool
 
@@ -478,6 +488,7 @@ end = struct
 
     let transform { vars; trs } tr =
       let from_vars =
+        (* add each x from [vars] to [tr] *)
         Vars.fold
           ~f:(fun var w acc ->
             Transform.Set.add (Transform.add_var tr var w) acc)
@@ -487,6 +498,39 @@ end = struct
         Transform.Set.map (fun tr' -> Transform.flatten tr tr') trs
       in
       { vars = Vars.empty; trs = Transform.Set.union from_vars from_trs }
+
+    let transform_top { vars; trs } w =
+      let from_vars =
+        Vars.fold
+          ~f:(fun var var_witnesses acc ->
+            Transform.Set.add (Transform.var_with_top var ~var_witnesses w) acc)
+          vars ~init:Transform.Set.empty
+      in
+      let from_trs = Transform.Set.map (fun tr -> Transform.add_top tr w) trs in
+      { vars = Vars.empty; trs = Transform.Set.union from_vars from_trs }
+
+    let transform_var { vars; trs } var witnesses =
+      let acc =
+        Vars.fold
+          ~f:(fun var1 w1 args ->
+            if Var.equal var1 var
+            then add_var args var witnesses
+            else
+              let tr = Transform.vars ~var1 ~w1 ~var2:var ~w2:witnesses in
+              add_tr args tr)
+          vars ~init:empty
+      in
+      let from_trs =
+        Transform.Set.map (fun tr -> Transform.add_var tr var witnesses) trs
+      in
+      { acc with trs = Transform.Set.union from_trs acc.trs }
+
+    let transform_join t { vars; trs } =
+      let acc =
+        Vars.fold vars ~init:empty ~f:(fun var witnesses acc ->
+            transform_var acc var witnesses)
+      in
+      Transform.Set.fold (fun tr acc -> transform t tr) trs
 
     let has_witnesses { vars; trs } =
       Vars.has_witnesses vars
@@ -539,6 +583,12 @@ end = struct
     val flatten : t -> t -> t
 
     val distribute_transform_over_join : t -> Transform.t -> t
+
+    val distribute_transform_var_over_join : t -> Var.t -> Witnesses.t -> t
+
+    val distribute_transform_top_over_join : t -> Witnesses.t -> t
+
+    val distribute_transform_over_joins : t -> t -> t
 
     val get_top : t -> Witnesses.t option
 
@@ -634,6 +684,58 @@ end = struct
         let args = Args.(add_tr (transform args tr) tr') in
         Args args
       | Args args -> Args (Args.transform args tr)
+
+    let distribute_transform_var_over_join t var witnesses =
+      match t with
+      | Args_with_safe args ->
+        let args =
+          Args.add_var (Args.transform_var args var witnesses) var witnesses
+        in
+        Args args
+      | Args_with_top { w; args } ->
+        let tr' = Transform.var_with_top var ~var_witnesses:witnesses w in
+        let args = Args.(add_tr (transform_var args var witnesses) tr') in
+        Args args
+      | Args args -> Args (Args.transform_var args var witnesses)
+
+    let distribute_transform_top_over_join t w =
+      match t with
+      | Args_with_safe args ->
+        let args = Args.transform_top args w in
+        Args_with_top { w; args }
+      | Args_with_top { w = w'; args } ->
+        let args = Args.(transform_top args w) in
+        Args_with_top { w = Witnesses.join w' w; args }
+      | Args args -> Args (Args.transform_top args w)
+
+    let distribute_transform_over_joins t1 t2 =
+      match t1, t2 with
+      | Args a1, Args a2 -> Args (Args.transform_joins a1 a2)
+      | Args_with_safe a1, Args_with_safe a2 ->
+        let new_args = Args.transform_joins a1 a2 in
+        Args_with_safe (Args.join a1 (Args.join a2 new_args))
+      | Args_with_safe a1, Args a2 | Args a2, Args_with_safe a1 ->
+        let new_args = Args.transform_joins a1 a2 in
+        Args (Args.join a2 new_args)
+      | Args_with_top { w = w1; args = a1 }, Args_with_top { w = w2; args = a2 }
+        ->
+        let new_args = Args.transform_joins a1 a2 in
+        let args_top =
+          Args.join (Args.transform_top a1 w2) (Args.transform_top a2 w1)
+        in
+        Args_with_top
+          { w = Witnesses.join w1 w2; args = Args.join new_args args_top }
+      | Args_with_top { w; args = a1 }, Args a2
+      | Args a2, Args_with_top { w; args = a1 } ->
+        let new_args = Args.transform_joins a1 a2 in
+        let args_top = Args.transform_top a2 w in
+        Args (Args.join new_args args_top)
+      | Args_with_top { w; args = a1 }, Args_with_safe a2
+      | Args_with_safe a2, Args_with_top { w; args = a1 } ->
+        let new_args = Args.transform_joins a1 a2 in
+        let args_top = Args.transform_top a2 w in
+        let args = Args.join new_args args_top in
+        Args_with_top { w; args }
 
     let add_tr t tr =
       match t with
@@ -869,10 +971,11 @@ end = struct
     | Transform tr1, Transform tr2 -> Transform (Transform.flatten tr1 tr2)
     | Transform tr, Join j | Join j, Transform tr ->
       Join (Join.distribute_transform_over_join j tr)
-    | Top w, Join j | Join j, Top w -> Misc.fatal_error "no implemented"
+    | Top w, Join j | Join j, Top w ->
+      Join (Join.distribute_transform_top_over_join j w)
     | Var { var; witnesses }, Join j | Join j, Var { var; witnesses } ->
-      Misc.fatal_error "no implemented"
-    | Join j1, Join j2 -> Misc.fatal_error "no implemented"
+      Join (Join.distribute_transform_var_over_join j var witnesses)
+    | Join j1, Join j2 -> Join (Join.distribute_transform_over_joins j1 j2)
 
   let replace_witnesses w t =
     match t with
