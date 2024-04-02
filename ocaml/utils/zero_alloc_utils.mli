@@ -46,8 +46,17 @@ module type Component = sig
   val print : witnesses:bool -> Format.formatter -> t -> unit
 end
 
-module Make_component (Witnesses : WS) :
-  Component with type witnesses := Witnesses.t
+(* module Make_component (Witnesses : WS) :
+ *   Component with type witnesses := Witnesses.t *)
+
+module Make_component (Witnesses : WS) : sig
+  type t =
+    | Top of Witnesses.t
+    | Safe
+    | Bot
+
+  include Component with type witnesses := Witnesses.t and type t := t
+end
 
 module Make_value
     (Witnesses : WS)

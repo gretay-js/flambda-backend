@@ -165,8 +165,6 @@ module Var : sig
 
   val equal : t -> t -> bool
 
-  module Set : Set.S with type elt = t
-
   module Map : Map.S with type key = t
 end = struct
   module T = struct
@@ -181,7 +179,6 @@ end = struct
   end
 
   include T
-  module Set = Set.Make (T)
   module Map = Map.Make (T)
 
   let equal t1 t2 = compare t1 t2 = 0
@@ -233,6 +230,14 @@ module V : sig
   val top : Witnesses.t -> t
 
   val compare : t -> t -> int
+
+  val match_with :
+    bot:'a ->
+    safe:'a ->
+    top:(Witnesses.t -> 'a) ->
+    unresolved:(unit -> 'a) ->
+    t ->
+    'a
 end = struct
   (** Map of variables to witnesess, used as a helper for the normal forms below. *)
 
@@ -446,8 +451,6 @@ end = struct
 
     val compare : t -> t -> int
 
-    val equal : t -> t -> bool
-
     val print : witnesses:bool -> Format.formatter -> t -> unit
   end = struct
     type t =
@@ -497,8 +500,6 @@ end = struct
     let compare { vars = vars1; trs = trs1 } { vars = vars2; trs = trs2 } =
       let c = Vars.compare vars1 vars2 in
       if c <> 0 then c else Transform.Set.compare trs1 trs2
-
-    let equal t1 t2 = compare t1 t2 = 0
 
     let print ~witnesses ppf { vars; trs } =
       let pp_trs ppf trs =
@@ -550,8 +551,6 @@ end = struct
     val has_witnesses : t -> bool
 
     val replace_witnesses : t -> Witnesses.t -> t
-
-    val equal : t -> t -> bool
 
     val compare : t -> t -> int
   end = struct
@@ -685,8 +684,6 @@ end = struct
         let c = Witnesses.compare w1 w2 in
         if c <> 0 then c else Args.compare a1 a2
 
-    let equal t1 t2 = compare t1 t2 = 0
-
     let print ~witnesses ppf t =
       match t with
       | Args_with_safe args ->
@@ -731,6 +728,13 @@ end = struct
     | Join j -> Format.fprintf ppf "(join %a)@," (Join.print ~witnesses) j
     | Transform tr ->
       Format.fprintf ppf "(transform %a)@," (Transform.print ~witnesses) tr
+
+  let match_with ~bot ~safe ~top ~unresolved t =
+    match t with
+    | Bot -> bot
+    | Safe -> safe
+    | Top w -> top w
+    | Var _ | Join _ | Transform _ -> unresolved ()
 
   let get_witnesses t =
     match t with
@@ -870,15 +874,13 @@ end = struct
       Misc.fatal_error "no implemented"
     | Join j1, Join j2 -> Misc.fatal_error "no implemented"
 
-  let rec replace_witnesses w t =
+  let replace_witnesses w t =
     match t with
     | Top _ -> Top w
     | Bot | Safe -> t
     | Join j -> Join (Join.replace_witnesses j w)
     | Transform tr -> Transform (Transform.replace_witnesses tr w)
     | Var { var; witnesses = _ } -> Var { var; witnesses = w }
-
-  and replace_witnesses_list w tl = List.map (replace_witnesses w) tl
 
   let diff_witnesses ~expected ~actual =
     (* If [actual] is Top and [expected] is not Top then return the [actual]
@@ -1122,7 +1124,7 @@ end = struct
      always empty and the translation is trivial. Is there a better way to avoid
      duplicating [Zero_alloc_utils]? *)
   let transl w (v : Assume_info.V.t) : V.t =
-    match v with Top _ -> Top w | Safe -> Safe | Bot -> Bot
+    match v with Top _ -> V.top w | Safe -> V.safe | Bot -> V.bot
 
   let transl w (v : Assume_info.Value.t) : Value.t =
     { nor = transl w v.nor; exn = transl w v.exn; div = transl w v.div }
@@ -1135,7 +1137,7 @@ end = struct
     | None -> None
     | Some v ->
       let v = transl w v in
-      let v = if can_raise then v else { v with exn = V.Bot } in
+      let v = if can_raise then v else { v with exn = V.bot } in
       Some v
 end
 
@@ -1650,11 +1652,9 @@ end = struct
   let transform_return ~(effect : V.t) dst =
     (* Instead of calling [Value.transform] directly, first check for trivial
        cases to avoid reallocating [dst]. *)
-    match effect with
-    | Bot -> Value.bot
-    | Safe -> dst
-    | Top _ -> Value.transform effect dst
-    | Var _ | Join _ | Transform _ -> Value.transform effect dst
+    V.match_with effect ~bot:Value.bot ~safe:dst
+      ~top:(fun _ -> Value.transform effect dst)
+      ~unresolved:(fun () -> Value.transform effect dst)
 
   let transform_diverge ~(effect : V.t) (dst : Value.t) =
     let div = V.join effect dst.div in
@@ -1823,7 +1823,7 @@ end = struct
        fixpoint so it can be reused instead of having a separate loop. *)
     let counter = ref 0 in
     let fixpoint () =
-      let new_value = check_instr t fd.fun_body in
+      let new_value = check_instr t body in
       incr counter;
       new_value
     in
@@ -1887,7 +1887,7 @@ end = struct
     let init_env =
       (* initialize [env] with Bot for all functions on normal and exceptional
          return, and Safe for diverage component conservatively. *)
-      let init_val = Value.{ nor = V.Bot; exn = V.Bot; div = V.Safe } in
+      let init_val = Value.{ nor = V.bot; exn = V.bot; div = V.safe } in
       Unit_info.fold unit_info ~init:Env.empty ~f:(fun func_info env ->
           let v =
             if Value.is_resolved func_info.value
@@ -1946,7 +1946,7 @@ end = struct
       in
       let t = create ppf fun_name future_funcnames unit_info a in
       let really_check () =
-        let res = analyze_body t f in
+        let res = analyze_body t f.fun_body in
         report t res ~msg:"finished" ~desc:"fundecl" f.fun_dbg;
         if (not t.keep_witnesses) && Value.is_resolved res
         then (
@@ -1999,11 +1999,10 @@ module Spec_zero_alloc : Spec = struct
      different frequencies of Top/Bot. The most likely value is encoded as None
      (i.e., not stored). *)
   let encode (v : V.t) =
-    match v with
-    | Top _ -> 0
-    | Safe -> 1
-    | Bot -> 2
-    | Var _ | Transform _ | Join _ -> assert false
+    V.match_with v
+      ~top:(fun _ -> 0)
+      ~safe:1 ~bot:2
+      ~unresolved:(fun () -> assert false)
 
   (* Witnesses are not used across functions and not stored in cmx. Witnesses
      that appear in a function's summary are only used for error messages about
@@ -2012,9 +2011,9 @@ module Spec_zero_alloc : Spec = struct
   let decoded_witness = Witnesses.empty
 
   let decode = function
-    | 0 -> V.Top decoded_witness
-    | 1 -> V.Safe
-    | 2 -> V.Bot
+    | 0 -> V.top decoded_witness
+    | 1 -> V.safe
+    | 2 -> V.bot
     | n -> Misc.fatal_errorf "Checkmach cannot decode %d" n
 
   let encode (v : Value.t) : Checks.value =
@@ -2042,10 +2041,10 @@ module Spec_zero_alloc : Spec = struct
 
   let transform_specific w s =
     (* Conservatively assume that operation can return normally. *)
-    let nor = if Arch.operation_allocates s then V.Top w else V.Safe in
-    let exn = if Arch.operation_can_raise s then nor else V.Bot in
+    let nor = if Arch.operation_allocates s then V.top w else V.safe in
+    let exn = if Arch.operation_can_raise s then nor else V.bot in
     (* Assume that the operation does not diverge. *)
-    let div = V.Bot in
+    let div = V.bot in
     { Value.nor; exn; div }
 end
 
