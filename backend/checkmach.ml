@@ -25,6 +25,8 @@
  **********************************************************************************)
 [@@@ocaml.warning "+a-30-40-41-42"]
 
+let debug = false
+
 module String = Misc.Stdlib.String
 
 module Witness = struct
@@ -419,9 +421,10 @@ end = struct
 
     let print ~witnesses ppf t =
       match t with
-      | Args vars -> Vars.print ppf ~witnesses vars
+      | Args vars ->
+        Format.fprintf ppf "(transform %a)" (Vars.print ~witnesses) vars
       | Args_with_top { w; vars } ->
-        Format.fprintf ppf "%a@ %a" (pp_top ~witnesses) w
+        Format.fprintf ppf "(transform %a@ %a)" (pp_top ~witnesses) w
           (Vars.print ~witnesses) vars
   end
 
@@ -472,6 +475,13 @@ end = struct
 
     let get { vars; trs } = vars, trs
 
+    let print ~witnesses ppf { vars; trs } =
+      let pp_trs ppf trs =
+        Transform.Set.iter (Transform.print ~witnesses ppf) trs
+      in
+      Format.fprintf ppf "vars=(%a)@ transforms=(%a)@," (Vars.print ~witnesses)
+        vars pp_trs trs
+
     let add_var t var witnesses =
       (* Optimization to avoid allocation when the content hasn't changed. *)
       let vars = Vars.update t.vars var witnesses in
@@ -481,7 +491,12 @@ end = struct
       let trs = Transform.Set.add tr t.trs in
       if trs == t.trs then t else { t with trs }
 
-    let join { vars = v1; trs = trs1 } { vars = v2; trs = trs2 } =
+    let join ({ vars = v1; trs = trs1 } as t) ({ vars = v2; trs = trs2 } as t')
+        =
+      if debug
+      then
+        Format.fprintf Format.std_formatter "join@.%a@. %a@."
+          (print ~witnesses:true) t (print ~witnesses:true) t';
       let vars = Vars.join v1 v2 in
       let trs = Transform.Set.union trs1 trs2 in
       { vars; trs }
@@ -525,7 +540,11 @@ end = struct
       in
       { acc with trs = Transform.Set.union from_trs acc.trs }
 
-    let transform_join t { vars; trs } =
+    let transform_join t ({ vars; trs } as t') =
+      if debug
+      then
+        Format.fprintf Format.std_formatter "transform_join@.%a@. %a@."
+          (print ~witnesses:true) t (print ~witnesses:true) t';
       let acc =
         Vars.fold vars ~init:empty ~f:(fun var witnesses acc ->
             join acc (transform_var t var witnesses))
@@ -544,13 +563,6 @@ end = struct
     let compare { vars = vars1; trs = trs1 } { vars = vars2; trs = trs2 } =
       let c = Vars.compare vars1 vars2 in
       if c <> 0 then c else Transform.Set.compare trs1 trs2
-
-    let print ~witnesses ppf { vars; trs } =
-      let pp_trs ppf trs =
-        Transform.Set.iter (Transform.print ~witnesses ppf) trs
-      in
-      Format.fprintf ppf "vars=(%a)@ transforms=(%a)@," (Vars.print ~witnesses)
-        vars pp_trs trs
   end
 
   (** normal form of join *)
@@ -719,6 +731,13 @@ end = struct
         Args (Args.join a2 new_args)
       | Args_with_top { w = w1; args = a1 }, Args_with_top { w = w2; args = a2 }
         ->
+        if debug
+        then
+          Format.printf "distribute_transform_over_joins:@.%a@.%a@."
+            (Args.print ~witnesses:true)
+            a1
+            (Args.print ~witnesses:true)
+            a2;
         let new_args = Args.transform_join a1 a2 in
         let args_top =
           Args.join (Args.transform_top a1 w2) (Args.transform_top a2 w1)
