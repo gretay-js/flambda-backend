@@ -1850,9 +1850,7 @@ end = struct
       let effect =
         match Metadata.assume_value dbg ~can_raise:false w with
         | Some effect -> effect
-        | None ->
-          (* Value.{ nor = Top w; exn = V.Bot; div = V.Bot } in *)
-          Value.top w
+        | None -> Value.{ nor = V.top w; exn = V.bot; div = V.bot }
       in
       transform t ~effect ~next ~exn "heap allocation" dbg
     | Iprobe { name; handler_code_sym; enabled_at_init = __ } ->
