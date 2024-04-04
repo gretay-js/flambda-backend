@@ -422,9 +422,9 @@ end = struct
     let print ~witnesses ppf t =
       match t with
       | Args vars ->
-        Format.fprintf ppf "(transform %a)" (Vars.print ~witnesses) vars
+        Format.fprintf ppf "(transform:@.%a)@." (Vars.print ~witnesses) vars
       | Args_with_top { w; vars } ->
-        Format.fprintf ppf "(transform %a@ %a)" (pp_top ~witnesses) w
+        Format.fprintf ppf "(transform:@.%a@.%a)@." (pp_top ~witnesses) w
           (Vars.print ~witnesses) vars
   end
 
@@ -479,7 +479,7 @@ end = struct
       let pp_trs ppf trs =
         Transform.Set.iter (Transform.print ~witnesses ppf) trs
       in
-      Format.fprintf ppf "vars=(%a)@ transforms=(%a)@," (Vars.print ~witnesses)
+      Format.fprintf ppf "vars=(%a)@.transforms=(%a)@," (Vars.print ~witnesses)
         vars pp_trs trs
 
     let add_var t var witnesses =
@@ -808,11 +808,12 @@ end = struct
     let print ~witnesses ppf t =
       match t with
       | Args_with_safe args ->
-        Format.fprintf ppf "Safe@ %a" (Args.print ~witnesses) args
+        Format.fprintf ppf "(join:@.Safe@.%a)@." (Args.print ~witnesses) args
       | Args_with_top { w; args } ->
-        Format.fprintf ppf "%a@ %a" (pp_top ~witnesses) w
+        Format.fprintf ppf "(join:@.%a@.%a)@." (pp_top ~witnesses) w
           (Args.print ~witnesses) args
-      | Args args -> Args.print ~witnesses ppf args
+      | Args args ->
+        Format.fprintf ppf "(join:@.%a)@." Args.print ~witnesses ppf args
   end
 
   type t =
