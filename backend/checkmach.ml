@@ -813,7 +813,7 @@ end = struct
         Format.fprintf ppf "(join:@.%a@.%a)@." (pp_top ~witnesses) w
           (Args.print ~witnesses) args
       | Args args ->
-        Format.fprintf ppf "(join:@.%a)@." Args.print ~witnesses ppf args
+        Format.fprintf ppf "(join:@.%a)@." (Args.print ~witnesses) args
   end
 
   type t =

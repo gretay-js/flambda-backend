@@ -76,7 +76,7 @@ runtime-stdlib: boot-compiler
 compiler: runtime-stdlib
 	RUNTIME_DIR=$(RUNTIME_DIR) $(dune) build $(ws_main) --only-package=ocaml @install \
 	  $(ocamldir)/ocamltest/ocamltest.byte \
-	  $(ocamldir)/tools/dumpobj.bc
+	  $(ocamldir)/tools/dumpobj.bc --verbose
 
 runtest: compiler
 	RUNTIME_DIR=$(RUNTIME_DIR) $(dune) runtest $(ws_main)
