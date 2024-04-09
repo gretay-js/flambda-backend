@@ -1042,7 +1042,7 @@ end = struct
         Vars.fold
           ~f:(fun var w acc ->
             let v = replace_witnesses w (env var) in
-            transform v acc)
+            join v acc)
           ~init vars
       in
       Transform.Set.fold
@@ -2031,6 +2031,11 @@ end = struct
         Env.map
           ~f:(fun func_info v ->
             let v' = Value.apply func_info.value (lookup env) in
+            if !Flambda_backend_flags.dump_checkmach
+            then
+              Format.fprintf ppf "fixpoint after apply: %s %a@." func_info.name
+                (Value.print ~witnesses:true)
+                v';
             assert (Value.is_resolved v');
             if not (Value.lessequal v' v)
             then (
