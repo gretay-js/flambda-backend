@@ -908,8 +908,11 @@ end = struct
     | Safe, Transform tr | Transform tr, Safe -> Join (Join.tr_with_safe tr)
     | Safe, Var { var; witnesses } | Var { var; witnesses }, Safe ->
       Join (Join.var_with_safe var witnesses)
-    | Top w, Var { var; witnesses } | Var { var; witnesses }, Top w ->
-      Join (Join.var_with_top var ~var_witnesses:witnesses w)
+    | (Top w as top), Var { var; witnesses }
+    | Var { var; witnesses }, (Top w as top) ->
+      if Witnesses.is_empty witnesses
+      then top
+      else Join (Join.var_with_top var ~var_witnesses:witnesses w)
     | Var { var = var1; witnesses = w1 }, Var { var = var2; witnesses = w2 } ->
       if Var.equal var1 var2
       then Var { var = var1; witnesses = Witnesses.join w1 w2 }
