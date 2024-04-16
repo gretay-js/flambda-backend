@@ -64,7 +64,8 @@ let equal t1 t2 = compare t1 t2 = 0
 
 let print ppf = function
   | No_assume -> ()
-  | Assume v -> Format.fprintf ppf "%a" (Value.print ~witnesses:false) v
+  | Assume v ->
+    Format.fprintf ppf "zero_alloc_assume=%a" (Value.print ~witnesses:false) v
 
 let to_string v = Format.asprintf "%a" print v
 
