@@ -196,6 +196,8 @@ module Var : sig
   val equal : t -> t -> bool
 
   module Map : Map.S with type key = t
+
+  module Set : Set.S with type key = t
 end = struct
   module T = struct
     type t =
@@ -210,6 +212,7 @@ end = struct
 
   include T
   module Map = Map.Make (T)
+  module Set = Set.Make (T)
 
   let equal t1 t2 = compare t1 t2 = 0
 
@@ -289,6 +292,9 @@ end = struct
 
     val compare : t -> t -> int
 
+    (** [same_vars] compares variables ignoring witnesses *)
+    val same_vars : t -> t -> bool
+
     val join : t -> t -> t
 
     val update : t -> Var.t -> Witnesses.t -> t
@@ -315,6 +321,8 @@ end = struct
     let singleton var w = Var.Map.singleton var w
 
     let compare = Var.Map.compare Witnesses.compare
+
+    let same_vars = Var.Map.equal (fun _ _ -> (* ignore witnesses *) true)
 
     let has_witnesses vars =
       Var.Map.exists (fun _ w -> not (Witnesses.is_empty w)) vars
@@ -368,6 +376,9 @@ end = struct
     val get_top : t -> Witnesses.t option
 
     val get_vars : t -> Vars.t
+
+    (** [same_vars] compares variables ignoring witnesses *)
+    val same_vars : t -> t -> bool
   end = struct
     type t =
       | Args of Vars.t
@@ -443,6 +454,8 @@ end = struct
     let get_vars t =
       match t with Args_with_top { w = _; vars } | Args vars -> vars
 
+    let same_vars t1 t2 = Vars.same_vars (get_vars t1) (get_vars t2)
+
     let has_witnesses t =
       match t with
       | Args_with_top { w; vars } ->
@@ -471,23 +484,36 @@ end = struct
 
     val empty : t
 
+    val add : Transform.t -> t -> t
+
     val compare : t -> t -> int
 
     val cutoff : t -> int -> t
   end = struct
-    type t
+    (* Join of two Transform with the same set of vars are merged into one in
+       normal form, without loss of precision or witnesses, even if one has
+       "Top" and the other does not.
 
-    include Set.Make (T)
+       Naive implementation: map with key of type [Var.Set.t] to data of type
+       [Transform.t] *)
+    module M = Map.Make (Var.Set)
+
+    type t = Transform.t M.t
+
+    let empty = M.empty
+
+    let add tr t =
+      let key = Transform.get_vars tr |> Vars.get_vars in
+      M.add key tr t
+
+    let compare = M.compare Transform.compare
+
+    let join t1 t2 =
+      M.union (fun _var tr1 tr2 -> Some (Transform.flatten tr1 tr2)) t1 t2
 
     let cutoff t n =
       let t = map (cutoff ~n) t in
       take_first_n t n ~fold ~remove ~cardinal
-
-    (* if there are two transforms with the same set of vars,
-       then merge them. *)
-    let join t1 t2 =
-
-
   end
   (* CR gyorsh: treatment of vars and top is duplicated between Args and
      Transform, is there a nice way to factor it out? *)
@@ -561,7 +587,7 @@ end = struct
         Format.fprintf Format.std_formatter "join@.%a@. %a@."
           (print ~witnesses:true) t (print ~witnesses:true) t';
       let vars = Vars.join v1 v2 in
-      let trs = Transforms.union trs1 trs2 in
+      let trs = Transforms.join trs1 trs2 in
       { vars; trs }
 
     let transform { vars; trs } tr =
@@ -572,7 +598,7 @@ end = struct
           vars ~init:Transforms.empty
       in
       let from_trs = Transforms.map (fun tr' -> Transform.flatten tr tr') trs in
-      { vars = Vars.empty; trs = Transforms.union from_vars from_trs }
+      { vars = Vars.empty; trs = Transforms.join from_vars from_trs }
 
     let transform_top { vars; trs } w =
       let from_vars =
@@ -582,7 +608,7 @@ end = struct
           vars ~init:Transforms.empty
       in
       let from_trs = Transforms.map (fun tr -> Transform.add_top tr w) trs in
-      { vars = Vars.empty; trs = Transforms.union from_vars from_trs }
+      { vars = Vars.empty; trs = Transforms.join from_vars from_trs }
 
     let transform_var { vars; trs } var witnesses =
       let acc =
@@ -598,7 +624,7 @@ end = struct
       let from_trs =
         Transforms.map (fun tr -> Transform.add_var tr var witnesses) trs
       in
-      { acc with trs = Transforms.union from_trs acc.trs }
+      { acc with trs = Transforms.join from_trs acc.trs }
 
     let transform_join t ({ vars; trs } as t') =
       if debug
@@ -1013,7 +1039,11 @@ end = struct
     | Transform tr, Var { var; witnesses } ->
       Join (Join.var_with_tr var witnesses tr)
     | Transform tr1, Transform tr2 ->
-      if Transform.equal tr1 tr2 then t1 else Join (Join.trs tr1 tr2)
+      if Transform.equal tr1 tr2
+      then t1
+      else if Transform.same_vars tr1 tr2
+      then Transform (Transform.flatten tr1 tr2)
+      else Join (Join.trs tr1 tr2)
     | (Top w as top), Transform tr | Transform tr, (Top w as top) ->
       (* [has_witnesses]: Don't simplify (join Top x) to x if there are any
          witnesses in x. This makes the analysis more expensive because symbolic
