@@ -197,7 +197,7 @@ module Var : sig
 
   module Map : Map.S with type key = t
 
-  module Set : Set.S with type key = t
+  module Set : Set.S with type elt = t
 end = struct
   module T = struct
     type t =
@@ -295,6 +295,8 @@ end = struct
     (** [same_vars] compares variables ignoring witnesses *)
     val same_vars : t -> t -> bool
 
+    val get_vars : t -> Var.Set.t
+
     val join : t -> t -> t
 
     val update : t -> Var.t -> Witnesses.t -> t
@@ -311,6 +313,8 @@ end = struct
       f:(Var.t -> Witnesses.t -> 'acc -> 'acc) -> init:'acc -> t -> 'acc
 
     val cutoff : t -> int -> t
+
+    val cutoff_witnesses : t -> int -> t
   end = struct
     type t = Witnesses.t Var.Map.t
 
@@ -323,6 +327,8 @@ end = struct
     let compare = Var.Map.compare Witnesses.compare
 
     let same_vars = Var.Map.equal (fun _ _ -> (* ignore witnesses *) true)
+
+    let get_vars t = t |> Var.Map.to_seq |> Seq.map fst |> Var.Set.of_seq
 
     let has_witnesses vars =
       Var.Map.exists (fun _ w -> not (Witnesses.is_empty w)) vars
@@ -341,11 +347,13 @@ end = struct
     let print ~witnesses ppf t =
       Var.Map.iter (fun var w -> pp_var ~witnesses ppf var w) t
 
+    let cutoff_witnesses t n = Var.Map.map (Witnesses.cutoff ~n) t
+
     let cutoff t n =
+      let t = cutoff_witnesses t n in
       let fold f t init =
         Var.Map.fold (fun key _data acc -> f key acc) t init
       in
-      let t = Var.Map.map (Witnesses.cutoff ~n) t in
       take_first_n t n ~fold ~remove:Var.Map.remove ~cardinal:Var.Map.cardinal
   end
 
@@ -379,6 +387,9 @@ end = struct
 
     (** [same_vars] compares variables ignoring witnesses *)
     val same_vars : t -> t -> bool
+
+    (** does not change the number of variables, only their witnesses.  *)
+    val cutoff_witnesses : t -> n:int -> t
   end = struct
     type t =
       | Args of Vars.t
@@ -407,11 +418,12 @@ end = struct
         let c = Vars.compare vars1 vars2 in
         if c <> 0 then c else Witnesses.compare w1 w2
 
-    let cutoff t ~n =
+    let cutoff_witnesses t ~n =
       match t with
-      | Args vars -> Args (Vars.cutoff vars n)
+      | Args vars -> Args (Vars.cutoff_witnesses vars n)
       | Args_with_top { w; vars } ->
-        Args_with_top { w = Witnesses.cutoff w ~n; vars = Vars.cutoff vars n }
+        Args_with_top
+          { w = Witnesses.cutoff w ~n; vars = Vars.cutoff_witnesses vars n }
 
     let equal t1 t2 = compare t1 t2 = 0
 
@@ -489,6 +501,12 @@ end = struct
     val compare : t -> t -> int
 
     val cutoff : t -> int -> t
+
+    val iter : (Transform.t -> unit) -> t -> unit
+
+    val map : (Transform.t -> Transform.t) -> t -> t
+
+    val fold : (Transform.t -> 'a -> 'a) -> t -> 'a -> 'a
   end = struct
     (* Join of two Transform with the same set of vars are merged into one in
        normal form, without loss of precision or witnesses, even if one has
@@ -502,18 +520,25 @@ end = struct
 
     let empty = M.empty
 
-    let add tr t =
-      let key = Transform.get_vars tr |> Vars.get_vars in
-      M.add key tr t
+    let get_key tr = tr |> Transform.get_vars |> Vars.get_vars
+
+    let add tr t = M.add (get_key tr) tr t
 
     let compare = M.compare Transform.compare
+
+    let iter f t = M.iter (fun _key tr -> f tr) t
+
+    let fold f t init = M.fold (fun _key tr acc -> f tr acc) t init
 
     let join t1 t2 =
       M.union (fun _var tr1 tr2 -> Some (Transform.flatten tr1 tr2)) t1 t2
 
+    let map f t = M.fold (fun _key tr acc -> add (f tr) acc) t M.empty
+
     let cutoff t n =
-      let t = map (cutoff ~n) t in
-      take_first_n t n ~fold ~remove ~cardinal
+      let t = map (Transform.cutoff_witnesses ~n) t in
+      let fold f t init = M.fold (fun key _ -> f key) t init in
+      take_first_n t n ~fold ~remove:M.remove ~cardinal:M.cardinal
   end
   (* CR gyorsh: treatment of vars and top is duplicated between Args and
      Transform, is there a nice way to factor it out? *)
