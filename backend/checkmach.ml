@@ -115,6 +115,10 @@ module Witnesses : sig
 
   val compare : t -> t -> int
 
+  val size : t -> int
+
+  val cutoff : t -> n:int -> t
+
   type components =
     { nor : t;
       exn : t;
@@ -126,6 +130,8 @@ end = struct
   include Set.Make (Witness)
 
   let print ppf t = Format.pp_print_seq Witness.print ppf (to_seq t)
+
+  let size t = cardinal t
 
   let cutoff t ~n = take_first_n t n ~fold ~remove ~cardinal
 
@@ -297,6 +303,8 @@ end = struct
 
     val fold :
       f:(Var.t -> Witnesses.t -> 'acc -> 'acc) -> init:'acc -> t -> 'acc
+
+    val cutoff : t -> int -> t
   end = struct
     type t = Witnesses.t Var.Map.t
 
@@ -324,6 +332,13 @@ end = struct
 
     let print ~witnesses ppf t =
       Var.Map.iter (fun var w -> pp_var ~witnesses ppf var w) t
+
+    let cutoff t n =
+      let fold f t init =
+        Var.Map.fold (fun key _data acc -> f key acc) t init
+      in
+      let t = Var.Map.map (Witnesses.cutoff ~n) t in
+      take_first_n t n ~fold ~remove:Var.Map.remove ~cardinal:Var.Map.cardinal
   end
 
   (** Normal form of Transform *)
@@ -354,7 +369,11 @@ end = struct
 
     val get_vars : t -> Vars.t
 
-    module Set : Set.S with type elt = t
+    module Set : sig
+      include Set.S with type elt = t
+
+      val cutoff : t -> int -> t
+    end
   end = struct
     module T = struct
       type t =
@@ -386,7 +405,20 @@ end = struct
     end
 
     include T
-    module Set = Set.Make (T)
+
+    let cutoff t ~n =
+      match t with
+      | Args vars -> Args (Vars.cutoff vars n)
+      | Args_with_top { w; vars } ->
+        Args_with_top { w = Witnesses.cutoff w ~n; vars = Vars.cutoff vars n }
+
+    module Set = struct
+      include Set.Make (T)
+
+      let cutoff t n =
+        let t = map (cutoff ~n) t in
+        take_first_n t n ~fold ~remove ~cardinal
+    end
 
     let equal t1 t2 = compare t1 t2 = 0
 
@@ -483,6 +515,8 @@ end = struct
     val has_witnesses : t -> bool
 
     val replace_witnesses : t -> Witnesses.t -> t
+
+    val cutoff : t -> int -> t
 
     val compare : t -> t -> int
 
@@ -582,6 +616,9 @@ end = struct
         trs = Transform.Set.map (fun tr -> Transform.replace_witnesses tr w) trs
       }
 
+    let cutoff { vars; trs } n =
+      { vars = Vars.cutoff vars n; trs = Transform.Set.cutoff trs n }
+
     let compare { vars = vars1; trs = trs1 } { vars = vars2; trs = trs2 } =
       let c = Vars.compare vars1 vars2 in
       if c <> 0 then c else Transform.Set.compare trs1 trs2
@@ -657,12 +694,44 @@ end = struct
        transforms have at least two elements between them. The following
        constructor ensure it. *)
 
+    (* [cutoff] is a heuristic to limit the size of the representation when
+       tracking witnesses. Adding [@zero_alloc] assert on a function has a
+       limited overhead on compilation time and memory.
+
+       The representation may be resolved to more than [n] witnesses (e.g.,
+       different variables from Args.vars and Args.trs) or less than [n]
+       witnesses (when some of the variables are not resolved to Top and
+       therefore don't contribute witnesses).
+
+       Cutoff for "join with top" does not affect the precision of generated
+       summaries, only the number of witnesses reported.
+
+       Termination of fixpoint: [Args] is sorted, [Arg.cutoff] keeps the least
+       [n], and [Arg.join] is used for fixpoint computation before applying the
+       cutoff. *)
+    let args_with_top w args =
+      match !Flambda_backend_flags.checkmach_details_cutoff with
+      | Keep_all -> Args_with_top { w; args }
+      | No_details ->
+        Misc.fatal_errorf "unexpected: (Join (Top %a) %a) " Witnesses.print w
+          (Args.print ~witnesses:true)
+          args
+      | At_most n ->
+        (* Normal form after cutoff: args contains at least one element even
+           after cutoff becuase [n] is guaranteed to be gpositive. *)
+        let len = Witnesses.size w in
+        if len > n
+        then
+          Misc.fatal_errorf "expected at most %d witnesses, got %d: %a" n len
+            Witnesses.print w;
+        Args_with_top { w; args = Args.cutoff args n }
+
     let tr_with_safe tr = Args_with_safe Args.(add_tr empty tr)
 
-    let tr_with_top tr w = Args_with_top { w; args = Args.(add_tr empty tr) }
+    let tr_with_top tr w = args_with_top w Args.(add_tr empty tr)
 
     let var_with_top var ~var_witnesses w =
-      Args_with_top { w; args = Args.(add_var empty var var_witnesses) }
+      args_with_top w Args.(add_var empty var var_witnesses)
 
     let var_with_safe var w = Args_with_safe Args.(add_var empty var w)
 
@@ -685,15 +754,15 @@ end = struct
     let add_top t witnesses =
       match t with
       | Args_with_top { w; args } ->
-        Args_with_top { w = Witnesses.join w witnesses; args }
-      | Args_with_safe args | Args args -> Args_with_top { w = witnesses; args }
+        args_with_top (Witnesses.join w witnesses) args
+      | Args_with_safe args | Args args -> args_with_top witnesses args
 
     let add_var t var witnesses =
       match t with
       | Args_with_safe args -> Args_with_safe (Args.add_var args var witnesses)
       | Args args -> Args (Args.add_var args var witnesses)
       | Args_with_top { w; args } ->
-        Args_with_top { w; args = Args.add_var args var witnesses }
+        args_with_top w (Args.add_var args var witnesses)
 
     let flatten t1 t2 =
       match t1, t2 with
@@ -701,10 +770,10 @@ end = struct
       | Args_with_safe a1, Args_with_safe a2 -> Args_with_safe (Args.join a1 a2)
       | Args_with_top { w; args = a1 }, (Args a2 | Args_with_safe a2)
       | (Args a2 | Args_with_safe a2), Args_with_top { w; args = a1 } ->
-        Args_with_top { w; args = Args.join a1 a2 }
+        args_with_top w (Args.join a1 a2)
       | Args_with_top { w = w1; args = a1 }, Args_with_top { w = w2; args = a2 }
         ->
-        Args_with_top { w = Witnesses.join w1 w2; args = Args.join a1 a2 }
+        args_with_top (Witnesses.join w1 w2) (Args.join a1 a2)
       | Args args1, Args_with_safe args2 | Args_with_safe args1, Args args2 ->
         Args_with_safe (Args.join args1 args2)
 
@@ -736,10 +805,10 @@ end = struct
       match t with
       | Args_with_safe args ->
         let args = Args.transform_top args w in
-        Args_with_top { w; args }
+        args_with_top w args
       | Args_with_top { w = w'; args } ->
         let args = Args.(transform_top args w) in
-        Args_with_top { w = Witnesses.join w' w; args }
+        args_with_top (Witnesses.join w' w) args
       | Args args -> Args (Args.transform_top args w)
 
     let distribute_transform_over_joins t1 t2 =
@@ -764,8 +833,7 @@ end = struct
         let args_top =
           Args.join (Args.transform_top a1 w2) (Args.transform_top a2 w1)
         in
-        Args_with_top
-          { w = Witnesses.join w1 w2; args = Args.join new_args args_top }
+        args_with_top (Witnesses.join w1 w2) (Args.join new_args args_top)
       | Args_with_top { w; args = a1 }, Args a2
       | Args a2, Args_with_top { w; args = a1 } ->
         let new_args = Args.transform_join a1 a2 in
@@ -776,14 +844,13 @@ end = struct
         let new_args = Args.transform_join a1 a2 in
         let args_top = Args.transform_top a2 w in
         let args = Args.join new_args args_top in
-        Args_with_top { w; args }
+        args_with_top w args
 
     let add_tr t tr =
       match t with
       | Args_with_safe args -> Args_with_safe (Args.add_tr args tr)
       | Args args -> Args (Args.add_tr args tr)
-      | Args_with_top { w; args } ->
-        Args_with_top { w; args = Args.add_tr args tr }
+      | Args_with_top { w; args } -> args_with_top w (Args.add_tr args tr)
 
     let get_top t =
       match t with
@@ -812,7 +879,7 @@ end = struct
         Args_with_safe (Args.replace_witnesses args witnesses)
       | Args args -> Args (Args.replace_witnesses args witnesses)
       | Args_with_top { w; args } ->
-        Args_with_top { w; args = Args.replace_witnesses args witnesses }
+        args_with_top w (Args.replace_witnesses args witnesses)
 
     let compare t1 t2 =
       match t1, t2 with
