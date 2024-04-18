@@ -187,6 +187,8 @@ module Var : sig
 
   val name : t -> string
 
+  val is_name : t -> name:string -> bool
+
   val tag : t -> Tag.t
 
   val print : Format.formatter -> t -> unit
@@ -217,6 +219,8 @@ end = struct
   let equal t1 t2 = compare t1 t2 = 0
 
   let name t = t.name
+
+  let is_name t ~name = String.equal t.name name
 
   let tag t = t.tag
 
@@ -253,6 +257,8 @@ module V : sig
   val unresolved : Witnesses.t -> Var.t -> t
 
   val is_resolved : t -> bool
+
+  val has_single_unresolved_dependency : t -> string -> bool
 
   val apply : t -> env:(Var.t -> t) -> t
 
@@ -315,6 +321,8 @@ end = struct
     val cutoff : t -> int -> t
 
     val cutoff_witnesses : t -> int -> t
+
+    val has_single_unresolved_dependency : t -> string -> bool
   end = struct
     type t = Witnesses.t Var.Map.t
 
@@ -355,6 +363,9 @@ end = struct
         Var.Map.fold (fun key _data acc -> f key acc) t init
       in
       take_first_n t n ~fold ~remove:Var.Map.remove ~cardinal:Var.Map.cardinal
+
+    let has_single_unresolved_dependency t name =
+      Var.Map.for_all (fun v _ -> Var.is_name ~name v) t
   end
 
   (** Normal form of Transform *)
@@ -390,6 +401,8 @@ end = struct
 
     (** does not change the number of variables, only their witnesses.  *)
     val cutoff_witnesses : t -> n:int -> t
+
+    val has_single_unresolved_dependency : t -> name:string -> bool
   end = struct
     type t =
       | Args of Vars.t
@@ -480,6 +493,11 @@ end = struct
       | Args_with_top { w = _; vars } ->
         Args_with_top { w; vars = Vars.replace_witnesses vars w }
 
+    let has_single_unresolved_dependency t ~name =
+      match t with
+      | Args vars | Args_with_top { vars; w = _ } ->
+        Vars.has_single_unresolved_dependency vars name
+
     let print ~witnesses ppf t =
       match t with
       | Args vars ->
@@ -509,6 +527,8 @@ end = struct
     val fold : (Transform.t -> 'a -> 'a) -> t -> 'a -> 'a
 
     val exists : (Transform.t -> bool) -> t -> bool
+
+    val for_all : (Transform.t -> bool) -> t -> bool
   end = struct
     (* Join of two Transform with the same set of vars are merged into one in
        normal form, without loss of precision or witnesses, even if one has
@@ -533,6 +553,8 @@ end = struct
     let fold f t init = M.fold (fun _key tr acc -> f tr acc) t init
 
     let exists f t = M.exists (fun _key tr -> f tr) t
+
+    let for_all f t = M.for_all (fun _key tr -> f tr) t
 
     let join t1 t2 =
       M.union (fun _var tr1 tr2 -> Some (Transform.flatten tr1 tr2)) t1 t2
@@ -732,6 +754,8 @@ end = struct
     val replace_witnesses : t -> Witnesses.t -> t
 
     val compare : t -> t -> int
+
+    val has_single_unresolved_dependency : t -> string -> bool
   end = struct
     type t =
       | Args_with_safe of Args.t
@@ -957,6 +981,15 @@ end = struct
         let c = Witnesses.compare w1 w2 in
         if c <> 0 then c else Args.compare a1 a2
 
+    let has_single_unresolved_dependency t name =
+      match t with
+      | Args_with_safe args | Args_with_top { w = _; args } | Args args ->
+        let vars, transforms = Args.get args in
+        Vars.has_single_unresolved_dependency vars name
+        && Transforms.for_all
+             (Transform.has_single_unresolved_dependency ~name)
+             transforms
+
     let print ~witnesses ppf t =
       match t with
       | Args_with_safe args ->
@@ -992,6 +1025,13 @@ end = struct
     match t with
     | Top _ | Safe | Bot -> true
     | Var _ | Join _ | Transform _ -> false
+
+  let has_single_unresolved_dependency t name =
+    match t with
+    | Bot | Safe | Top _ -> false
+    | Var { var; _ } -> Var.is_name var ~name
+    | Transform tr -> Transform.has_single_unresolved_dependency tr ~name
+    | Join j -> Join.has_single_unresolved_dependency j name
 
   let print ~witnesses ppf t =
     match t with
@@ -1224,6 +1264,8 @@ module Value : sig
 
   val replace_witnesses : Witnesses.t -> t -> t
 
+  val has_single_unresolved_dependency : t -> string -> bool
+
   val get_witnesses : t -> Witnesses.components
 
   val diff_witnesses : expected:t -> actual:t -> Witnesses.components
@@ -1246,6 +1288,11 @@ end = struct
 
   let is_resolved t =
     V.is_resolved t.nor && V.is_resolved t.exn && V.is_resolved t.div
+
+  let has_single_unresolved_dependency t name =
+    V.has_single_unresolved_dependency t.nor name
+    && V.has_single_unresolved_dependency t.exn name
+    && V.has_single_unresolved_dependency t.div name
 
   let get_component t (tag : Tag.t) =
     match tag with N -> t.nor | E -> t.exn | D -> t.div
@@ -1728,7 +1775,7 @@ end = struct
       let msg = Printf.sprintf "%s %s:" analysis_name msg in
       Func_info.print ~witnesses:true ppf ~msg func_info
 
-  let record_unit ppf unit_info =
+  let check_and_save_unit_info ppf unit_info =
     let errors = ref [] in
     let record (func_info : Func_info.t) =
       (match func_info.annotation with
@@ -1989,19 +2036,12 @@ end = struct
       body
     |> fst
 
-  let analyze_body t body =
-    (* CR gyorsh: Optimize the common case of self-recursive functions. Refactor
-       fixpoint so it can be reused instead of having a separate loop. *)
-    let fixpoint () =
-      let new_value = check_instr t body in
-      new_value
-    in
-    fixpoint ()
-
   module Env : sig
     type t
 
     val empty : t
+
+    val singleton : Func_info.t -> Value.t -> t
 
     val add : Func_info.t -> Value.t -> t -> t
 
@@ -2012,6 +2052,8 @@ end = struct
     val map : t -> f:(Func_info.t -> Value.t -> Value.t) -> t
 
     val print : msg:string -> Format.formatter -> t -> unit
+
+    val init_val : Value.t
   end = struct
     type data =
       { func_info : Func_info.t;
@@ -2025,6 +2067,8 @@ end = struct
     let add (func_info : Func_info.t) approx t =
       let d = { func_info; approx } in
       String.Map.add func_info.name d t
+
+    let singleton (func_info : Func_info.t) approx = add func_info approx empty
 
     let get_value name t =
       let d = String.Map.find name t in
@@ -2042,28 +2086,16 @@ end = struct
             Format.fprintf ppf "Env %s: %s: %a@." msg func_info.name
               (Value.print ~witnesses:true)
               approx)
+
+    (* initialize [env] with Bot for all functions on normal and exceptional
+       return, and Safe for diverage component conservatively. *)
+    let init_val = Value.diverges
   end
 
   (* CR gyorsh: do we need join in the fixpoint computation or is the function
      body analysis/summary already monotone? *)
-  let fixpoint ppf unit_info =
-    report_unit_info ppf unit_info ~msg:"before fixpoint";
+  let fixpoint ppf init_env =
     (* CR gyorsh: this is a really dumb iteration strategy. *)
-    let found_unresolved = ref false in
-    let init_env =
-      (* initialize [env] with Bot for all functions on normal and exceptional
-         return, and Safe for diverage component conservatively. *)
-      let init_val = Value.diverges in
-      Unit_info.fold unit_info ~init:Env.empty ~f:(fun func_info env ->
-          let v =
-            if Value.is_resolved func_info.value
-            then func_info.value
-            else (
-              found_unresolved := true;
-              init_val)
-          in
-          Env.add func_info v env)
-    in
     let lookup env var =
       let v = Env.get_value (Var.name var) env in
       Value.get_component v (Var.tag var)
@@ -2094,18 +2126,48 @@ end = struct
       in
       if !changed then loop env' else env'
     in
-    if !found_unresolved
-    then (
-      let env = loop init_env in
-      Env.iter env ~f:(fun func_info v -> Func_info.update func_info v);
-      Env.print ~msg:"after fixpoint" ppf env;
-      report_unit_info ppf unit_info ~msg:"after fixpoint")
+    let env = loop init_env in
+    Env.iter env ~f:(fun func_info v -> Func_info.update func_info v);
+    Env.print ~msg:"after fixpoint" ppf env
 
   let record_unit unit_info ppf =
     Profile.record_call ~accumulate:true ("record_unit " ^ analysis_name)
       (fun () ->
-        fixpoint ppf unit_info;
-        record_unit ppf unit_info)
+        report_unit_info ppf unit_info ~msg:"before fixpoint";
+        let found_unresolved = ref false in
+        let init_env =
+          Unit_info.fold unit_info ~init:Env.empty ~f:(fun func_info env ->
+              let v =
+                if Value.is_resolved func_info.value
+                then func_info.value
+                else (
+                  found_unresolved := true;
+                  Env.init_val)
+              in
+              Env.add func_info v env)
+        in
+        if !found_unresolved
+        then (
+          fixpoint ppf init_env;
+          report_unit_info ppf unit_info ~msg:"after fixpoint");
+        check_and_save_unit_info ppf unit_info)
+
+  let fixpoint_self_rec t unit_info res =
+    (* CR gyorsh: Optimize the common case of self-recursive functions with no
+       other unresolved dependencies, instead of waiting until the end of the
+       compilation unit to compute its fixpoint. *)
+    if Value.has_single_unresolved_dependency res t.current_fun_name
+    then (
+      (* CR gyorsh: Optimize the common case of self-recursive functions with no
+         other unresolved dependencies, instead of waiting until the end of the
+         compilation unit to compute its fixpoint. *)
+      let func_info =
+        Unit_info.find_opt unit_info t.current_fun_name |> Option.get
+      in
+      let init_env = Env.singleton func_info Env.init_val in
+      fixpoint t.ppf init_env;
+      report t func_info.value ~msg:"after self-rec fixpoint" ~desc:"fundecl"
+        func_info.dbg)
 
   let fundecl (f : Mach.fundecl) ~future_funcnames unit_info ppf =
     let check () =
@@ -2115,7 +2177,7 @@ end = struct
       in
       let t = create ppf fun_name future_funcnames unit_info a in
       let really_check () =
-        let res = analyze_body t f.fun_body in
+        let res = check_instr t f.fun_body in
         report t res ~msg:"finished" ~desc:"fundecl" f.fun_dbg;
         if (not t.keep_witnesses) && Value.is_resolved res
         then (
@@ -2124,7 +2186,8 @@ end = struct
           assert (Witnesses.is_empty exn);
           assert (Witnesses.is_empty div));
         Unit_info.record unit_info fun_name res f.fun_dbg a;
-        report_unit_info ppf unit_info ~msg:"after record"
+        report_unit_info ppf unit_info ~msg:"after record";
+        fixpoint_self_rec t unit_info res
       in
       let really_check () =
         if !Flambda_backend_flags.disable_checkmach
