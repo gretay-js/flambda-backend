@@ -477,7 +477,7 @@ end = struct
     let replace_witnesses t w =
       match t with
       | Args vars -> Args (Vars.replace_witnesses vars w)
-      | Args_with_top { w; vars } ->
+      | Args_with_top { w = _; vars } ->
         Args_with_top { w; vars = Vars.replace_witnesses vars w }
 
     let print ~witnesses ppf t =
@@ -941,8 +941,8 @@ end = struct
       | Args_with_safe args ->
         Args_with_safe (Args.replace_witnesses args witnesses)
       | Args args -> Args (Args.replace_witnesses args witnesses)
-      | Args_with_top { w; args } ->
-        args_with_top w (Args.replace_witnesses args witnesses)
+      | Args_with_top { w = _; args } ->
+        args_with_top witnesses (Args.replace_witnesses args witnesses)
 
     let compare t1 t2 =
       match t1, t2 with
