@@ -1681,6 +1681,8 @@ module Unit_info : sig
 
   val find_opt : t -> string -> Func_info.t option
 
+  val find_exn : t -> string -> Func_info.t
+
   (** [recod t name v dbg a] name must be in the current compilation unit,
       and not previously recorded.  *)
   val record :
@@ -1699,6 +1701,8 @@ end = struct
 
   let find_opt t name = String.Tbl.find_opt t name
 
+  let find_exn t name = String.Tbl.find t name
+
   let iter t ~f = String.Tbl.iter (fun _ func_info -> f func_info) t
 
   let fold t ~f ~init =
@@ -1712,6 +1716,26 @@ end = struct
       String.Tbl.replace t name func_info
 end
 
+module Unresolved_dependencies : sig
+  type t
+
+  val empty : t
+
+  val add : t -> caller:string -> callee:String.Set.t -> t
+end = struct
+  (** reverse dependencies: map from an unresolved callee to all its callers  *)
+  type t = String.Set.t String.Map.t
+
+  let empty = String.Map.empty
+
+  let add t ~caller ~callees =
+    let f = function
+      | None -> Some (String.Set.singleton caller)
+      | Some callers -> Some (String.Set.add caller callers)
+    in
+    String.Set.fold (fun callee acc -> String.Map.update callee f acc) callees t
+end
+
 (** The analysis involved some fixed point computations.
     Termination: [Value.t] is a finite height domain and
     [transfer] is a monotone function w.r.t. [Value.lessequal] order.
@@ -1722,12 +1746,14 @@ module Analysis (S : Spec) : sig
     Mach.fundecl ->
     future_funcnames:String.Set.t ->
     Unit_info.t ->
+    Unresolved_dependencies.t ->
     Format.formatter ->
     unit
 
   (** Resolve all function summaries, check them against user-provided assertions,
       and record the summaries in Compilenv to be saved in .cmx files *)
-  val record_unit : Unit_info.t -> Format.formatter -> unit
+  val record_unit :
+    Unit_info.t -> Unresolved_dependencies.t -> Format.formatter -> unit
 end = struct
   (** Information about the current function under analysis. *)
   type t =
@@ -2054,6 +2080,8 @@ end = struct
     val print : msg:string -> Format.formatter -> t -> unit
 
     val init_val : Value.t
+
+    val lookup : t -> Var.t -> V.t
   end = struct
     type data =
       { func_info : Func_info.t;
@@ -2090,23 +2118,23 @@ end = struct
     (* initialize [env] with Bot for all functions on normal and exceptional
        return, and Safe for diverage component conservatively. *)
     let init_val = Value.diverges
+
+    let lookup env var =
+      let v = get_value (Var.name var) env in
+      Value.get_component v (Var.tag var)
   end
 
   (* CR gyorsh: do we need join in the fixpoint computation or is the function
      body analysis/summary already monotone? *)
-  let fixpoint ppf init_env =
+  let fixpoint ppf init_env ppf =
     (* CR gyorsh: this is a really dumb iteration strategy. *)
-    let lookup env var =
-      let v = Env.get_value (Var.name var) env in
-      Value.get_component v (Var.tag var)
-    in
     let rec loop env =
       Env.print ~msg:"computing fixpoint" ppf env;
       let changed = ref false in
       let env' =
         Env.map
           ~f:(fun func_info v ->
-            let v' = Value.apply func_info.value (lookup env) in
+            let v' = Value.apply func_info.value (Env.lookup env) in
             if !Flambda_backend_flags.dump_checkmach
             then
               Format.fprintf ppf "fixpoint after apply: %s %a@." func_info.name
@@ -2127,7 +2155,9 @@ end = struct
       if !changed then loop env' else env'
     in
     let env = loop init_env in
-    Env.iter env ~f:(fun func_info v -> Func_info.update func_info v);
+    Env.iter env ~f:(fun func_info v ->
+        assert (Value.is_resolved v);
+        Func_info.update func_info v);
     Env.print ~msg:"after fixpoint" ppf env
 
   let record_unit unit_info ppf =
@@ -2152,24 +2182,54 @@ end = struct
           report_unit_info ppf unit_info ~msg:"after fixpoint");
         check_and_save_unit_info ppf unit_info)
 
-  let fixpoint_self_rec t unit_info res =
+  let fixpoint_self_rec func_info ppf =
     (* CR gyorsh: Optimize the common case of self-recursive functions with no
        other unresolved dependencies, instead of waiting until the end of the
        compilation unit to compute its fixpoint. *)
-    if Value.has_single_unresolved_dependency res t.current_fun_name
+    if Value.has_single_unresolved_dependency func_info.value func_info.name
     then (
-      (* CR gyorsh: Optimize the common case of self-recursive functions with no
-         other unresolved dependencies, instead of waiting until the end of the
-         compilation unit to compute its fixpoint. *)
-      let func_info =
-        Unit_info.find_opt unit_info t.current_fun_name |> Option.get
-      in
       let init_env = Env.singleton func_info Env.init_val in
       fixpoint t.ppf init_env;
-      report t func_info.value ~msg:"after self-rec fixpoint" ~desc:"fundecl"
-        func_info.dbg)
+      report_func_info ~msg:"after self-rec fixpoint" ppf)
 
-  let fundecl (f : Mach.fundecl) ~future_funcnames unit_info ppf =
+  let rec propagate callee_info unit_info unresolved_deps =
+    fixpoint_self_rec func_info ppf;
+    if Value.is_resolved func_info.value &&
+       (Unresolved_dependencies.contains ~callee:callee_info.name unresolved_deps)
+    then (
+      let callers =
+        Unresolved_dependencies.get_callers ~callee:callee_info.name
+          unresolved_deps
+      in
+      let lookup var =
+        if String.equal (Var.name var) callee_info.name
+        then Value.get_component callee_info.value (Var.tag var)
+        else var
+      in
+      String.Set.iter
+        (fun caller ->
+          let caller_info = Unit_info.find_exn unit_info caller in
+          let new_value = Value.apply caller_info.value lookup in
+          Func_info.update caller_info new_value;
+          fixpoint_self_rec func_info ppf)
+        callers;
+      unresolved_deps := Unresolved_dependencies.remove ~callee:callee_info.name;
+      String.Set.iter (fun caller ->
+          if Value.is_resolved caller_info
+          then propagate_resolved caller_info unit_info unresolved_deps))
+
+  let update_unresolved_dependencies func_info unit_info unresolved_deps ppf =
+    propagate func_info unit_info unresolved_deps;
+      unresolved_deps
+        := Unresolved_dependencies.add ~caller:fun_info.name
+             (Value.get_vars func_info.value)
+             unresolved_deps)
+
+      if assert (not (String.Set.is_empty unresolved_callees));
+
+
+  let fundecl (f : Mach.fundecl) ~future_funcnames unit_info unresolved_deps ppf
+      =
     let check () =
       let fun_name = f.fun_name in
       let a =
@@ -2186,8 +2246,8 @@ end = struct
           assert (Witnesses.is_empty exn);
           assert (Witnesses.is_empty div));
         Unit_info.record unit_info fun_name res f.fun_dbg a;
-        report_unit_info ppf unit_info ~msg:"after record";
-        fixpoint_self_rec t unit_info res
+        update_unresolved_dependencies t fun_name unit_info unresolved_deps;
+        report_unit_info ppf unit_info ~msg:"after record"
       in
       let really_check () =
         if !Flambda_backend_flags.disable_checkmach
@@ -2285,14 +2345,19 @@ module Check_zero_alloc = Analysis (Spec_zero_alloc)
 (** Information about the current unit. *)
 let unit_info = Unit_info.create ()
 
+let unresolved_deps = ref Unresolved_dependencies.empty
+
 let fundecl ppf_dump ~future_funcnames fd =
-  Check_zero_alloc.fundecl fd ~future_funcnames unit_info ppf_dump;
+  Check_zero_alloc.fundecl fd ~future_funcnames unit_info unresolved_deps
+    ppf_dump;
   fd
 
-let reset_unit_info () = Unit_info.reset unit_info
+let reset_unit_info () =
+  Unit_info.reset unit_info;
+  unresolved_deps := ref Unresolved_dependencies.empty
 
 let record_unit_info ppf_dump =
-  Check_zero_alloc.record_unit unit_info ppf_dump;
+  Check_zero_alloc.record_unit unit_info unresolved_deps ppf_dump;
   Compilenv.cache_checks (Compilenv.current_unit_infos ()).ui_checks
 
 type iter_witnesses = (string -> Witnesses.components -> unit) -> unit
