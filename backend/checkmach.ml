@@ -258,7 +258,7 @@ module V : sig
 
   val is_resolved : t -> bool
 
-  val has_single_unresolved_dependency : t -> string -> bool
+  val get_vars : t -> string -> Var.Set.t
 
   val apply : t -> env:(Var.t -> t) -> t
 
@@ -1719,21 +1719,61 @@ end
 module Unresolved_dependencies : sig
   type t
 
-  val empty : t
+  val create : unit -> t
 
-  val add : t -> caller:string -> callee:String.Set.t -> t
+  val reset : t -> unit
+
+  (** adds a new caller. *)
+  val add : t -> caller:string -> callees:String.Set.t -> unit
+
+  (** Ensure [caller] exists and is already associated with [callees], and remove
+      association of [caller] with any other callees.  *)
+  val update : t -> caller:string -> callees:String.Set.t -> unit
 end = struct
   (** reverse dependencies: map from an unresolved callee to all its callers  *)
-  type t = String.Set.t String.Map.t
+  type t = String.Set.t String.Tbl.t
 
-  let empty = String.Map.empty
+  let create () = String.Tbl.create 2
 
-  let add t ~caller ~callees =
-    let f = function
-      | None -> Some (String.Set.singleton caller)
-      | Some callers -> Some (String.Set.add caller callers)
+  let reset t = String.Tbl.reset t
+
+  let add_one t ~caller callee =
+    let callers =
+      match String.Tbl.find_opt t callee with
+      | None -> String.Set.singleton caller
+      | Some callers ->
+        assert (not (String.Set.mem caller callers));
+        String.Set.add caller callers
     in
-    String.Set.fold (fun callee acc -> String.Map.update callee f acc) callees t
+    String.Tbl.replace t callee callers
+
+  let add t ~caller ~callees = String.Set.iter (add_one t ~caller) callees
+
+  let update t ~caller ~callees =
+    (* check that all callees are present *)
+    String.Set.iter
+      (fun callee ->
+        match String.Tbl.find_opt t callee with
+        | None ->
+          Misc.fatal_errorf "Unresolved dependencies: missing callee %s of %s"
+            callee caller
+        | Some callers ->
+          if not (String.Set.mem caller callers)
+          then
+            Misc.fatal_errorf
+              "Unresolved_dependencies: missing caller %s for callee %s in \
+               unresolved "
+              caller callee)
+      callees;
+    (* remove resolved callees of this caller *)
+    let remove callee callers =
+      if String.Set.mem callee callees
+      then Some callers
+      else
+        let new_callers = String.Set.remove caller callers in
+        if String.Set.is_empty new_callers then None else Some new_callers
+    in
+    String.Tbl.filter_map_inplace remove t
 end
 
 (** The analysis involved some fixed point computations.
@@ -2126,7 +2166,7 @@ end = struct
 
   (* CR gyorsh: do we need join in the fixpoint computation or is the function
      body analysis/summary already monotone? *)
-  let fixpoint ppf init_env ppf =
+  let fixpoint ppf init_env =
     (* CR gyorsh: this is a really dumb iteration strategy. *)
     let rec loop env =
       Env.print ~msg:"computing fixpoint" ppf env;
@@ -2182,51 +2222,66 @@ end = struct
           report_unit_info ppf unit_info ~msg:"after fixpoint");
         check_and_save_unit_info ppf unit_info)
 
-  let fixpoint_self_rec func_info ppf =
-    (* CR gyorsh: Optimize the common case of self-recursive functions with no
-       other unresolved dependencies, instead of waiting until the end of the
-       compilation unit to compute its fixpoint. *)
-    if Value.has_single_unresolved_dependency func_info.value func_info.name
-    then (
+  (* [fixpoint_self_rec] try to resolves the common case of self-recursive
+     functions with no other unresolved dependencies, instead of waiting until
+     the end of the compilation unit to compute its fixpoint. Return the
+     unresolved callees of [func_info]. *)
+  let fixpoint_self_rec (func_info : Func_info.t) ppf =
+    let unresolved_callees = Value.get_vars func_info.value in
+    if String.Set.is_empty unresolved_callees
+       || not
+            (String.Set.equal unresolved_callees
+               (String.Set.singleton func_info.name))
+    then unresolved_callees
+    else
       let init_env = Env.singleton func_info Env.init_val in
-      fixpoint t.ppf init_env;
-      report_func_info ~msg:"after self-rec fixpoint" ppf)
+      fixpoint ppf init_env;
+      report_func_info ~msg:"after self-rec fixpoint" ppf func_inf
+        String.Set.empty
 
-  let rec propagate callee_info unit_info unresolved_deps =
-    fixpoint_self_rec func_info ppf;
-    if Value.is_resolved func_info.value &&
-       (Unresolved_dependencies.contains ~callee:callee_info.name unresolved_deps)
+  (* [propagate] applies resolved values to transitive dependencies, but does
+     not resolve mutually recursive loops. *)
+  let rec propagate callee_info unit_info unresolved_deps ppf =
+    if Value.is_resolved callee_info.value
+       && Unresolved_dependencies.contains ~callee:callee_info.name
+            unresolved_deps
     then (
       let callers =
         Unresolved_dependencies.get_callers ~callee:callee_info.name
           unresolved_deps
       in
+      assert (not (String.Set.is_empty callers));
+      unresolved_deps := Unresolved_dependencies.remove ~callee:callee_info.name;
       let lookup var =
         if String.equal (Var.name var) callee_info.name
         then Value.get_component callee_info.value (Var.tag var)
         else var
       in
+      (* To avoid problems due to cyclic dependencies and sharing, first resolve
+         everything that directly depends on [callee_info] and update
+         dependencies, then propagate recursively. *)
       String.Set.iter
         (fun caller ->
           let caller_info = Unit_info.find_exn unit_info caller in
           let new_value = Value.apply caller_info.value lookup in
           Func_info.update caller_info new_value;
-          fixpoint_self_rec func_info ppf)
+          let unresolved_callees = fixpoint_self_rec func_info ppf in
+          unresolved_deps
+            := Unresolved_dependencies.update ~caller:fun_info.name
+                 unresolved_callees unresolved_deps)
         callers;
-      unresolved_deps := Unresolved_dependencies.remove ~callee:callee_info.name;
-      String.Set.iter (fun caller ->
-          if Value.is_resolved caller_info
-          then propagate_resolved caller_info unit_info unresolved_deps))
+      String.Set.iter
+        (fun caller -> propagate caller_info unit_info unresolved_deps ppf)
+        callers)
 
-  let update_unresolved_dependencies func_info unit_info unresolved_deps ppf =
-    propagate func_info unit_info unresolved_deps;
+  let add_unresolved_dependencies func_info unit_info unresolved_deps ppf =
+    let unresolved_callees = fixpoint_self_rec func_info ppf in
+    if not (String.Set.is_empty unresolved_callees)
+    then
       unresolved_deps
-        := Unresolved_dependencies.add ~caller:fun_info.name
-             (Value.get_vars func_info.value)
-             unresolved_deps)
-
-      if assert (not (String.Set.is_empty unresolved_callees));
-
+        := Unresolved_dependencies.add ~caller:fun_info.name unresolved_callees
+             unresolved_deps;
+    propagate func_info unit_info unresolved_deps t.ppf
 
   let fundecl (f : Mach.fundecl) ~future_funcnames unit_info unresolved_deps ppf
       =
@@ -2246,7 +2301,7 @@ end = struct
           assert (Witnesses.is_empty exn);
           assert (Witnesses.is_empty div));
         Unit_info.record unit_info fun_name res f.fun_dbg a;
-        update_unresolved_dependencies t fun_name unit_info unresolved_deps;
+        add_unresolved_dependencies fun_name unit_info unresolved_deps t.ppf;
         report_unit_info ppf unit_info ~msg:"after record"
       in
       let really_check () =
@@ -2345,7 +2400,7 @@ module Check_zero_alloc = Analysis (Spec_zero_alloc)
 (** Information about the current unit. *)
 let unit_info = Unit_info.create ()
 
-let unresolved_deps = ref Unresolved_dependencies.empty
+let unresolved_deps = Unresolved_dependencies.create ()
 
 let fundecl ppf_dump ~future_funcnames fd =
   Check_zero_alloc.fundecl fd ~future_funcnames unit_info unresolved_deps
@@ -2354,7 +2409,7 @@ let fundecl ppf_dump ~future_funcnames fd =
 
 let reset_unit_info () =
   Unit_info.reset unit_info;
-  unresolved_deps := ref Unresolved_dependencies.empty
+  Unresolved_dependencies.reset unresolved_deps
 
 let record_unit_info ppf_dump =
   Check_zero_alloc.record_unit unit_info unresolved_deps ppf_dump;
