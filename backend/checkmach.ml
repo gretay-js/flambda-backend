@@ -187,8 +187,6 @@ module Var : sig
 
   val name : t -> string
 
-  val is_name : t -> name:string -> bool
-
   val tag : t -> Tag.t
 
   val print : Format.formatter -> t -> unit
@@ -219,8 +217,6 @@ end = struct
   let equal t1 t2 = compare t1 t2 = 0
 
   let name t = t.name
-
-  let is_name t ~name = String.equal t.name name
 
   let tag t = t.tag
 
@@ -260,7 +256,7 @@ module V : sig
 
   val get_unresolved_names : t -> String.Set.t
 
-  val apply : t -> env:(Var.t -> Witnesses.t -> t) -> t
+  val apply : t -> env:(Var.t -> t option) -> t
 
   val bot : t
 
@@ -304,6 +300,8 @@ end = struct
 
     val get_vars : t -> Var.Set.t
 
+    val get_unresolved_name : t -> String.Set.t
+
     val join : t -> t -> t
 
     val update : t -> Var.t -> Witnesses.t -> t
@@ -336,6 +334,10 @@ end = struct
     let same_vars = Var.Map.equal (fun _ _ -> (* ignore witnesses *) true)
 
     let get_vars t = t |> Var.Map.to_seq |> Seq.map fst |> Var.Set.of_seq
+
+    let get_unresolved_name t =
+      t |> Var.Map.to_seq |> Seq.map fst |> Seq.map Var.name
+      |> String.Set.of_seq
 
     let has_witnesses vars =
       Var.Map.exists (fun _ w -> not (Witnesses.is_empty w)) vars
@@ -517,9 +519,7 @@ end = struct
 
     val exists : (Transform.t -> bool) -> t -> bool
 
-    val for_all : (Transform.t -> bool) -> t -> bool
-
-    val get_all_vars : t -> Var.Set.t
+    val get_unresolved_names : t -> String.Set.t
   end = struct
     (* Join of two Transform with the same set of vars are merged into one in
        normal form, without loss of precision or witnesses, even if one has
@@ -535,9 +535,10 @@ end = struct
 
     let get_key tr = tr |> Transform.get_vars |> Vars.get_vars
 
-    let get_all_vars t =
+    let get_unresolved_names t =
+      (* collect the keys *)
       t |> M.to_seq |> Seq.map fst |> Seq.map Var.Set.to_seq |> Seq.concat
-      |> Var.Set.of_seq
+      |> Seq.map Var.name |> String.Set.of_seq
 
     let add tr t = M.add (get_key tr) tr t
 
@@ -548,8 +549,6 @@ end = struct
     let fold f t init = M.fold (fun _key tr acc -> f tr acc) t init
 
     let exists f t = M.exists (fun _key tr -> f tr) t
-
-    let for_all f t = M.for_all (fun _key tr -> f tr) t
 
     let join t1 t2 =
       M.union (fun _var tr1 tr2 -> Some (Transform.flatten tr1 tr2)) t1 t2
@@ -750,7 +749,7 @@ end = struct
 
     val compare : t -> t -> int
 
-    val get_vars : t -> Var.Set.t
+    val get_unresolved_names : t -> String.Set.t
   end = struct
     type t =
       | Args_with_safe of Args.t
@@ -976,15 +975,13 @@ end = struct
         let c = Witnesses.compare w1 w2 in
         if c <> 0 then c else Args.compare a1 a2
 
-    let get_vars t =
+    let get_unresolved_names t =
       match t with
       | Args_with_safe args | Args_with_top { w = _; args } | Args args ->
-        let vars, transforms = Args.get args in
-        let init = Vars.get_vars vars in
-        Transforms.fold
-          (fun tr acc ->
-            Var.Set.union acc (Transform.get_vars tr |> Vars.get_vars))
-          transforms init
+        let vars, trs = Args.get args in
+        String.Set.union
+          (Vars.get_unresolved_name vars)
+          (Transforms.get_unresolved_names trs)
 
     let print ~witnesses ppf t =
       match t with
@@ -1023,14 +1020,11 @@ end = struct
     | Var _ | Join _ | Transform _ -> false
 
   let get_unresolved_names t =
-    let names (vars : Var.Set.t) : String.Set.t =
-      vars |> Var.Set.to_seq |> Seq.map Var.name |> String.Set.of_seq
-    in
     match t with
     | Bot | Safe | Top _ -> String.Set.empty
     | Var { var; _ } -> String.Set.singleton (Var.name var)
-    | Transform tr -> Transform.get_vars tr |> Vars.get_vars |> names
-    | Join j -> Join.get_vars j |> names
+    | Transform tr -> Transform.get_vars tr |> Vars.get_unresolved_name
+    | Join j -> Join.get_unresolved_names j
 
   let print ~witnesses ppf t =
     match t with
@@ -1220,32 +1214,40 @@ end = struct
     | (Var _ | Join _ | Transform _), _ | _, (Var _ | Join _ | Transform _) ->
       assert false
 
-  let rec apply t ~env =
-    match t with
-    | Bot | Safe | Top _ -> t
-    | Var { var; witnesses } -> env var witnesses
-    | Transform tr ->
-      let init =
-        match Transform.get_top tr with None -> Safe | Some w -> Top w
-      in
-      Vars.fold
-        ~f:(fun var w acc -> transform (env var w) acc)
-        ~init (Transform.get_vars tr)
-    | Join j ->
-      let init =
-        match Join.get_top j with
-        | None -> if Join.has_safe j then Safe else Bot
-        | Some w -> Top w
-      in
-      let vars, trs = Join.get j in
-      let acc =
-        Vars.fold ~f:(fun var w acc -> join (env var w) acc) ~init vars
-      in
-      Transforms.fold
-        (fun tr acc ->
-          let t = Transform tr in
-          join (apply t ~env) acc)
-        trs acc
+  let apply t ~env =
+    let env var w =
+      match env var with
+      | None -> unresolved w var
+      | Some v -> replace_witnesses w v
+    in
+    let rec aux t =
+      match t with
+      | Bot | Safe | Top _ -> t
+      | Var { var; witnesses } -> env var witnesses
+      | Transform tr ->
+        let init =
+          match Transform.get_top tr with None -> Safe | Some w -> Top w
+        in
+        Vars.fold
+          ~f:(fun var w acc -> transform (env var w) acc)
+          ~init (Transform.get_vars tr)
+      | Join j ->
+        let init =
+          match Join.get_top j with
+          | None -> if Join.has_safe j then Safe else Bot
+          | Some w -> Top w
+        in
+        let vars, trs = Join.get j in
+        let acc =
+          Vars.fold ~f:(fun var w acc -> join (env var w) acc) ~init vars
+        in
+        Transforms.fold
+          (fun tr acc ->
+            let t = Transform tr in
+            join (aux t) acc)
+          trs acc
+    in
+    aux t
 end
 
 module T = Zero_alloc_utils.Make_value (Witnesses) (V)
@@ -1269,7 +1271,7 @@ module Value : sig
 
   val get_component : t -> Tag.t -> V.t
 
-  val apply : t -> (Var.t -> Witnesses.t -> V.t) -> t
+  val apply : t -> (Var.t -> V.t option) -> t
 end = struct
   include T
 
@@ -1717,6 +1719,8 @@ module Unresolved_dependencies : sig
 
   val reset : t -> unit
 
+  val is_empty : t -> bool
+
   val contains : callee:string -> t -> bool
 
   val get_callers : callee:string -> t -> String.Set.t
@@ -1738,6 +1742,8 @@ end = struct
   let create () = String.Tbl.create 2
 
   let reset t = String.Tbl.reset t
+
+  let is_empty t = String.Tbl.length t = 0
 
   let contains ~callee t = String.Tbl.mem t callee
 
@@ -2124,7 +2130,7 @@ end = struct
 
     val add : Func_info.t -> Value.t -> t -> t
 
-    val get_value : string -> t -> Value.t
+    val get_value_exn : string -> t -> Value.t
 
     val iter : t -> f:(Func_info.t -> Value.t -> unit) -> unit
 
@@ -2132,9 +2138,9 @@ end = struct
 
     val print : msg:string -> Format.formatter -> t -> unit
 
+    (** initialize [env] with Bot for all functions on normal and exceptional
+       return, and Safe for diverage component conservatively. *)
     val init_val : Value.t
-
-    val lookup : t -> Var.t -> V.t
   end = struct
     type data =
       { func_info : Func_info.t;
@@ -2151,7 +2157,7 @@ end = struct
 
     let singleton (func_info : Func_info.t) approx = add func_info approx empty
 
-    let get_value name t =
+    let get_value_exn name t =
       let d = String.Map.find name t in
       d.approx
 
@@ -2168,26 +2174,24 @@ end = struct
               (Value.print ~witnesses:true)
               approx)
 
-    (* initialize [env] with Bot for all functions on normal and exceptional
-       return, and Safe for diverage component conservatively. *)
     let init_val = Value.diverges
-
-    let lookup env var =
-      let v = get_value (Var.name var) env in
-      Value.get_component v (Var.tag var)
   end
 
   (* CR gyorsh: do we need join in the fixpoint computation or is the function
      body analysis/summary already monotone? *)
   let fixpoint ppf init_env =
     (* CR gyorsh: this is a really dumb iteration strategy. *)
+    let lookup env var =
+      let v = Env.get_value_exn (Var.name var) env in
+      Some (Value.get_component v (Var.tag var))
+    in
     let rec loop env =
       Env.print ~msg:"computing fixpoint" ppf env;
       let changed = ref false in
       let env' =
         Env.map
           ~f:(fun func_info v ->
-            let v' = Value.apply func_info.value (Env.lookup env) in
+            let v' = Value.apply func_info.value (lookup env) in
             if !Flambda_backend_flags.dump_checkmach
             then
               Format.fprintf ppf "fixpoint after apply: %s %a@." func_info.name
@@ -2213,7 +2217,7 @@ end = struct
         Func_info.update func_info v);
     Env.print ~msg:"after fixpoint" ppf env
 
-  let record_unit unit_info ppf =
+  let record_unit unit_info unresolved_deps ppf =
     Profile.record_call ~accumulate:true ("record_unit " ^ analysis_name)
       (fun () ->
         report_unit_info ppf unit_info ~msg:"before fixpoint";
@@ -2232,7 +2236,8 @@ end = struct
         if !found_unresolved
         then (
           fixpoint ppf init_env;
-          report_unit_info ppf unit_info ~msg:"after fixpoint");
+          report_unit_info ppf unit_info ~msg:"after fixpoint")
+        else assert (Unresolved_dependencies.is_empty unresolved_deps);
         check_and_save_unit_info ppf unit_info)
 
   (* [fixpoint_self_rec] try to resolves the common case of self-recursive
@@ -2254,23 +2259,20 @@ end = struct
 
   (* [propagate] applies resolved values to transitive dependencies, but does
      not resolve mutually recursive loops. *)
-  let rec propagate (callee_info : Func_info.t) unit_info unresolved_deps ppf =
+  let rec propagate ~callee unit_info unresolved_deps ppf =
+    let callee_info = Unit_info.find_exn unit_info callee in
     if Value.is_resolved callee_info.value
-       && Unresolved_dependencies.contains ~callee:callee_info.name
-            unresolved_deps
+       && Unresolved_dependencies.contains ~callee unresolved_deps
     then (
       let callers =
-        Unresolved_dependencies.get_callers ~callee:callee_info.name
-          unresolved_deps
+        Unresolved_dependencies.get_callers ~callee unresolved_deps
       in
       assert (not (String.Set.is_empty callers));
-      Unresolved_dependencies.remove ~callee:callee_info.name unresolved_deps;
-      let lookup var w =
-        if String.equal (Var.name var) callee_info.name
-        then
-          Value.get_component callee_info.value (Var.tag var)
-          |> V.replace_witnesses w
-        else V.unresolved w var
+      Unresolved_dependencies.remove ~callee unresolved_deps;
+      let lookup var =
+        if String.equal (Var.name var) callee
+        then Some (Value.get_component callee_info.value (Var.tag var))
+        else None
       in
       (* To avoid problems due to cyclic dependencies and sharing, first resolve
          everything that directly depends on [callee_info] and update
@@ -2280,21 +2282,22 @@ end = struct
           let caller_info = Unit_info.find_exn unit_info caller in
           let new_value = Value.apply caller_info.value lookup in
           Func_info.update caller_info new_value;
-          let unresolved_callees = fixpoint_self_rec func_info ppf in
-          Unresolved_dependencies.update ~caller:fun_info.name
-            unresolved_callees unresolved_deps)
+          let unresolved_callees = fixpoint_self_rec caller_info ppf in
+          Unresolved_dependencies.update ~caller:caller_info.name
+            ~callees:unresolved_callees unresolved_deps)
         callers;
       String.Set.iter
-        (fun caller -> propagate caller_info unit_info unresolved_deps ppf)
+        (fun caller -> propagate ~callee:caller unit_info unresolved_deps ppf)
         callers)
 
-  let add_unresolved_dependencies func_info unit_info unresolved_deps ppf =
-    let unresolved_callees = fixpoint_self_rec func_info ppf in
+  let add_unresolved_dependencies caller unit_info unresolved_deps ppf =
+    let caller_info = Unit_info.find_exn unit_info caller in
+    let unresolved_callees = fixpoint_self_rec caller_info ppf in
     if not (String.Set.is_empty unresolved_callees)
     then
-      Unresolved_dependencies.add ~caller:fun_info.name unresolved_callees
+      Unresolved_dependencies.add ~caller ~callees:unresolved_callees
         unresolved_deps;
-    propagate func_info unit_info unresolved_deps t.ppf
+    propagate ~callee:caller unit_info unresolved_deps ppf
 
   let fundecl (f : Mach.fundecl) ~future_funcnames unit_info unresolved_deps ppf
       =
