@@ -799,7 +799,7 @@ end = struct
           args
       | At_most n ->
         (* Normal form after cutoff: args contains at least one element even
-           after cutoff becuase [n] is guaranteed to be gpositive. *)
+           after cutoff because [n] is guaranteed to be positive. *)
         let len = Witnesses.size w in
         if len > n
         then
