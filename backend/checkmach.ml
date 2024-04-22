@@ -520,6 +520,8 @@ end = struct
     val exists : (Transform.t -> bool) -> t -> bool
 
     val get_unresolved_names : t -> String.Set.t
+
+    exception Too_big
   end = struct
     (* Join of two Transform with the same set of vars are merged into one in
        normal form, without loss of precision or witnesses, even if one has
@@ -531,6 +533,10 @@ end = struct
 
     type t = Transform.t M.t
 
+    let max_size = 20
+
+    exception Too_big
+
     let empty = M.empty
 
     let get_key tr = tr |> Transform.get_vars |> Vars.get_vars
@@ -540,7 +546,9 @@ end = struct
       t |> M.to_seq |> Seq.map fst |> Seq.map Var.Set.to_seq |> Seq.concat
       |> Seq.map Var.name |> String.Set.of_seq
 
-    let add tr t = M.add (get_key tr) tr t
+    let add tr t =
+      let res = M.add (get_key tr) tr t in
+      if M.cardinal res > max_size then raise Too_big else res
 
     let compare = M.compare Transform.compare
 
@@ -551,7 +559,10 @@ end = struct
     let exists f t = M.exists (fun _key tr -> f tr) t
 
     let join t1 t2 =
-      M.union (fun _var tr1 tr2 -> Some (Transform.flatten tr1 tr2)) t1 t2
+      let res =
+        M.union (fun _var tr1 tr2 -> Some (Transform.flatten tr1 tr2)) t1 t2
+      in
+      if M.cardinal res > max_size then raise Too_big else res
 
     let map f t = M.fold (fun _key tr acc -> add (f tr) acc) t M.empty
 
@@ -725,15 +736,16 @@ end = struct
 
     val add_tr : t -> Transform.t -> t
 
-    val flatten : t -> t -> t
+    val flatten : t -> t -> unit -> t
 
-    val distribute_transform_over_join : t -> Transform.t -> t
+    val distribute_transform_over_join : t -> Transform.t -> unit -> t
 
-    val distribute_transform_var_over_join : t -> Var.t -> Witnesses.t -> t
+    val distribute_transform_var_over_join :
+      t -> Var.t -> Witnesses.t -> unit -> t
 
-    val distribute_transform_top_over_join : t -> Witnesses.t -> t
+    val distribute_transform_top_over_join : t -> Witnesses.t -> unit -> t
 
-    val distribute_transform_over_joins : t -> t -> t
+    val distribute_transform_over_joins : t -> t -> unit -> t
 
     val get_top : t -> Witnesses.t option
 
@@ -845,7 +857,7 @@ end = struct
       | Args_with_top { w; args } ->
         args_with_top w (Args.add_var args var witnesses)
 
-    let flatten t1 t2 =
+    let flatten t1 t2 () =
       match t1, t2 with
       | Args a1, Args a2 -> Args (Args.join a1 a2)
       | Args_with_safe a1, Args_with_safe a2 -> Args_with_safe (Args.join a1 a2)
@@ -858,7 +870,7 @@ end = struct
       | Args args1, Args_with_safe args2 | Args_with_safe args1, Args args2 ->
         Args_with_safe (Args.join args1 args2)
 
-    let distribute_transform_over_join t tr =
+    let distribute_transform_over_join t tr () =
       match t with
       | Args_with_safe args ->
         let args = Args.(add_tr (transform args tr) tr) in
@@ -869,7 +881,7 @@ end = struct
         Args args
       | Args args -> Args (Args.transform args tr)
 
-    let distribute_transform_var_over_join t var witnesses =
+    let distribute_transform_var_over_join t var witnesses () =
       match t with
       | Args_with_safe args ->
         let args =
@@ -882,7 +894,7 @@ end = struct
         Args args
       | Args args -> Args (Args.transform_var args var witnesses)
 
-    let distribute_transform_top_over_join t w =
+    let distribute_transform_top_over_join t w () =
       match t with
       | Args_with_safe args ->
         let args = Args.transform_top args w in
@@ -892,7 +904,7 @@ end = struct
         args_with_top (Witnesses.join w' w) args
       | Args args -> Args (Args.transform_top args w)
 
-    let distribute_transform_over_joins t1 t2 =
+    let distribute_transform_over_joins t1 t2 () =
       match t1, t2 with
       | Args a1, Args a2 -> Args (Args.transform_join a1 a2)
       | Args_with_safe a1, Args_with_safe a2 ->
@@ -1079,6 +1091,9 @@ end = struct
      Someday it can be optimized using hash consing and bdd-like
      representation. *)
 
+  let bounded_join f =
+    try Join (f ()) with Transforms.Too_big -> Top Witnesses.empty
+
   (* Keep [join] and [lessequal] in sync. *)
   let join t1 t2 =
     match t1, t2 with
@@ -1129,7 +1144,7 @@ end = struct
     | Var { var; witnesses }, Join j | Join j, Var { var; witnesses } ->
       Join (Join.add_var j var witnesses)
     | Join j, Transform tr | Transform tr, Join j -> Join (Join.add_tr j tr)
-    | Join j1, Join j2 -> Join (Join.flatten j1 j2)
+    | Join j1, Join j2 -> bounded_join (Join.flatten j1 j2)
 
   (* CR gyorsh: Handling of constant cases here is an optimization, instead of
      going directly to [join]. *)
@@ -1182,16 +1197,15 @@ end = struct
       else Transform (Transform.vars ~var1 ~w1 ~var2 ~w2)
     | Transform tr1, Transform tr2 -> Transform (Transform.flatten tr1 tr2)
     | Transform tr, Join j | Join j, Transform tr ->
-      Join (Join.distribute_transform_over_join j tr)
+      bounded_join (Join.distribute_transform_over_join j tr)
     | (Top w as top), Join j | Join j, (Top w as top) ->
       if Join.has_safe j && not (Join.has_witnesses j)
       then top
-      else
-        let j = Join.distribute_transform_top_over_join j w in
-        Join j
+      else bounded_join (Join.distribute_transform_top_over_join j w)
     | Var { var; witnesses }, Join j | Join j, Var { var; witnesses } ->
-      Join (Join.distribute_transform_var_over_join j var witnesses)
-    | Join j1, Join j2 -> Join (Join.distribute_transform_over_joins j1 j2)
+      bounded_join (Join.distribute_transform_var_over_join j var witnesses)
+    | Join j1, Join j2 ->
+      bounded_join (Join.distribute_transform_over_joins j1 j2)
 
   let replace_witnesses w t =
     match t with
