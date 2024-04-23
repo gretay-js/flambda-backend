@@ -505,8 +505,6 @@ end = struct
 
     val empty : t
 
-    val size : t -> int
-
     val add : Transform.t -> t -> t
 
     val compare : t -> t -> int
@@ -523,7 +521,7 @@ end = struct
 
     val get_unresolved_names : t -> String.Set.t
 
-    exception Too_big of t
+    exception Widen
   end = struct
     (* Join of two Transform with the same set of vars are merged into one in
        normal form, without loss of precision or witnesses, even if one has
@@ -535,13 +533,21 @@ end = struct
 
     type t = Transform.t M.t
 
-    let max_size = 1000
+    exception Widen
 
-    exception Too_big of t
+    let maybe_widen t =
+      match !Flambda_backend_flags.checkmach_join with
+      | Keep_all -> t
+      | Widen n -> if M.cardinal t > n then raise Widen else t
+      | Error n ->
+        if M.cardinal t > n
+        then
+          Misc.fatal_errorf
+            "Join with %d paths is too big, use -disable-precise-checkmach"
+            (M.cardinal t)
+        else t
 
     let empty = M.empty
-
-    let size t = M.cardinal t
 
     let get_key tr = tr |> Transform.get_vars |> Vars.get_vars
 
@@ -552,7 +558,7 @@ end = struct
 
     let add tr t =
       let res = M.add (get_key tr) tr t in
-      if M.cardinal res > max_size then raise (Too_big res) else res
+      maybe_widen res
 
     let compare = M.compare Transform.compare
 
@@ -566,7 +572,7 @@ end = struct
       let res =
         M.union (fun _var tr1 tr2 -> Some (Transform.flatten tr1 tr2)) t1 t2
       in
-      if M.cardinal res > max_size then raise (Too_big res) else res
+      maybe_widen res
 
     let map f t = M.fold (fun _key tr acc -> add (f tr) acc) t M.empty
 
@@ -1095,20 +1101,8 @@ end = struct
      Someday it can be optimized using hash consing and bdd-like
      representation. *)
 
-  let widen_big_join = false
-
   let bounded_join f =
-    try Join (f ())
-    with Transforms.Too_big trs ->
-      if widen_big_join
-      then Top Witnesses.empty
-      else (
-        Transforms.iter
-          (Format.printf "%a@." (Transform.print ~witnesses:true))
-          trs;
-        Misc.fatal_errorf
-          "Join with %d Transform is too big, use -disable-precise-checkmach"
-          (Transforms.size trs))
+    try Join (f ()) with Transforms.Widen -> Top Witnesses.empty
 
   (* Keep [join] and [lessequal] in sync. *)
   let join t1 t2 =
