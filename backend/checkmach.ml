@@ -253,6 +253,8 @@ module V : sig
 
   val apply : t -> env:(Var.t -> t) -> t
 
+  val get_unresolved_names : t -> String.Set.t
+
   val bot : t
 
   val safe : t
@@ -297,6 +299,8 @@ end = struct
 
     val get_vars : t -> Var.Set.t
 
+    val get_unresolved_name : t -> String.Set.t
+
     val join : t -> t -> t
 
     val update : t -> Var.t -> Witnesses.t -> t
@@ -329,6 +333,10 @@ end = struct
     let same_vars = Var.Map.equal (fun _ _ -> (* ignore witnesses *) true)
 
     let get_vars t = t |> Var.Map.to_seq |> Seq.map fst |> Var.Set.of_seq
+
+    let get_unresolved_name t =
+      t |> Var.Map.to_seq |> Seq.map fst |> Seq.map Var.name
+      |> String.Set.of_seq
 
     let has_witnesses vars =
       Var.Map.exists (fun _ w -> not (Witnesses.is_empty w)) vars
@@ -768,6 +776,8 @@ end = struct
     val replace_witnesses : t -> Witnesses.t -> t
 
     val compare : t -> t -> int
+
+    val get_unresolved_names : t -> String.Set.t
   end = struct
     type t =
       | Args_with_safe of Args.t
@@ -993,6 +1003,14 @@ end = struct
         let c = Witnesses.compare w1 w2 in
         if c <> 0 then c else Args.compare a1 a2
 
+    let get_unresolved_names t =
+      match t with
+      | Args_with_safe args | Args_with_top { w = _; args } | Args args ->
+        let vars, trs = Args.get args in
+        String.Set.union
+          (Vars.get_unresolved_name vars)
+          (Transforms.get_unresolved_names trs)
+
     let print ~witnesses ppf t =
       match t with
       | Args_with_safe args ->
@@ -1028,6 +1046,13 @@ end = struct
     match t with
     | Top _ | Safe | Bot -> true
     | Var _ | Join _ | Transform _ -> false
+
+  let get_unresolved_names t =
+    match t with
+    | Bot | Safe | Top _ -> String.Set.empty
+    | Var { var; _ } -> String.Set.singleton (Var.name var)
+    | Transform tr -> Transform.get_vars tr |> Vars.get_unresolved_name
+    | Join j -> Join.get_unresolved_names j
 
   let print ~witnesses ppf t =
     match t with
@@ -1268,6 +1293,8 @@ module Value : sig
 
   val replace_witnesses : Witnesses.t -> t -> t
 
+  val get_unresolved_names : t -> String.Set.t
+
   val get_witnesses : t -> Witnesses.components
 
   val diff_witnesses : expected:t -> actual:t -> Witnesses.components
@@ -1290,6 +1317,12 @@ end = struct
 
   let is_resolved t =
     V.is_resolved t.nor && V.is_resolved t.exn && V.is_resolved t.div
+
+  let get_unresolved_names t =
+    String.Set.(
+      union
+        (V.get_unresolved_names t.nor)
+        (union (V.get_unresolved_names t.exn) (V.get_unresolved_names t.div)))
 
   let get_component t (tag : Tag.t) =
     match tag with N -> t.nor | E -> t.exn | D -> t.div
