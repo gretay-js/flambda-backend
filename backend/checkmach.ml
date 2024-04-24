@@ -1844,15 +1844,6 @@ end = struct
       body
     |> fst
 
-  let analyze_body t body =
-    (* CR gyorsh: Optimize the common case of self-recursive functions. Refactor
-       fixpoint so it can be reused instead of having a separate loop. *)
-    let fixpoint () =
-      let new_value = check_instr t body in
-      new_value
-    in
-    fixpoint ()
-
   module Env : sig
     type t
 
@@ -1970,7 +1961,7 @@ end = struct
       in
       let t = create ppf fun_name future_funcnames unit_info a in
       let really_check () =
-        let res = analyze_body t f.fun_body in
+        let res = check_instr t f.fun_body in
         report t res ~msg:"finished" ~desc:"fundecl" f.fun_dbg;
         if (not t.keep_witnesses) && Value.is_resolved res
         then (
