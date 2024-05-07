@@ -1385,6 +1385,9 @@ module Annotation : sig
   val find :
     Cmm.codegen_option list -> Cmm.property -> string -> Debuginfo.t -> t option
 
+  val of_cfg :
+    Cfg.codegen_option list -> Cmm.property -> string -> Debuginfo.t -> t option
+
   val expected_value : t -> Value.t
 
   (** [valid t value] returns true if and only if the [value] satisfies the annotation,
@@ -1458,6 +1461,26 @@ end = struct
           | Check _ | Assume _ | Reduce_code_size | No_CSE
           | Use_linscan_regalloc ->
             None)
+        codegen_options
+    in
+    match a with
+    | [] -> None
+    | [p] -> Some p
+    | _ :: _ ->
+      Misc.fatal_errorf "Unexpected duplicate annotation %a for %s"
+        Debuginfo.print_compact dbg fun_name ()
+
+  let of_cfg codegen_options spec fun_name dbg =
+    let a =
+      List.filter_map
+        (fun (c : Cfg.codegen_option) ->
+          match c with
+          | Check { property; strict; loc } when property = spec ->
+            Some { strict; assume = false; never_returns_normally = false; loc }
+          | Assume { property; strict; never_returns_normally; loc }
+            when property = spec ->
+            Some { strict; assume = true; never_returns_normally; loc }
+          | Check _ | Assume _ | Reduce_code_size | No_CSE -> None)
         codegen_options
     in
     match a with
@@ -1851,6 +1874,14 @@ module Analysis (S : Spec) : sig
   (** Check one function. *)
   val fundecl :
     Mach.fundecl ->
+    future_funcnames:String.Set.t ->
+    Unit_info.t ->
+    Unresolved_dependencies.t ->
+    Format.formatter ->
+    unit
+
+  val cfg :
+    Cfg.t ->
     future_funcnames:String.Set.t ->
     Unit_info.t ->
     Unresolved_dependencies.t ->
@@ -2353,24 +2384,20 @@ end = struct
         unresolved_deps;
     propagate ~callee:caller unit_info unresolved_deps ppf
 
-  let fundecl (f : Mach.fundecl) ~future_funcnames unit_info unresolved_deps ppf
-      =
+  let check_fun fun_name fun_dbg a check_body ~future_funcnames unit_info
+      unresolved_deps ppf =
     let check () =
-      let fun_name = f.fun_name in
-      let a =
-        Annotation.find f.fun_codegen_options S.property fun_name f.fun_dbg
-      in
       let t = create ppf fun_name future_funcnames unit_info a in
       let really_check () =
-        let res = check_instr t f.fun_body in
-        report t res ~msg:"finished" ~desc:"fundecl" f.fun_dbg;
+        let res = check_body t in
+        report t res ~msg:"finished" ~desc:"fundecl" fun_dbg;
         if (not t.keep_witnesses) && Value.is_resolved res
         then (
           let { Witnesses.nor; exn; div } = Value.get_witnesses res in
           assert (Witnesses.is_empty nor);
           assert (Witnesses.is_empty exn);
           assert (Witnesses.is_empty div));
-        Unit_info.record unit_info fun_name res f.fun_dbg a;
+        Unit_info.record unit_info fun_name res fun_dbg a;
         add_unresolved_dependencies fun_name unit_info unresolved_deps t.ppf;
         report_unit_info ppf unit_info ~msg:"after record"
       in
@@ -2381,22 +2408,57 @@ end = struct
              the summary is top. *)
           Unit_info.record unit_info fun_name
             (Value.top Witnesses.empty)
-            f.fun_dbg a
+            fun_dbg a
         else really_check ()
       in
       match a with
       | Some a when Annotation.is_assume a ->
         let expected_value = Annotation.expected_value a in
-        report t expected_value ~msg:"assumed" ~desc:"fundecl" f.fun_dbg;
-        Unit_info.record unit_info fun_name expected_value f.fun_dbg None
+        report t expected_value ~msg:"assumed" ~desc:"fundecl" fun_dbg;
+        Unit_info.record unit_info fun_name expected_value fun_dbg None
       | None -> really_check ()
       | Some a ->
         let expected_value = Annotation.expected_value a in
-        report t expected_value ~msg:"assert" ~desc:"fundecl" f.fun_dbg;
+        report t expected_value ~msg:"assert" ~desc:"fundecl" fun_dbg;
         (* Only keep witnesses for functions that need checking. *)
         really_check ()
     in
     Profile.record_call ~accumulate:true ("check " ^ analysis_name) check
+
+  let fundecl (fd : Mach.fundecl) ~future_funcnames unit_info unresolved_deps
+      ppf =
+    let a =
+      Annotation.find fd.fun_codegen_options S.property fd.fun_name fd.fun_dbg
+    in
+    let check_body t = check_instr t fd.fun_body in
+    check_fun fd.fun_name fd.fun_dbg a check_body ~future_funcnames unit_info
+      unresolved_deps ppf
+
+
+
+  let cfg (fd : Cfg.t) ~future_funcnames unit_info unresolved_deps ppf =
+    let a =
+      Annotation.of_cfg fd.fun_codegen_options S.property fd.fun_name fd.fun_dbg
+    in
+    let check_body t =
+      let init label =
+      if Label.equal label fd.fun_entry then
+        ~init:Value.bot ~exn:Value.exn_escape
+      in
+      match
+        Check_cfg.run fd ~init:Value.bot ~map:Check_cfg.Block ()
+      with
+      | Ok map ->
+        Label.Tbl.find fd.fun_entry map
+      | Aborted _ ->
+        Misc.fatal_errorf "Aborted zero_alloc analysis on CFG of function %s@."
+          fd.fun_name
+      | Max_iterations_reached ->
+        Misc.fatal_errorf "Cannot compute fixpoint on CFG of function %s@."
+          fd.fun_name
+    in
+    check_fun fd.fun_name fd.fun_dbg a check_body ~future_funcnames unit_info
+      unresolved_deps ppf
 end
 
 (** Check that functions do not allocate on the heap (local allocations are ignored) *)
@@ -2476,6 +2538,11 @@ let fundecl ppf_dump ~future_funcnames fd =
   Check_zero_alloc.fundecl fd ~future_funcnames unit_info unresolved_deps
     ppf_dump;
   fd
+
+let cfg ppf_dump ~future_funcnames cl =
+  let cfg = Cfg_with_layout.cfg cl in
+  Check_zero_alloc.cfg cfg ~future_funcnames unit_info unresolved_deps ppf_dump;
+  cl
 
 let reset_unit_info () =
   Unit_info.reset unit_info;
