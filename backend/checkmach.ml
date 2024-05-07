@@ -2435,6 +2435,77 @@ end = struct
       unresolved_deps ppf
 
 
+  module Transfer = struct
+    type domain = Value.t
+
+    type image =
+      { normal : domain;
+        exceptional : domain
+      }
+
+    let basic _value _ = Misc.fatal_error "unimplemented"
+
+    let terminator _value = Misc.fatal_error "unimplemented"
+      (* { normal = value; exceptional = value } *)
+  end
+
+  module Check_cfg = Cfg_dataflow.Forward (Value) (Transfer)
+(*
+  match Check_cfg.run cfg ~init:Value.safe with
+  | Result.Error _ ->
+    Misc.fatal_error
+      "Zero_alloc on cfg didn't reach fixpoint"
+  | Result.Ok map ->
+    let unreachable_labels =
+      Label.Tbl.fold
+        (fun label value acc ->
+          match value with
+          | Domain.Reachable -> acc
+          | Domain.Unreachable -> Label.Set.add label acc)
+        map Label.Set.empty
+    in
+
+  module Check_cfg = Cfg_dataflow.Backward (Value) (Transfer)
+
+  let check_instr t body =
+    let transfer (i : Mach.instruction) ~next ~exn =
+      match i.desc with
+      | Ireturn _ -> Value.normal_return
+      | Iop op -> transform_operation t op ~next ~exn i.dbg
+      | Iraise Raise_notrace ->
+        (* [raise_notrace] is typically used for control flow, not for
+           indicating an error. Therefore, we do not ignore any allocation on
+           paths to it. The following conservatively assumes that normal and exn
+           Returns are reachable. *)
+        Value.join exn Value.safe
+      | Iraise (Raise_reraise | Raise_regular) -> exn
+      | Iend -> next
+      | Iexit _ ->
+        report t next ~msg:"transform" ~desc:"iexit" i.dbg;
+        next
+      | Iifthenelse _ | Iswitch _ -> next
+      | Icatch (_rc, _ts, _, _body) ->
+        report t next ~msg:"transform" ~desc:"catch" i.dbg;
+        next
+      | Itrywith (_body, _, (_trap_stack, _handler)) ->
+        report t next ~msg:"transform" ~desc:"try-with" i.dbg;
+        next
+    in
+    (* By default, backward analysis does not check the property on paths that
+       diverge (non-terminating loops that do not reach normal or exceptional
+       return). All loops must go through an (Iexit label) instruction or a
+       recursive function call. If (Iexit label) is not backward reachable from
+       the function's Normal or Exceptional Return, either the loop diverges or
+       the Iexit instruction is not reachable from function entry.
+
+       To check divergent loops, the initial value of "div" component of all
+       Iexit labels of recurisve Icatch handlers is set to "Safe" instead of
+       "Bot". *)
+    D.analyze ~exnescape:Value.exn_escape ~init_rc_lbl:Value.diverges ~transfer
+      body
+    |> fst
+*)
+
 
   let cfg (fd : Cfg.t) ~future_funcnames unit_info unresolved_deps ppf =
     let a =
