@@ -2710,11 +2710,12 @@ let record_unit_info ppf_dump =
   Compilenv.cache_zero_alloc_info
     (Compilenv.current_unit_infos ()).ui_zero_alloc_info
 
-type iter_witnesses = (string -> Witnesses.components -> unit) -> unit
+type iter_witnesses =
+  (string -> Debuginfo.t -> Witnesses.components -> unit) -> unit
 
 let iter_witnesses f =
   Unit_info.iter unit_info ~f:(fun func_info ->
-      f func_info.name
+      f func_info.name func_info.dbg func_info.value
         (Value.get_witnesses func_info.value |> Witnesses.simplify))
 
 let () = Location.register_error_of_exn Report.print

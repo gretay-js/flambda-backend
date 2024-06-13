@@ -91,6 +91,8 @@ module Witnesses : sig
     }
 end
 
+module T : Zero_alloc_utils.Make_value (Witnesses) (V)
+
 (**   Iterate over all function symbols with their witnesses. This function can be called
       at any time, but the complete information is only available after a call to
       [record_unit_info].  To get all witnesses for all functions, and not only for
@@ -98,7 +100,9 @@ end
       [Flambda_backend_flags.zero_alloc_checker_details_cutoff]
       to a negative value before calls to
       [fundecl].  Used by compiler_hooks. *)
-type iter_witnesses = (string -> Witnesses.components -> unit) -> unit
+type iter_witnesses =
+  (string -> Debuginfo.t -> summary:string -> Witnesses.components -> unit) ->
+  unit
 
 val iter_witnesses : iter_witnesses
 
