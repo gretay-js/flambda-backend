@@ -193,7 +193,62 @@ let fold_intop_imm (cell : Cfg.basic Cfg.instruction DLL.cell) =
     else None
   | _ -> None
 
+(** Simplify the following pattern:
+
+    m <- land c 127
+    r <- shift r %rcx
+
+    into
+
+    m <- shift n c
+
+    where shift is one of lsl, lsr, asr
+*)
+let shift_wrap cell =
+match U.get_cells cell 2 with
+  | [fst; snd] ->
+    let fst_val = DLL.value fst in
+    let snd_val = DLL.value snd in
+    (* On amd64 and arm64 targets, shift instructions mask the shift count,
+       so there is no need to do an explicit shift. Detect it for int64
+       only. To detect for int32 we need to know the intended size. *)
+    (* CR-someday gtulba-lecu: This condition is architecture specific and
+       should either live in amd64 specific code or this module should contain
+       information about the architecture target. *)
+    match fst_val.desc with
+    | Op (Intop_imm (Iand, 127)) ->
+      (
+      match snd_val.desc with
+        | Op (Intop (Ilsl|Ilsr|Iasr)) ->
+
+          if Array.length fst_val.arg = 1
+          && Array.length snd_val.arg = 2
+          && Array.length fst_val.res = 1
+          then
+            let c = Array.unsafe_get fst_val.arg 0 in
+            let m = Array.unsafe_get fst_val.res 0 in
+            let m' = Array.unsafe_get snd_val.arg 1 in
+            let new_cell =
+              DLL.insert_and_return_before fst
+                { fst_val with desc = Cfg.Op (Intop_imm (op, imm)) }
+            in
+            DLL.delete_curr fst;
+            DLL.delete_curr snd;
+            Some ((U.prev_at_most U.go_back_const) new_cell)
+          else
+            None
+      | _ -> None)
+    | _ -> None
+  | _ -> None
+
 let apply cell =
   match remove_useless_mov cell with
-  | None -> ( match fold_intop_imm cell with None -> None | res -> res)
+  | None ->
+    ( match fold_intop_imm cell with
+      | None ->
+        (match shift_wrap cell with
+         | None -> None
+         | res -> res)
+      | res -> res
+    )
   | res -> res
