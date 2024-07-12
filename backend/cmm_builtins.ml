@@ -96,6 +96,54 @@ let popcnt bi arg dbg =
   if_operation_supported_bi bi Cpopcnt ~f:(fun () ->
       Cop (Cpopcnt, [make_unsigned_int bi arg dbg], dbg))
 
+let mk_shift_left (bi:Lambda.boxed_integer) (arg, shift) dbg =
+  if size_int = 8 then
+    let res =
+      match bi with
+      | Primitive.Pint32 ->
+        (* [shift] is unsigned. *)
+        let shift = zero_extend_32 dbg shift in
+        (sign_extend_32 dbg (lsl_int (low_32 dbg arg) ( shift) dbg))
+      | Pint64 | Pnativeint ->
+        lsl_int arg shift dbg
+    in
+    Some res
+  else
+    None
+
+let mk_shift_right_logical (bi:Lambda.boxed_integer) (arg, shift) dbg =
+  if size_int = 8 then
+    let res =
+      match bi with
+      | Primitive.Pint32 ->
+        (* [shift] is unsigned. *)
+        let shift = zero_extend_32 dbg shift in
+        (* Ensure that the top half of the register is cleared, as some of those
+           bits are likely to get shifted into the result. *)
+        let arg = zero_extend_32 dbg arg in
+        sign_extend_32 dbg (lsr_int arg shift dbg)
+      | Pint64 | Pnativeint ->
+        lsr_int arg shift dbg
+    in
+    Some res
+  else
+    None
+
+let mk_shift_right (bi:Lambda.boxed_integer) (arg, shift) dbg =
+  if size_int = 8 then
+    let res =
+      match bi with
+      | Primitive.Pint32 ->
+        (* [shift] is unsigned. *)
+        let shift = zero_extend_32 dbg shift in
+        sign_extend_32 dbg (asr_int arg shift dbg)
+      | Pint64 | Pnativeint ->
+        asr_int arg shift dbg
+    in
+    Some res
+  else
+    None
+
 let mulhi bi ~signed args dbg =
   let op = Cmulhi { signed } in
   if_operation_supported_bi bi op ~f:(fun () -> Cop (op, args, dbg))
@@ -527,6 +575,25 @@ let transl_builtin name args dbg typ_res =
         | Cconst_int (0, _) -> ifnot
         | Cconst_int (1, _) -> ifso
         | _ -> Cop (op, [cond; ifso; ifnot], dbg))
+  (* shifts with wrap *)
+  | "caml_int64_shift_left_wrap_unboxed" ->
+    mk_shift_left Pint64 (two_args name args) dbg
+  | "caml_int64_shift_right_wrap_unboxed" ->
+    mk_shift_right Pint64 (two_args name args) dbg
+  | "caml_int64_shift_right_logical_wrap_unboxed" ->
+    mk_shift_right_logical Pint64 (two_args name args) dbg
+  | "caml_int32_shift_left_wrap_unboxed" ->
+    mk_shift_left Pint32 (two_args name args) dbg
+  | "caml_int32_shift_right_wrap_unboxed" ->
+    mk_shift_right Pint32 (two_args name args) dbg
+  | "caml_int32_shift_right_logical_wrap_unboxed" ->
+    mk_shift_right_logical Pint32 (two_args name args) dbg
+  | "caml_nativeint_shift_left_wrap_unboxed" ->
+    mk_shift_left Pnativeint (two_args name args) dbg
+  | "caml_nativeint_shift_right_wrap_unboxed" ->
+    mk_shift_right Pnativeint (two_args name args) dbg
+  | "caml_nativeint_shift_right_logical_wrap_unboxed" ->
+    mk_shift_right_logical Pnativeint (two_args name args) dbg
   (* Native_pointer: handled as unboxed nativeint *)
   | "caml_ext_pointer_as_native_pointer" ->
     Some (int_as_pointer (one_arg name args) dbg)
