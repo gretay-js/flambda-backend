@@ -2294,7 +2294,7 @@ let emit_probe_notes0 () =
       Misc.fatal_error "emit_probe_notes: unexpected system"
   in
   (match is_macosx_system with
-   | false -> D.section [".note.stapsdt"] (Some "?") [ "\"note\"" ]
+   | false -> D.section [".probe-notes"] (Some "a") ["\"progbits\""]
    | true -> D.section ["__DATA";"__note_stapsdt"] None ["regular"]);
   let stap_arg arg =
     let arg_name =
