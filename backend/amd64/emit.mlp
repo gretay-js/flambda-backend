@@ -2254,7 +2254,7 @@ let emit_probe_handler_wrapper p =
 let emit_stapsdt_base_section () =
   if not !stapsdt_base_emitted then begin
     stapsdt_base_emitted := true;
-    D.section [".stapsdt.base"] (Some "aG")
+    D.section [".stapsdt.base"] (Some "aGR")
       ["\"progbits\""; ".stapsdt.base"; "comdat"];
     D.weak "_.stapsdt.base";
     D.hidden "_.stapsdt.base";
