@@ -78,6 +78,22 @@ uintnat caml_percent_free = Percent_free_def;
    so it need not be atomic */
 uintnat caml_major_cycles_completed = 0;
 
+uintnat caml_custom_work_max_multiplier = 10;
+
+/* [num_domains_to_sweep] records the number of domains to sweep in the current
+   major cycle. The number is set to the [num_domains_in_stw] at the start of
+   the cycle and _strictly decreases_ to 0.
+
+   Domains created in a given cycle will not have any sweep work in that cycle.
+   Sweep changes GARBAGE coloured objects in the domain's own pools to FREE
+   (not a distinct colour; object header is set to 0) and adds them to the free
+   list. No object will have the GARBAGE colour in the domain's own pools since
+   the domain starts with an empty pool with no objects and new objects are
+   allocated with colour MARKED. Hence, they do not affect
+   [num_domains_to_sweep].
+
+   Terminating domains terminate after sweeping is complete for their domain.
+   */
 static atomic_uintnat num_domains_to_sweep;
 static atomic_uintnat num_domains_to_mark;
 static atomic_uintnat num_domains_to_ephe_sweep;
@@ -596,7 +612,16 @@ static void update_major_slice_work(intnat howmuch) {
                          ARCH_INTNAT_PRINTF_FORMAT "d\n",
                    extra_work);
 
-  new_work = max3 (alloc_work, dependent_work, extra_work);
+  intnat offheap_work = max2 (dependent_work, extra_work);
+  intnat clamp = alloc_work * caml_custom_work_max_multiplier;
+  if (offheap_work > clamp) {
+    caml_gc_message(0x40, "Work clamped to %"
+                          ARCH_INTNAT_PRINTF_FORMAT "d\n",
+                    clamp);
+    offheap_work = clamp;
+  }
+
+  new_work = max2 (alloc_work, offheap_work);
   atomic_fetch_add (&work_counter, dom_st->major_work_done_between_slices);
   dom_st->major_work_done_between_slices = 0;
   atomic_fetch_add (&alloc_counter, new_work);
