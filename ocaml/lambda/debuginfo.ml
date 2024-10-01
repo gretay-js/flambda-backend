@@ -369,36 +369,38 @@ let print_item ppf item =
     Format.fprintf ppf ",%i--%i" item.dinfo_char_start item.dinfo_char_end
   end
 
-let rec print_compact ppf t =
-  match t with
-  | [] -> ()
-  | [item] -> print_item ppf item
-  | item::t ->
-    print_item ppf item;
-    Format.fprintf ppf ";";
-    print_compact ppf t
-
-let print_compact ppf { dbg; } = print_compact ppf dbg
-
-let rec print_compact_extended ppf t =
+let rec print ?(sep=";") ?(include_dir=false) ?(include_uid=false)
+          ?(include_fs=false) ?(include_scope=false) ppf t =
   let print_item item =
+    (match item.dinfo_dir with
+     | None -> ()
+     | Some dir ->
+       if include_dir then
+         Format.fprintf ppf "%a/" Location.print_filename dir);
     print_item ppf item;
     (match item.dinfo_uid with
     | None -> ()
-    | Some uid -> Format.fprintf ppf "[%s]" uid);
+    | Some uid ->
+      if include_uid then Format.fprintf ppf "[%s]" uid);
+    if include_scope then
+      Format.fprintf ppf "[%s]"
+        (Scoped_location.string_of_scopes item.dinfo_scopes);
     (match item.dinfo_function_symbol with
     | None -> ()
-    | Some function_symbol -> Format.fprintf ppf "[FS=%s]" function_symbol)
+    | Some function_symbol ->
+      if include_fs then Format.fprintf ppf "[FS=%s]" function_symbol)
   in
   match t with
   | [] -> ()
   | [item] -> print_item item
   | item::t ->
     print_item item;
-    Format.fprintf ppf ";";
-    print_compact_extended ppf t
+    Format.fprintf ppf "%s" sep;
+    print ~sep ~include_dir ~include_uid ~include_fs ~include_scope ppf t
 
-let print_compact_extended ppf { dbg; } = print_compact_extended ppf dbg
+let print_compact_extended ppf { dbg; } = print ~include_uid:true ~include_fs:true ppf dbg
+
+let print_compact ppf { dbg; } = print ppf dbg
 
 let merge ~into:{ dbg = dbg1; assume_zero_alloc = a1; }
       { dbg = dbg2; assume_zero_alloc = a2 } =
