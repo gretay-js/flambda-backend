@@ -1595,8 +1595,22 @@ end = struct
     let pp_inlined_dbg ppf dbg =
       (* Show inlined locations, if dbg has more than one item. The first item
          will be shown at the start of the error message. *)
-      if Debuginfo.Dbg.length (Debuginfo.get_dbg dbg) > 1
-      then Format.fprintf ppf " (%a)" Debuginfo.print_compact dbg
+      let items = Debuginfo.to_items dbg in
+      if List.compare_length_with items 1 > 0
+      then
+        (* Print the inlined stack starting from the innermost frame, i.e., the
+           location that directly contains the witness instruction before
+           inlining. *)
+        let items = List.rev items in
+        if !Flambda_backend_flags.zero_alloc_checker_details_extra
+        then
+          Format.fprintf ppf "\ninlined from\n%a"
+            (Debuginfo.print ~sep:"\n" ~include_dir:true ~include_fs:true
+               ~include_uid:false ~include_scope:true)
+            items
+        else
+          let pp ppf items = (Debuginfo.print ~include_dir:true) ppf items in
+          Format.fprintf ppf " (%a)" pp items
     in
     let print_comballoc dbg =
       match dbg with
