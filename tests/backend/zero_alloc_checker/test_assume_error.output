@@ -37,9 +37,9 @@ Error: called function may allocate (indirect call)
 File "test_assume_error.ml", line 56, characters 6-30:
 Error: called function may allocate (direct call camlCamlinternalFormat.make_printf_HIDE_STAMP)
 inlined from
-stdlib/printf.ml:27,2--63[Stdlib.Printf.kfprintf][camlStdlib__Printf__kfprintf_HIDE_STAMP]
-stdlib/printf.ml:34,21--43[Stdlib.Printf.fprintf][camlStdlib__Printf__fprintf_HIDE_STAMP]
-stdlib/printf.ml:38,17--35[Stdlib.Printf.printf][camlStdlib__Printf__printf_HIDE_STAMP]
+stdlib/printf.ml:27,2--63[Stdlib.Printf.kfprintf][camlStdlib.Printf.kfprintf_HIDE_STAMP]
+stdlib/printf.ml:34,21--43[Stdlib.Printf.fprintf][camlStdlib.Printf.fprintf_HIDE_STAMP]
+stdlib/printf.ml:38,17--35[Stdlib.Printf.printf][camlStdlib.Printf.printf_HIDE_STAMP]
 test_assume_error.ml:56,6--30[Test_assume_error.A2.foo]
 
 File "test_assume_error.ml", line 57, characters 6-11:

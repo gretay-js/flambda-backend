@@ -43,8 +43,8 @@ Error: called function may allocate on a path to exceptional return (indirect ca
 File "test_inference.ml", line 65, characters 12-35:
 Error: called function may allocate on a path to exceptional return (direct call camlCamlinternalFormat.make_printf_HIDE_STAMP)
 inlined from
-stdlib/printf.ml:46,2--31[Stdlib.Printf.ksprintf][camlStdlib__Printf__ksprintf_HIDE_STAMP]
-stdlib/printf.ml:48,18--43[Stdlib.Printf.sprintf][camlStdlib__Printf__sprintf_HIDE_STAMP]
+stdlib/printf.ml:46,2--31[Stdlib.Printf.ksprintf][camlStdlib.Printf.ksprintf_HIDE_STAMP]
+stdlib/printf.ml:48,18--43[Stdlib.Printf.sprintf][camlStdlib.Printf.sprintf_HIDE_STAMP]
 test_inference.ml:65,12--35[Test_inference.f_strict_fail]
 
 File "test_inference.ml", line 66, characters 10-15:
