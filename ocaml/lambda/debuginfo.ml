@@ -391,7 +391,7 @@ let rec print ?(sep=";") ?(include_dir=false) ?(include_uid=false)
     (match item.dinfo_function_symbol with
     | None -> ()
     | Some function_symbol ->
-      if include_fs then Format.fprintf ppf "[%s]" function_symbol)
+      if include_fs then Format.fprintf ppf "[FS=%s]" function_symbol)
   in
   match t with
   | [] -> ()
