@@ -246,7 +246,7 @@ module Dbg = struct
        if c <> 0 then c else
        loop ds1 ds2
     in
-    loop ((* List.rev *) dbg1) ((* List.rev *) dbg2)
+    loop (List.rev dbg1) (List.rev dbg2)
 
   let is_none dbg =
     match dbg with
