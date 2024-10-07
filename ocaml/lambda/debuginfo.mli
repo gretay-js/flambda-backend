@@ -123,9 +123,8 @@ val print_compact : Format.formatter -> t -> unit
 (** Like [print_compact] but also prints uid and function symbol info. *)
 val print_compact_extended : Format.formatter -> t -> unit
 
-(** Defaults are the same as [print_compact]. *)
-val print : ?sep:string -> ?fs_prefix:string -> ?include_dir:bool -> ?include_uid:bool
-  -> ?include_fs:bool -> ?include_scope:bool -> Format.formatter -> item list -> unit
+val print : sep:string -> fs_prefix:string -> include_dir:bool -> include_uid:bool
+  -> include_fs:bool -> include_scope:bool -> Format.formatter -> item list -> unit
 
 val merge : into:t -> t -> t
 

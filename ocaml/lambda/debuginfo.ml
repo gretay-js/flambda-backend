@@ -372,8 +372,8 @@ let print_item ppf item =
     Format.fprintf ppf ",%i--%i" item.dinfo_char_start item.dinfo_char_end
   end
 
-let rec print ?(sep=";") ?(fs_prefix="") ?(include_dir=false) ?(include_uid=false)
-          ?(include_fs=false) ?(include_scope=false) ppf t =
+let rec print ~sep ~fs_prefix ~include_dir ~include_uid
+          ~include_fs ~include_scope ppf t =
   let print_item item =
     (match item.dinfo_dir with
      | None -> ()
@@ -401,10 +401,15 @@ let rec print ?(sep=";") ?(fs_prefix="") ?(include_dir=false) ?(include_uid=fals
     Format.fprintf ppf "%s" sep;
     print ~sep ~fs_prefix ~include_dir ~include_uid ~include_fs ~include_scope ppf t
 
-let print_compact_extended ppf { dbg; } =
-  print ~include_uid:true ~include_fs:true ~fs_prefix:"FS=" ppf dbg
+let[@inline always] print_with_defaults ~include_uid ~include_fs ppf dbg =
+  print ~sep:";" ~fs_prefix:"FS=" ~include_uid ~include_fs ~include_dir:false
+    ~include_scope:false ppf dbg
 
-let print_compact ppf { dbg; } = print ppf dbg
+let print_compact_extended ppf { dbg; } =
+  print_with_defaults ~include_uid:true ~include_fs:true ppf dbg
+
+let print_compact ppf { dbg; } =
+  print_with_defaults ~include_uid:false ~include_fs:false ppf dbg
 
 let merge ~into:{ dbg = dbg1; assume_zero_alloc = a1; }
       { dbg = dbg2; assume_zero_alloc = a2 } =
