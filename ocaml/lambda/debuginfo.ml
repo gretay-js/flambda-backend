@@ -372,7 +372,7 @@ let print_item ppf item =
     Format.fprintf ppf ",%i--%i" item.dinfo_char_start item.dinfo_char_end
   end
 
-let rec print ?(sep=";") ?(include_dir=false) ?(include_uid=false)
+let rec print ?(sep=";") ?(fs_prefix="") ?(include_dir=false) ?(include_uid=false)
           ?(include_fs=false) ?(include_scope=false) ppf t =
   let print_item item =
     (match item.dinfo_dir with
@@ -391,7 +391,7 @@ let rec print ?(sep=";") ?(include_dir=false) ?(include_uid=false)
     (match item.dinfo_function_symbol with
     | None -> ()
     | Some function_symbol ->
-      if include_fs then Format.fprintf ppf "[FS=%s]" function_symbol)
+      if include_fs then Format.fprintf ppf "[%s%s]" fs_prefix function_symbol)
   in
   match t with
   | [] -> ()
@@ -399,9 +399,10 @@ let rec print ?(sep=";") ?(include_dir=false) ?(include_uid=false)
   | item::t ->
     print_item item;
     Format.fprintf ppf "%s" sep;
-    print ~sep ~include_dir ~include_uid ~include_fs ~include_scope ppf t
+    print ~sep ~fs_prefix ~include_dir ~include_uid ~include_fs ~include_scope ppf t
 
-let print_compact_extended ppf { dbg; } = print ~include_uid:true ~include_fs:true ppf dbg
+let print_compact_extended ppf { dbg; } =
+  print ~include_uid:true ~include_fs:true ~fs_prefix:"FS=" ppf dbg
 
 let print_compact ppf { dbg; } = print ppf dbg
 

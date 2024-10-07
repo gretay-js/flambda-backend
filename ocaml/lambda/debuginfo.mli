@@ -124,7 +124,7 @@ val print_compact : Format.formatter -> t -> unit
 val print_compact_extended : Format.formatter -> t -> unit
 
 (** Defaults are the same as [print_compact]. *)
-val print : ?sep:string -> ?include_dir:bool -> ?include_uid:bool
+val print : ?sep:string -> ?fs_prefix:string -> ?include_dir:bool -> ?include_uid:bool
   -> ?include_fs:bool -> ?include_scope:bool -> Format.formatter -> item list -> unit
 
 val merge : into:t -> t -> t
