@@ -210,4 +210,6 @@ let () =
   print_test_expected_output ~cutoff:default_cutoff
     ~extra_dep:None ~exit_code:2 "test_remove_inferred_assume";
   print_test "test_remove_inferred_assume_workaround.ml";
+  print_test_expected_output ~cutoff:default_cutoff
+    ~extra_dep:None ~exit_code:2 "test_sort_witnesses";
   ()
