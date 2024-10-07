@@ -1605,12 +1605,14 @@ end = struct
         if !Flambda_backend_flags.zero_alloc_checker_details_extra
         then
           Format.fprintf ppf "\ninlined from\n%a"
-            (Debuginfo.print ~sep:"\n" ~include_dir:true ~include_fs:true
-               ~include_uid:false ~include_scope:true)
+            (Debuginfo.print ~sep:"\n" ~fs_prefix:"" ~include_dir:true
+               ~include_fs:true ~include_uid:false ~include_scope:true)
             items
         else
-          let pp ppf items = (Debuginfo.print ~include_dir:true) ppf items in
-          Format.fprintf ppf " (%a)" pp items
+          Format.fprintf ppf " (%a)"
+            (Debuginfo.print ~sep:";" ~fs_prefix:"" ~include_dir:true
+               ~include_fs:false ~include_uid:false ~include_scope:false)
+            items
     in
     let print_comballoc dbg =
       match dbg with
