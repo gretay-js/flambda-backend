@@ -6,8 +6,6 @@
 
 module DLL = Flambda_backend_utils.Doubly_linked_list
 
-let debug = false
-
 let ( << ) f g x = f (g x)
 
 let all_option_list list =
@@ -31,12 +29,6 @@ module Instruction : sig
     val to_int : t -> int
 
     val of_int : int -> t
-
-    val reset_max_id : unit -> unit
-
-    val update_max_id : t -> unit
-
-    val next_available_id : unit -> t
   end
 
   type t =
@@ -374,7 +366,7 @@ module Dependency_graph : sig
 
   val get_is_dependency_of : t -> Instruction.Id.t -> Instruction.Id.Set.t
 
-  val dump : Format.formatter -> t -> Cfg.basic_block -> unit
+  val dump : Format.formatter -> block:Cfg.basic_block -> t -> unit
 end = struct
   module Node = struct
     module Reg_node = struct
@@ -546,7 +538,7 @@ end = struct
     set_all_is_dependency_of ();
     dependency_graph
 
-  let dump ppf (t : t) (block : Cfg.basic_block) =
+  let dump ppf ~(block : Cfg.basic_block) (t : t) =
     let open Format in
     let print_reg_node arg_i (reg_node : Node.Reg_node.t) =
       let dependency =
@@ -580,7 +572,7 @@ end = struct
       fprintf ppf "\n"
     in
     fprintf ppf "\ndependency graph:\n";
-    DLL.iter block.body ~f:(fun instruction -> print_node (Basic instruction));
+    DLL.iter block.Cfg.body ~f:(fun instruction -> print_node (Basic instruction));
     print_node (Terminator block.terminator);
     fprintf ppf "\n"
 end
@@ -1093,7 +1085,7 @@ module Computation_tree : sig
     Dependency_graph.t ->
     Memory_accesses.t ->
     Seed.t list ->
-    Cfg_with_infos.t ->
+    Cfg_with_infos.t Lazy.t ->
     t list
 
   val dump : Format.formatter -> t list -> Cfg.basic_block -> unit
@@ -1284,7 +1276,7 @@ end = struct
         let tree_is_not_dependency_of_outside_body =
           let terminator_id = block.terminator.id in
           let live_before_terminator =
-            (Cfg_with_infos.liveness_find cfg_with_infos terminator_id).before
+            (Cfg_with_infos.liveness_find (Lazy.force cfg_with_infos) terminator_id).before
           in
           let latest_changes_of_live =
             Reg.Set.fold
@@ -1417,9 +1409,52 @@ end = struct
     fprintf ppf "\n"
 end
 
-let reg_map = Numbers.Int.Tbl.create 100
 
-let vectorize (block : Cfg.basic_block) all_trees =
+type t =
+  { ppf_dump : Format.formatter;
+    mutable max_instruction_id : int;
+    cfg_with_infos : Cfg_with_infos.t Lazy.t;
+    reg_map : Reg.t Numbers.Int.Tbl.t;
+  }
+
+let next_available_instruction t =
+  let id = t.max_instruction_id in
+  t.max_instruction_id <- id + 1;
+  id
+
+let init_instructon_max_id cl =
+  (* CR gyorsh: Duplicated from backend/regalloc/regalloc_utils.ml.
+     Should probably move it to Cfg or Cfg_with_infos. *)
+  let max_id = ref Int.min_int in
+  let update_max_id (instr : _ Cfg.instruction) : unit =
+    max_id := Int.max !max_id instr.id
+  in
+  Cfg_with_layout.iter_instructions cl
+    ~instruction:update_max_id
+    ~terminator:update_max_id;
+  !max_id
+
+let create ppf_dump cl =
+  (* CR-someday tip: the function may someday take a cfg_with_infos instead of
+     creating a new one *)
+  {
+    ppf_dump;
+    max_instruction_id = init_instructon_max_id cl;
+    cfg_with_infos = lazy (Cfg_with_infos.make cl);
+    reg_map = Numbers.Int.Tbl.create 100;
+  }
+
+let debug = true
+
+let dump_if c t =
+  if c && !Flambda_backend_flags.dump_vectorize
+  then Format.fprintf t.ppf_dump
+  else Format.ifprintf t.ppf_dump
+
+let dump t =
+  dump_if true t
+
+let vectorize t (block : Cfg.basic_block) all_trees =
   let rec find_independent_trees trees =
     (* CR-someday tip: This is fine for now because trees are independent with
        anything outside the tree except loads, so trees with no instructions in
@@ -1474,11 +1509,11 @@ let vectorize (block : Cfg.basic_block) all_trees =
       List.hd node.instructions |> Instruction.Id.Tbl.find id_to_instructions
     in
     let get_reg (reg : Reg.t) =
-      match Numbers.Int.Tbl.find_opt reg_map reg.stamp with
+      match Numbers.Int.Tbl.find_opt t.reg_map reg.stamp with
       | Some reg -> reg
       | None ->
         let new_reg = Reg.create Vec128 in
-        Numbers.Int.Tbl.add reg_map reg.stamp new_reg;
+        Numbers.Int.Tbl.add t.reg_map reg.stamp new_reg;
         new_reg
     in
     let create_instruction
@@ -1503,7 +1538,7 @@ let vectorize (block : Cfg.basic_block) all_trees =
           desc = Cfg.Op simd_instruction.operation;
           arg = Array.map get_register simd_instruction.arguments;
           res = Array.map get_register simd_instruction.results;
-          id = Instruction.Id.next_available_id () |> Instruction.Id.to_int
+          id = next_available_instruction t
         }
     in
     List.iter
@@ -1530,61 +1565,51 @@ let vectorize (block : Cfg.basic_block) all_trees =
         good_instructions
       |> not)
 
-let dump ppf (block : Cfg.basic_block) ~msg =
+let dump_block ppf (block : Cfg.basic_block) ~msg =
   let open Format in
   fprintf ppf "\nextra information %s\n" msg;
   fprintf ppf "body instruction count=%d\n" (DLL.length block.body);
   fprintf ppf "@."
 
+let vectorize t block =
+  let dependency_graph = Dependency_graph.from_block block in
+  dump_if debug t "%a@." (Dependency_graph.dump ~block) dependency_graph;
+  let memory_accesses =
+    Memory_accesses.from_block block dependency_graph
+  in
+  dump_if debug t "%a@." Memory_accesses.dump memory_accesses;
+  let seeds = Seed.from_block block memory_accesses in
+  dump_if debug t "%a@." Seed.dump seeds;
+  let trees =
+    Computation_tree.from_block block dependency_graph memory_accesses
+      seeds t.cfg_with_infos
+  in
+  dump_if debug t "%a@." Computation_tree.dump trees block;
+  dump t "%a@." (dump_block ~msg:"before vectorize")  block;
+  vectorize t block trees;
+  dump t "%a@." (dump_block  ~msg:"after vectorize") block
+
+(* CR gyorsh: add a compiler flag to control this constant? *)
+let max_block_size_to_vectorize = 1000
+
 let cfg ppf_dump cl =
-  if !Flambda_backend_flags.dump_vectorize
-  then Format.fprintf ppf_dump "*** Vectorization@.";
-  Instruction.Id.reset_max_id ();
-  Cfg_with_layout.iter_instructions cl
-    ~instruction:(fun basic_instruction ->
-      Basic basic_instruction |> Instruction.id |> Instruction.Id.update_max_id)
-    ~terminator:(fun terminator_instruction ->
-      Terminator terminator_instruction |> Instruction.id
-      |> Instruction.Id.update_max_id);
-  Numbers.Int.Tbl.clear reg_map;
-  let layout = Cfg_with_layout.layout cl in
-  (* CR-someday tip: the function may someday take a cfg_with_infos instead of
-     creating a new one *)
-  let cfg_with_infos = Cfg_with_infos.make cl in
+  let t = create ppf_dump cl in
+  dump t "*** Vectorization@.";
+  let cfg = Cfg_with_layout.cfg cl in
+  (* Iterate in layout order instead of default block order to make debugging easier. *)
+  let layout =  Cfg_with_layout.cl in
   DLL.iter layout ~f:(fun label ->
-      let block = Cfg.get_block_exn (Cfg_with_layout.cfg cl) label in
-      let instruction_count = DLL.length block.body in
-      if !Flambda_backend_flags.dump_vectorize
-      then
-        Format.fprintf ppf_dump "\nBlock %d (%d basic instructions):\n" label
-          instruction_count;
-      if instruction_count > 1000
-      then (
-        if !Flambda_backend_flags.dump_vectorize
-        then
-          Format.fprintf ppf_dump
-            "more than 1000 instructions in basic block, cannot vectorize\n"
-        else
-          let dependency_graph = Dependency_graph.from_block block in
-          if debug && !Flambda_backend_flags.dump_vectorize
-          then Dependency_graph.dump ppf_dump dependency_graph block;
-          let memory_accesses =
-            Memory_accesses.from_block block dependency_graph
-          in
-          if debug && !Flambda_backend_flags.dump_vectorize
-          then Memory_accesses.dump ppf_dump memory_accesses;
-          let seeds = Seed.from_block block memory_accesses in
-          if debug && !Flambda_backend_flags.dump_vectorize
-          then Seed.dump ppf_dump seeds;
-          let trees =
-            Computation_tree.from_block block dependency_graph memory_accesses
-              seeds cfg_with_infos
-          in
-          if debug && !Flambda_backend_flags.dump_vectorize
-          then Computation_tree.dump ppf_dump trees block;
-          if !Flambda_backend_flags.dump_vectorize
-          then dump ppf_dump ~msg:"before vectorize" block;
-          vectorize block trees;
-          if !Flambda_backend_flags.dump_vectorize
-          then dump ppf_dump ~msg:"after vectorize" block));
+    let block = Cfg.get_block_exn cfg label in
+    let instruction_count = DLL.length block.body in
+    dump t "\nBlock %d (%d basic instructions):\n" label instruction_count;
+    if instruction_count > max_block_size_to_vectorize
+    then (
+      dump t
+        "More than %d instructions in basic block, won't vectorize.\n"
+        max_block_size_to_vectorize)
+    else
+      vectorize t block);
   cl
+
+
+(* CR gyorsh: how does the info from [reg_map] flow between blocks? *)
