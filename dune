@@ -65,6 +65,7 @@
  (flags
   (:standard -w -27-32-33-34-37-39-60-69-70))
  (ocamlopt_flags
+  -O3
   (:include %{project_root}/ocamlopt_flags.sexp))
  (instrumentation
   (backend bisect_ppx))
