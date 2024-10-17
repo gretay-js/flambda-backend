@@ -26,16 +26,22 @@ module Instruction : sig
 
     include Identifiable.S with type t := t
 
-    val to_int : t -> int
-
     val of_int : int -> t
+
+    val print : Format.formatter -> t -> unit
   end
 
-  type t =
+  type t = private
     | Basic of Cfg.basic Cfg.instruction
     | Terminator of Cfg.terminator Cfg.instruction
 
+  val basic : Cfg.basic Cfg.instruction -> t
+
+  val terminator : Cfg.terminator Cfg.instruction -> t
+
   val id : t -> Id.t
+
+  val same_id : t -> id:Id.t -> bool
 
   val arguments : t -> Reg.t Array.t
 
@@ -58,12 +64,6 @@ module Instruction : sig
 
   val preserves_alloc_freshness : t -> bool
 
-  val body_of : Cfg.basic_block -> t DLL.t
-
-  val block_size : Cfg.basic_block -> int
-
-  val tbl_of : Cfg.basic_block -> t Id.Tbl.t
-
   val find_last_instruction : t DLL.t -> Id.t list -> t
 
   val print : Format.formatter -> t -> unit
@@ -72,29 +72,26 @@ end = struct
   module Id = struct
     include Numbers.Int
 
-    let to_int t = t
-
     let of_int t = t
 
-    let max_id = ref 0
-
-    let reset_max_id () = max_id := 0
-
-    let update_max_id id = max_id := Int.max id !max_id
-
-    let next_available_id () =
-      max_id := !max_id + 1;
-      !max_id
+    let print ppf t = Format.fprintf ppf "(id:%d)" t
   end
 
   type t =
     | Basic of Cfg.basic Cfg.instruction
     | Terminator of Cfg.terminator Cfg.instruction
 
+  let basic i = Basic i
+
+  let terminator i = Terminator i
+
   let id (instruction : t) : Id.t =
     match instruction with
     | Basic instruction -> instruction.id
     | Terminator instruction -> instruction.id
+
+  let same_id t ~id:other_id =
+    Id.equal (id t) other_id
 
   let arguments (instruction : t) : Reg.t Array.t =
     match instruction with
@@ -248,18 +245,6 @@ end = struct
       | Reloadretaddr | Pushtrap _ | Poptrap | Prologue | Stack_check _ -> true)
     | Terminator _ -> false
 
-  let body_of (block : Cfg.basic_block) =
-    DLL.to_list block.body
-    |> List.map (fun basic_instruction -> Basic basic_instruction)
-    |> DLL.of_list
-
-  let block_size (block : Cfg.basic_block) = DLL.length block.body + 1
-
-  let tbl_of block =
-    body_of block |> DLL.to_list
-    |> List.map (fun instruction -> id instruction, instruction)
-    |> Id.Tbl.of_list
-
   let find_last_instruction body instructions =
     let starting_cell = DLL.last_cell body in
     let instruction_set = Id.Set.of_list instructions in
@@ -275,10 +260,13 @@ end = struct
     in
     find_last starting_cell
 
-  let print ppf (instruction : t) : unit =
-    match instruction with
+  let print ppf t  =
+    match t with
     | Basic i -> Cfg.print_basic ppf i
     | Terminator i -> Cfg.print_terminator ppf i
+
+  let print ppf t  =
+    Format.fprintf ppf "%a %a" Id.print (id t) print t
 
   let is_store (instruction : t) =
     match instruction with
@@ -348,15 +336,76 @@ end = struct
 
 end
 
+module Block : sig
+
+  type t
+
+  type live_regs = Reg.Set.t
+
+  val create : Cfg.basic_block -> (int -> live_regs) -> t
+
+  val body : t -> Instruction.t DLL.t
+
+  val terminator : t -> Instruction.t
+
+  val size : t -> int
+
+  val find : t -> Instruction.Id.t -> Instruction.t
+
+  val liveness : t -> Instruction.t -> live_regs
+
+end = struct
+
+  type t =
+    {
+      body : Instruction.t DLL.t;
+      terminator : Instruction.t;
+      id_to_instructions : Instruction.t Instruction.Id.Tbl.t;
+      size : int;
+      liveness : 'a . 'a Cfg.instruction -> liveness
+    }
+
+  let body t = t.body
+  let terminator t = t.terminator
+  let size t = t.size
+  let find t id = Instruction.Id.Tbl.find t.id_to_instructions id
+  let liveness t i =
+    match t with
+    | Basic i -> t.liveness i.id
+    | Terminator i -> t.liveness i.id
+
+  let create (block : Cfg.basic_block) liveness =
+    let size = DLL.length block.body + 1 in
+    let id_to_instructions = Instruction.Id.Tbl.create size in
+    let add i =
+      Instruction.Id.Tbl.add id_to_instructions (Instruction.id i) i;
+      i
+    in
+    let body =
+      DLL.
+      DLL.to_list block.body
+      |> List.map (fun basic_instruction -> add (Instruction.Basic basic_instruction))
+      |> DLL.of_list
+    in
+    {
+      body;
+      terminator = Terminator block.terminator;
+      size;
+      id_to_instructions;
+      liveness;
+    }
+
+end
+
 module Dependency_graph : sig
   (* The dependency graph shows dependencies between instructions within the
      same basic block *)
   type t
 
   val latest_change :
-    current:Instruction.Id.t -> Reg.t -> Cfg.basic_block -> Instruction.t option
+    current:Instruction.Id.t -> Reg.t -> Block.t -> Instruction.t option
 
-  val from_block : Cfg.basic_block -> t
+  val from_block : Block.t -> t
 
   val get_arg_dependency :
     t -> Instruction.Id.t -> arg_i:int -> Instruction.Id.t option
@@ -366,7 +415,7 @@ module Dependency_graph : sig
 
   val get_is_dependency_of : t -> Instruction.Id.t -> Instruction.Id.Set.t
 
-  val dump : Format.formatter -> block:Cfg.basic_block -> t -> unit
+  val dump : Format.formatter -> block:Block.t -> t -> unit
 end = struct
   module Node = struct
     module Reg_node = struct
@@ -435,16 +484,15 @@ end = struct
     in
     node.is_direct_dependency_of
 
-  let latest_change ~(current : Instruction.Id.t) (reg : Reg.t) block =
+  let latest_change ~(current : Instruction.Id.t) (reg : Reg.t) (block : Block.t) =
     let is_changed_in instruction reg =
       Array.exists (Reg.same reg) (Instruction.results instruction)
       || Array.exists (Reg.same reg) (Instruction.destroyed instruction)
     in
-    let body = Instruction.body_of block in
+    let body = Block.body block in
     let starting_cell =
       match
-        DLL.find_cell_opt body ~f:(fun instruction ->
-            Instruction.id instruction |> Instruction.Id.equal current)
+        DLL.find_cell_opt body ~f:(Instruction.same_id ~id:current)
       with
       | None -> DLL.last_cell body
       | Some current_cell -> DLL.prev current_cell
@@ -460,9 +508,11 @@ end = struct
     in
     find_latest_change starting_cell
 
-  let from_block (block : Cfg.basic_block) =
+  let from_block (block : Block.t) =
+    let body = Block.body block in
+    let terminator = Block.terminator block in
     let (dependency_graph : t) =
-      Instruction.block_size block |> Instruction.Id.Tbl.create
+      Block.size block |> Instruction.Id.Tbl.create
     in
     let add_arg_dependency instruction arg_i arg =
       let id = Instruction.id instruction in
@@ -511,9 +561,8 @@ end = struct
         { node with direct_dependencies; all_dependencies }
     in
     let add_all_dependencies () =
-      DLL.iter block.body ~f:(fun instruction ->
-          add_dependencies (Basic instruction));
-      add_dependencies (Terminator block.terminator)
+      DLL.iter body ~f:add_dependencies;
+      add_dependencies terminator
     in
     let set_is_dependency_of instruction_id dependency_id =
       let dependency = find dependency_graph dependency_id in
@@ -530,50 +579,47 @@ end = struct
       Instruction.Id.Set.iter (set_is_dependency_of id) node.direct_dependencies
     in
     let set_all_is_dependency_of () =
-      DLL.iter block.body ~f:(fun instruction ->
-          set_is_dependency_of_plural (Basic instruction));
-      set_is_dependency_of_plural (Terminator block.terminator)
+      DLL.iter body ~f:set_is_dependency_of_plural;
+      set_is_dependency_of_plural terminator
     in
     add_all_dependencies ();
     set_all_is_dependency_of ();
     dependency_graph
 
-  let dump ppf ~(block : Cfg.basic_block) (t : t) =
+  let dump ppf ~(block : Block.t) (t : t) =
     let open Format in
     let print_reg_node arg_i (reg_node : Node.Reg_node.t) =
-      let dependency =
-        Option.fold ~none:"none"
-          ~some:(sprintf "instruction %d" << Instruction.Id.to_int)
-          reg_node.direct_dependency
+      let pp ppf o =
+        match o with
+        | None -> fprintf ppf "none"
+        | Some id -> fprintf ppf "instruction %a" Instruction.Id.print id
       in
-      fprintf ppf "argument %d, %a depends on %s\n" arg_i Printmach.reg
-        reg_node.reg dependency
+      fprintf ppf "argument %d, %a depends on %a\n" arg_i Printmach.reg
+        reg_node.reg pp reg_node.direct_dependency
     in
     let print_node (instruction : Instruction.t) =
       let id = Instruction.id instruction in
       let node = find t id in
-      fprintf ppf "\n%d:\n"
-        (Instruction.id node.instruction |> Instruction.Id.to_int);
-      Instruction.print ppf instruction;
+      fprintf ppf "\n%a\n" Instruction.print instruction;
       fprintf ppf "\ndirect dependencies:\n";
       Instruction.Id.Set.iter
-        (fprintf ppf "%d " << Instruction.Id.to_int)
+        (fprintf ppf "%a " Instruction.Id.print)
         node.direct_dependencies;
       fprintf ppf "\nall dependencies:\n";
       Instruction.Id.Set.iter
-        (fprintf ppf "%d " << Instruction.Id.to_int)
+        (fprintf ppf "%a " Instruction.Id.print)
         node.all_dependencies;
       fprintf ppf "\nis direct dependency of:\n";
       Instruction.Id.Set.iter
-        (fprintf ppf "%d " << Instruction.Id.to_int)
+        (fprintf ppf "%a " Instruction.Id.print)
         node.is_direct_dependency_of;
       fprintf ppf "\narg dependencies:\n";
       Array.iteri print_reg_node node.reg_nodes;
       fprintf ppf "\n"
     in
     fprintf ppf "\ndependency graph:\n";
-    DLL.iter block.Cfg.body ~f:(fun instruction -> print_node (Basic instruction));
-    print_node (Terminator block.terminator);
+    DLL.iter (Block.body block) ~f:(fun instruction -> print_node instruction);
+    print_node (Block.terminator block);
     fprintf ppf "\n"
 end
 
@@ -594,7 +640,7 @@ module Memory_accesses : sig
 
   val get_memory_operation_exn : t -> Instruction.Id.t -> Memory_operation.t
 
-  val from_block : Cfg.basic_block -> Dependency_graph.t -> t
+  val from_block : Block.t -> Dependency_graph.t -> t
 
   val all_adjacent : t -> Instruction.Id.t list -> bool
 
@@ -679,15 +725,14 @@ end = struct
       let instruction = t.instruction in
       let print_set ppf set =
         Instruction.Id.Set.iter
-          (fun id -> fprintf ppf "%d " (Instruction.Id.to_int id))
+          (fprintf ppf "%a " Instruction.Id.print)
           set
       in
       fprintf ppf
         "\n\
-         Instruction %d: %a (%a, %a)\n\
+         Instruction %a (%a, %a)\n\
         \ dependent allocs: %a\n\
         \ unsure_allocs: %a"
-        (Instruction.id instruction |> Instruction.Id.to_int)
         Instruction.print instruction print_memory_chunk t
         (Arch.print_addressing Printmach.reg t.addressing_mode)
         (memory_arguments t) print_set t.dependent_allocs print_set
@@ -744,7 +789,7 @@ end = struct
   let get_memory_operation_exn t id =
     Instruction.Id.Tbl.find t.memory_operations id
 
-  let from_block (block : Cfg.basic_block) dependency_graph : t =
+  let from_block (block : Block.t) dependency_graph : t =
     (* A heuristic to avoid treating the same "fresh" allocation which address
        stored and loaded into a different register as different, has room for
        improvement. Assumption: if x depends on a fresh allocation, and it is
@@ -759,10 +804,9 @@ end = struct
        the address of the fresh alloc has been saved as a value, and something
        has been loaded till this point. For each memory operation, we will save
        its dependent allocs and unsure allocs *)
-    let body = Instruction.body_of block in
-    let id_to_instructions = Instruction.tbl_of block in
+    let body = Block.body block in
     let memory_operations =
-      Instruction.block_size block |> Instruction.Id.Tbl.create
+      Block.size block |> Instruction.Id.Tbl.create
     in
     let loads, stores, _, _, _ =
       DLL.fold_left body
@@ -795,8 +839,7 @@ end = struct
                 Dependency_graph.get_all_dependencies_of_arg dependency_graph id
                   ~arg_i
                 |> Instruction.Id.Set.filter
-                     (Instruction.is_alloc
-                     << Instruction.Id.Tbl.find id_to_instructions)
+                     (Instruction.is_alloc << Block.find block)
               in
               let start_index =
                 match memory_operation.op with Load -> 0 | Store -> 1
@@ -985,24 +1028,23 @@ module Seed : sig
   (* A seed is a group of stores instructions to adjacent memory addresses that
      can be made to be adjacent in the list of instructions *)
 
-  val from_block : Cfg.basic_block -> Memory_accesses.t -> t list
+  val from_block : Block.t -> Memory_accesses.t -> t list
 
   val dump : Format.formatter -> t list -> unit
 end = struct
   type t = Memory_accesses.Memory_operation.t list
 
-  let from_block (block : Cfg.basic_block) memory_accesses : t list =
+  let from_block (block : Block.t) memory_accesses : t list =
     (* For each store instruction, it tries to form a seed with the closest
        stores after it, it will go down the DLL of instructions and tries to
        move the store instructions across the non-store instructions until all
        the store instructions are together *)
-    let body = Instruction.body_of block in
+    let body = Block.body block in
     let all_stores = Memory_accesses.stores memory_accesses in
     List.filter_map
       (fun store_id ->
         let starting_cell =
-          DLL.find_cell_opt body ~f:(fun instruction ->
-              Instruction.id instruction |> Instruction.Id.equal store_id)
+          DLL.find_cell_opt body ~f:(Instruction.same_id ~id:store_id)
         in
         let rec find_stores n stores cell_option =
           if n = 0
@@ -1081,14 +1123,14 @@ module Computation_tree : sig
   val all_nodes : t -> Node.t Instruction.Id.Tbl.t
 
   val from_block :
-    Cfg.basic_block ->
+    Block.t->
     Dependency_graph.t ->
     Memory_accesses.t ->
     Seed.t list ->
     Cfg_with_infos.t Lazy.t ->
     t list
 
-  val dump : Format.formatter -> t list -> Cfg.basic_block -> unit
+  val dump : Format.formatter -> block:Block.t -> t list -> unit
 end = struct
   module Node = struct
     type t =
@@ -1124,18 +1166,17 @@ end = struct
 
   let all_nodes t = t
 
-  let from_seed (block : Cfg.basic_block) dependency_graph memory_accesses
+  let from_seed (block : Block.t) dependency_graph memory_accesses
       cfg_with_infos seed =
-    let body = Instruction.body_of block in
-    let id_to_instructions = Instruction.tbl_of block in
-    let find_instruction = Instruction.Id.Tbl.find id_to_instructions in
+    let body = Block.body block in
+    let find_instruction = Block.find block in
     let root =
       List.map
         (Instruction.id << Memory_accesses.Memory_operation.instruction)
         seed
     in
     let (computation_tree : t) =
-      Instruction.block_size block |> Instruction.Id.Tbl.create
+      Block.size block |> Instruction.Id.Tbl.create
     in
     let seed_width_in_bits =
       List.hd seed |> Memory_accesses.Memory_operation.width_in_bits
@@ -1231,6 +1272,7 @@ end = struct
               None)))
     in
     let is_valid computation_tree =
+      let tree_instructions = all_instructions computation_tree in
       (* Checks nodes can be grouped together, and instructions outside the tree
          do not depend on the tree *)
       let check cell =
@@ -1274,16 +1316,15 @@ end = struct
           |> Instruction.Id.Set.is_empty
         in
         let tree_is_not_dependency_of_outside_body =
-          let terminator_id = block.terminator.id in
-          let live_before_terminator =
-            (Cfg_with_infos.liveness_find (Lazy.force cfg_with_infos) terminator_id).before
-          in
+          let terminator = Block.terminator block in
+          let terminator_id = Instruction.id terminator in
+          let live_before_terminator = Block.liveness block terminator in
           let latest_changes_of_live =
             Reg.Set.fold
               (fun reg latest_changes ->
                 match
                   Dependency_graph.latest_change
-                    ~current:(Instruction.Id.of_int terminator_id)
+                    ~current:(terminator_id)
                     reg block
                 with
                 | None -> latest_changes
@@ -1292,13 +1333,6 @@ end = struct
                     (Instruction.id instruction)
                     latest_changes)
               live_before_terminator Instruction.Id.Set.empty
-          in
-          let tree_instructions =
-            Instruction.Id.Tbl.fold
-              (fun _ (node : Node.t) instructions ->
-                Instruction.Id.Set.of_list node.instructions
-                |> Instruction.Id.Set.union instructions)
-              computation_tree Instruction.Id.Set.empty
           in
           Instruction.Id.Set.inter tree_instructions latest_changes_of_live
           |> Instruction.Id.Set.is_empty
@@ -1325,7 +1359,7 @@ end = struct
               (Array.length (Instruction.arguments instruction) - 1)
           in
           Instruction.Id.Set.inter
-            (all_instructions computation_tree)
+            (all_tree)
             address_dependencies
           |> Instruction.Id.Set.is_empty
         in
@@ -1349,8 +1383,8 @@ end = struct
       | Some node -> Array.iter (set_is_dependency_of key) node.dependencies
     in
     let set_all_is_dependency_of () =
-      DLL.iter block.body ~f:(fun instruction ->
-          set_is_dependency_of_plural (Basic instruction))
+      DLL.iter body ~f:(fun instruction ->
+          set_is_dependency_of_plural instruction)
     in
     match build root with
     | None -> None
@@ -1367,7 +1401,7 @@ end = struct
       (from_seed block dependency_graph memory_accesses cfg_with_infos)
       seeds
 
-  let dump ppf (trees : t list) (block : Cfg.basic_block) =
+  let dump ppf ~(block : Block.t) (trees : t list) =
     let open Format in
     let print_node id node_option =
       match node_option with
@@ -1392,8 +1426,8 @@ end = struct
         fprintf ppf "\n"
     in
     let print_tree tree =
-      DLL.iter block.body ~f:(fun instruction ->
-          let id = Basic instruction |> Instruction.id in
+      DLL.iter body ~f:(fun instruction ->
+          let id = Instruction.id instruction in
           Instruction.Id.Tbl.find_opt tree id |> print_node id)
     in
     let print_trees trees =
@@ -1413,13 +1447,12 @@ end
 type t =
   { ppf_dump : Format.formatter;
     mutable max_instruction_id : int;
-    cfg_with_infos : Cfg_with_infos.t Lazy.t;
     reg_map : Reg.t Numbers.Int.Tbl.t;
   }
 
 let next_available_instruction t =
-  let id = t.max_instruction_id in
-  t.max_instruction_id <- id + 1;
+  let id = t.max_instruction_id + 1 in
+  t.max_instruction_id <- id;
   id
 
 let init_instructon_max_id cl =
@@ -1435,12 +1468,9 @@ let init_instructon_max_id cl =
   !max_id
 
 let create ppf_dump cl =
-  (* CR-someday tip: the function may someday take a cfg_with_infos instead of
-     creating a new one *)
   {
     ppf_dump;
     max_instruction_id = init_instructon_max_id cl;
-    cfg_with_infos = lazy (Cfg_with_infos.make cl);
     reg_map = Numbers.Int.Tbl.create 100;
   }
 
@@ -1454,12 +1484,12 @@ let dump_if c t =
 let dump t =
   dump_if true t
 
-let vectorize t (block : Cfg.basic_block) all_trees =
+let vectorize t (block : Block.t) all_trees =
+  (* CR-someday tip: This is fine for now because trees are independent with
+     anything outside the tree except loads, so trees with no instructions in
+     common are independent with each other. Will have to re-implement if
+     trees have other external dependencies *)
   let rec find_independent_trees trees =
-    (* CR-someday tip: This is fine for now because trees are independent with
-       anything outside the tree except loads, so trees with no instructions in
-       common are independent with each other. Will have to re-implement if
-       trees have other external dependencies *)
     match trees with
     | [] -> [], Instruction.Id.Set.empty
     | hd :: tl ->
@@ -1561,15 +1591,13 @@ let vectorize t (block : Cfg.basic_block) all_trees =
   DLL.hd_cell block.body |> add_vector_instructions;
   DLL.filter_left block.body ~f:(fun instruction ->
       Instruction.Id.Set.exists
-        (Instruction.Id.equal (Instruction.id (Instruction.Basic instruction)))
+        (Instruction.same_id (Instruction.id (Instruction.Basic instruction)))
         good_instructions
       |> not)
 
-let dump_block ppf (block : Cfg.basic_block) ~msg =
-  let open Format in
-  fprintf ppf "\nextra information %s\n" msg;
-  fprintf ppf "body instruction count=%d\n" (DLL.length block.body);
-  fprintf ppf "@."
+let dump_block t ~msg (block : Block.t) =
+  dump t "\nextra information %s\n" msg;
+  dump t "body instruction count=%d\n" (Block.size block.body)
 
 let vectorize t block =
   let dependency_graph = Dependency_graph.from_block block in
@@ -1584,28 +1612,35 @@ let vectorize t block =
     Computation_tree.from_block block dependency_graph memory_accesses
       seeds t.cfg_with_infos
   in
-  dump_if debug t "%a@." Computation_tree.dump trees block;
-  dump t "%a@." (dump_block ~msg:"before vectorize")  block;
+  dump_if debug t "%a@." (Computation_tree.dump ~block) trees;
+  dump_block t ~msg:"before vectorize"  block;
   vectorize t block trees;
-  dump t "%a@." (dump_block  ~msg:"after vectorize") block
+  dump_block t ~msg:"after vectorize" block
 
 (* CR gyorsh: add a compiler flag to control this constant? *)
 let max_block_size_to_vectorize = 1000
 
 let cfg ppf_dump cl =
   let t = create ppf_dump cl in
-  dump t "*** Vectorization@.";
+  dump t "*** Vectorize@.";
   let cfg = Cfg_with_layout.cfg cl in
+  (* CR-someday tip: the function may someday take a cfg_with_infos instead of
+     creating a new one *)
+  let cfg_with_infos = lazy (Cfg_with_infos.make cl) in
+  let liveness (instruction : _ Cfg.instruction) =
+    Cfg_with_infos.(liveness_find (Lazy.force t.cfg_with_infos) instruction.id).before
+  in
   (* Iterate in layout order instead of default block order to make debugging easier. *)
-  let layout =  Cfg_with_layout.cl in
+  let layout =  Cfg_with_layout.layout cl in
   DLL.iter layout ~f:(fun label ->
-    let block = Cfg.get_block_exn cfg label in
-    let instruction_count = DLL.length block.body in
-    dump t "\nBlock %d (%d basic instructions):\n" label instruction_count;
+    let block = Block.create (Cfg.get_block_exn cfg label) liveness in
+    let instruction_count = Block.size block in
+    dump t "\nBlock %d:\n" label;
     if instruction_count > max_block_size_to_vectorize
     then (
       dump t
-        "More than %d instructions in basic block, won't vectorize.\n"
+        "Skipping block %d with %d instructions (> %d = max_block_size_to_vectorize).\n"
+        label instruction_count
         max_block_size_to_vectorize)
     else
       vectorize t block);
