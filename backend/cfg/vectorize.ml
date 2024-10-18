@@ -16,7 +16,73 @@ let all_option_list list =
       | _ -> None)
     list (Some [])
 
-let vector_width_in_bits = Simd_selection.vector_width_in_bits
+module State = struct
+
+  type live_regs = Reg.Set.t
+
+  type liveness = { get_live_regs : 'a. 'a Cfg.instruction -> live_regs }
+
+  type t =
+    { ppf_dump : Format.formatter;
+      mutable max_instruction_id : int;
+      reg_map : Reg.t Numbers.Int.Tbl.t;
+      cfg_with_infos : Cfg_with_infos.t Lazy.t;
+    }
+
+  let next_available_instruction t =
+    let id = t.max_instruction_id + 1 in
+    t.max_instruction_id <- id;
+    id
+
+  let init_instructon_max_id cl =
+    (* CR gyorsh: Duplicated from backend/regalloc/regalloc_utils.ml.
+       Should probably move it to Cfg or Cfg_with_infos. *)
+    let max_id = ref Int.min_int in
+    let update_max_id (instr : _ Cfg.instruction) : unit =
+      max_id := Int.max !max_id instr.id
+    in
+    Cfg_with_layout.iter_instructions cl
+      ~instruction:update_max_id
+      ~terminator:update_max_id;
+    !max_id
+
+  let create ppf_dump cl =
+    (* CR-someday tip: the function may someday take a cfg_with_infos instead of
+       creating a new one *)
+    {
+      ppf_dump;
+      max_instruction_id = init_instructon_max_id cl;
+      reg_map = Numbers.Int.Tbl.create 100;
+      cfg_with_infos = lazy (Cfg_with_infos.make cl);
+    }
+
+  let get_reg t (reg : Reg.t) =
+    match Numbers.Int.Tbl.find_opt t.reg_map reg.stamp with
+    | Some reg -> reg
+    | None ->
+      let new_reg = Reg.create Vec128 in
+      Numbers.Int.Tbl.add t.reg_map reg.stamp new_reg;
+      new_reg
+
+  let liveness t : liveness =
+    let get_live_regs (i : _ Cfg.instruction) =
+      Cfg_with_infos.(liveness_find (Lazy.force t.cfg_with_infos) i.id).before
+    in
+    { get_live_regs }
+
+  let extra_debug = true
+
+  let dump_if c t =
+    if c && !Flambda_backend_flags.dump_vectorize
+    then Format.fprintf t.ppf_dump
+    else Format.ifprintf t.ppf_dump
+
+  let dump_debug t =
+    dump_if extra_debug t
+
+  let dump t = dump_if true t
+end
+
 
 module Instruction : sig
   (* CR-someday tip: consider moving this to cfg or at least have something
@@ -25,8 +91,6 @@ module Instruction : sig
     type t
 
     include Identifiable.S with type t := t
-
-    val of_int : int -> t
 
     val print : Format.formatter -> t -> unit
   end
@@ -71,8 +135,6 @@ module Instruction : sig
 end = struct
   module Id = struct
     include Numbers.Int
-
-    let of_int t = t
 
     let print ppf t = Format.fprintf ppf "(id:%d)" t
   end
@@ -211,7 +273,7 @@ end = struct
     | hd :: tl -> List.for_all (op_isomorphic hd) tl
 
   let to_vector_instructions width_in_bits instructions =
-    assert (width_in_bits * List.length instructions = vector_width_in_bits);
+    assert (width_in_bits * List.length instructions = Simd_selection.vector_width_in_bits);
     match List.map op instructions |> all_option_list with
     | None -> None
     | Some cfg_ops ->
@@ -340,9 +402,7 @@ module Block : sig
 
   type t
 
-  type live_regs = Reg.Set.t
-
-  val create : Cfg.basic_block -> (int -> live_regs) -> t
+  val create : Cfg.basic_block -> State.liveness -> t
 
   val body : t -> Instruction.t DLL.t
 
@@ -352,7 +412,7 @@ module Block : sig
 
   val find : t -> Instruction.Id.t -> Instruction.t
 
-  val liveness : t -> Instruction.t -> live_regs
+  val get_live_regs : t -> Instruction.t -> State.live_regs
 
 end = struct
 
@@ -362,17 +422,13 @@ end = struct
       terminator : Instruction.t;
       id_to_instructions : Instruction.t Instruction.Id.Tbl.t;
       size : int;
-      liveness : 'a . 'a Cfg.instruction -> liveness
+      liveness : State.liveness
     }
 
   let body t = t.body
   let terminator t = t.terminator
   let size t = t.size
   let find t id = Instruction.Id.Tbl.find t.id_to_instructions id
-  let liveness t i =
-    match t with
-    | Basic i -> t.liveness i.id
-    | Terminator i -> t.liveness i.id
 
   let create (block : Cfg.basic_block) liveness =
     let size = DLL.length block.body + 1 in
@@ -382,19 +438,22 @@ end = struct
       i
     in
     let body =
-      DLL.
       DLL.to_list block.body
-      |> List.map (fun basic_instruction -> add (Instruction.Basic basic_instruction))
+      |> List.map (fun basic_instruction -> add (Instruction.basic basic_instruction))
       |> DLL.of_list
     in
     {
       body;
-      terminator = Terminator block.terminator;
+      terminator = add (Instruction.terminator block.terminator);
       size;
       id_to_instructions;
       liveness;
     }
 
+  let get_live_regs t (i : Instruction.t) =
+    match i with
+    | Basic i -> t.liveness.get_live_regs i
+    | Terminator i -> t.liveness.get_live_regs i
 end
 
 module Dependency_graph : sig
@@ -430,7 +489,7 @@ end = struct
     end
 
     type t =
-      { instruction : Instruction.t;
+      {
         reg_nodes : Reg_node.t array;
         direct_dependencies : Instruction.Id.Set.t;
             (* direct dependencies of all arguments of this instruction *)
@@ -444,7 +503,7 @@ end = struct
 
     let init instruction : t =
       let arguments = Instruction.arguments instruction in
-      { instruction;
+      {
         reg_nodes =
           Array.init (Array.length arguments) (fun i ->
               Reg_node.init arguments.(i));
@@ -1068,7 +1127,7 @@ end = struct
         if width_in_bits = 128 (* No point "vectorizing" that *)
         then None
         else
-          let items_in_vector = vector_width_in_bits / width_in_bits in
+          let items_in_vector = Simd_selection.vector_width_in_bits / width_in_bits in
           let store_group = find_stores items_in_vector [] starting_cell in
           match store_group with
           | None -> None
@@ -1127,7 +1186,6 @@ module Computation_tree : sig
     Dependency_graph.t ->
     Memory_accesses.t ->
     Seed.t list ->
-    Cfg_with_infos.t Lazy.t ->
     t list
 
   val dump : Format.formatter -> block:Block.t -> t list -> unit
@@ -1166,8 +1224,7 @@ end = struct
 
   let all_nodes t = t
 
-  let from_seed (block : Block.t) dependency_graph memory_accesses
-      cfg_with_infos seed =
+  let from_seed (block : Block.t) dependency_graph memory_accesses seed =
     let body = Block.body block in
     let find_instruction = Block.find block in
     let root =
@@ -1318,7 +1375,7 @@ end = struct
         let tree_is_not_dependency_of_outside_body =
           let terminator = Block.terminator block in
           let terminator_id = Instruction.id terminator in
-          let live_before_terminator = Block.liveness block terminator in
+          let live_before_terminator = Block.get_live_regs block terminator in
           let latest_changes_of_live =
             Reg.Set.fold
               (fun reg latest_changes ->
@@ -1359,7 +1416,7 @@ end = struct
               (Array.length (Instruction.arguments instruction) - 1)
           in
           Instruction.Id.Set.inter
-            (all_tree)
+            tree_instructions
             address_dependencies
           |> Instruction.Id.Set.is_empty
         in
@@ -1395,10 +1452,10 @@ end = struct
         Some computation_tree)
       else None
 
-  let from_block block dependency_graph memory_accesses seeds cfg_with_infos :
+  let from_block block dependency_graph memory_accesses seeds :
       t list =
     List.filter_map
-      (from_seed block dependency_graph memory_accesses cfg_with_infos)
+      (from_seed block dependency_graph memory_accesses)
       seeds
 
   let dump ppf ~(block : Block.t) (trees : t list) =
@@ -1407,26 +1464,26 @@ end = struct
       match node_option with
       | None -> ()
       | Some (node : Node.t) ->
-        fprintf ppf "\nNode key: %d\n" (Instruction.Id.to_int id);
+        fprintf ppf "\nNode key: %a\n" Instruction.Id.print id;
         fprintf ppf "\nOperations:\n";
         List.iter
           (fun (simd_instruction : Simd_selection.vectorized_instruction) ->
             fprintf ppf "%a " Cfg.dump_basic (Cfg.Op simd_instruction.operation))
           node.vector_instructions;
         fprintf ppf "\ninstructions:\n";
-        List.iter (fprintf ppf "%d " << Instruction.Id.to_int) node.instructions;
+        List.iter (fprintf ppf "%a " Instruction.Id.print) node.instructions;
         fprintf ppf "\ndependencies:\n";
         Array.iter
-          (fprintf ppf "%d " << Instruction.Id.to_int)
+          (fprintf ppf "%a " Instruction.Id.print)
           node.dependencies;
         fprintf ppf "\nis dependency of:\n";
         Instruction.Id.Set.iter
-          (fprintf ppf "%d " << Instruction.Id.to_int)
+          (fprintf ppf "%a " Instruction.Id.print)
           node.is_dependency_of;
         fprintf ppf "\n"
     in
     let print_tree tree =
-      DLL.iter body ~f:(fun instruction ->
+      DLL.iter (Block.body block) ~f:(fun instruction ->
           let id = Instruction.id instruction in
           Instruction.Id.Tbl.find_opt tree id |> print_node id)
     in
@@ -1442,47 +1499,6 @@ end = struct
     print_trees trees;
     fprintf ppf "\n"
 end
-
-
-type t =
-  { ppf_dump : Format.formatter;
-    mutable max_instruction_id : int;
-    reg_map : Reg.t Numbers.Int.Tbl.t;
-  }
-
-let next_available_instruction t =
-  let id = t.max_instruction_id + 1 in
-  t.max_instruction_id <- id;
-  id
-
-let init_instructon_max_id cl =
-  (* CR gyorsh: Duplicated from backend/regalloc/regalloc_utils.ml.
-     Should probably move it to Cfg or Cfg_with_infos. *)
-  let max_id = ref Int.min_int in
-  let update_max_id (instr : _ Cfg.instruction) : unit =
-    max_id := Int.max !max_id instr.id
-  in
-  Cfg_with_layout.iter_instructions cl
-    ~instruction:update_max_id
-    ~terminator:update_max_id;
-  !max_id
-
-let create ppf_dump cl =
-  {
-    ppf_dump;
-    max_instruction_id = init_instructon_max_id cl;
-    reg_map = Numbers.Int.Tbl.create 100;
-  }
-
-let debug = true
-
-let dump_if c t =
-  if c && !Flambda_backend_flags.dump_vectorize
-  then Format.fprintf t.ppf_dump
-  else Format.ifprintf t.ppf_dump
-
-let dump t =
-  dump_if true t
 
 let vectorize t (block : Block.t) all_trees =
   (* CR-someday tip: This is fine for now because trees are independent with
@@ -1503,14 +1519,13 @@ let vectorize t (block : Block.t) all_trees =
       else good_trees, good_instructions
   in
   let good_trees, good_instructions = find_independent_trees all_trees in
-  let good_nodes = Instruction.Id.Tbl.create (Instruction.block_size block) in
+  let good_nodes = Instruction.Id.Tbl.create (Block.size block) in
   List.iter
     (fun tree ->
       Computation_tree.all_nodes tree
       |> Instruction.Id.Tbl.to_seq
       |> Instruction.Id.Tbl.add_seq good_nodes)
     good_trees;
-  let id_to_instructions = Instruction.tbl_of block in
   let add_vector_instructions_for_node cell (node : Computation_tree.Node.t) =
     let max_new_reg =
       Array.fold_left
@@ -1536,15 +1551,7 @@ let vectorize t (block : Block.t) all_trees =
         (fun _ -> Reg.create Vec128)
     in
     let old_instruction =
-      List.hd node.instructions |> Instruction.Id.Tbl.find id_to_instructions
-    in
-    let get_reg (reg : Reg.t) =
-      match Numbers.Int.Tbl.find_opt t.reg_map reg.stamp with
-      | Some reg -> reg
-      | None ->
-        let new_reg = Reg.create Vec128 in
-        Numbers.Int.Tbl.add t.reg_map reg.stamp new_reg;
-        new_reg
+      List.hd node.instructions |> Block.find block
     in
     let create_instruction
         (simd_instruction : Simd_selection.vectorized_instruction) =
@@ -1553,10 +1560,10 @@ let vectorize t (block : Block.t) all_trees =
         | New n -> new_regs.(n)
         | Argument n ->
           let original_reg = (Instruction.arguments old_instruction).(n) in
-          get_reg original_reg
+          State.get_reg t original_reg
         | Result n ->
           let original_reg = (Instruction.results old_instruction).(n) in
-          get_reg original_reg
+          State.get_reg t original_reg
         | Original n ->
           let original_reg = (Instruction.arguments old_instruction).(n) in
           original_reg
@@ -1564,11 +1571,12 @@ let vectorize t (block : Block.t) all_trees =
       match old_instruction with
       | Terminator _ -> assert false
       | Basic instruction ->
+        Instruction.basic
         { instruction with
           desc = Cfg.Op simd_instruction.operation;
           arg = Array.map get_register simd_instruction.arguments;
           res = Array.map get_register simd_instruction.results;
-          id = next_available_instruction t
+          id = State.next_available_instruction t
         }
     in
     List.iter
@@ -1580,7 +1588,7 @@ let vectorize t (block : Block.t) all_trees =
     match cell_option with
     | None -> ()
     | Some cell ->
-      (let instructon = Instruction.Basic (DLL.value cell) in
+      (let instructon = DLL.value cell in
        match
          Instruction.id instructon |> Instruction.Id.Tbl.find_opt good_nodes
        with
@@ -1588,57 +1596,52 @@ let vectorize t (block : Block.t) all_trees =
        | Some node -> add_vector_instructions_for_node cell node);
       DLL.next cell |> add_vector_instructions
   in
-  DLL.hd_cell block.body |> add_vector_instructions;
-  DLL.filter_left block.body ~f:(fun instruction ->
-      Instruction.Id.Set.exists
-        (Instruction.same_id (Instruction.id (Instruction.Basic instruction)))
-        good_instructions
-      |> not)
+  let body = (Block.body block) in
+  DLL.hd_cell body |> add_vector_instructions;
+  (* Remove all instructions that were replaced by vector instructions. *)
+  DLL.filter_left body ~f:(fun instruction ->
+    let id = Instruction.id instruction in
+    not (Instruction.Id.Set.mem id good_instructions))
 
-let dump_block t ~msg (block : Block.t) =
-  dump t "\nextra information %s\n" msg;
-  dump t "body instruction count=%d\n" (Block.size block.body)
+let dump_block t msg block =
+   State.dump t "%s: body instruction count=%d\n" msg (Block.size block)
 
 let vectorize t block =
   let dependency_graph = Dependency_graph.from_block block in
-  dump_if debug t "%a@." (Dependency_graph.dump ~block) dependency_graph;
+  State.dump_debug t "%a@." (Dependency_graph.dump ~block) dependency_graph;
   let memory_accesses =
     Memory_accesses.from_block block dependency_graph
   in
-  dump_if debug t "%a@." Memory_accesses.dump memory_accesses;
+  State.dump_debug t "%a@." Memory_accesses.dump memory_accesses;
   let seeds = Seed.from_block block memory_accesses in
-  dump_if debug t "%a@." Seed.dump seeds;
+  State.dump_debug t "%a@." Seed.dump seeds;
   let trees =
     Computation_tree.from_block block dependency_graph memory_accesses
-      seeds t.cfg_with_infos
+      seeds
   in
-  dump_if debug t "%a@." (Computation_tree.dump ~block) trees;
-  dump_block t ~msg:"before vectorize"  block;
+  State.dump_debug t "%a@." (Computation_tree.dump ~block) trees;
+  dump_block t "before vectorize" block;
   vectorize t block trees;
-  dump_block t ~msg:"after vectorize" block
+  dump_block t "after vectorize" block;
+  ()
 
 (* CR gyorsh: add a compiler flag to control this constant? *)
 let max_block_size_to_vectorize = 1000
 
 let cfg ppf_dump cl =
-  let t = create ppf_dump cl in
-  dump t "*** Vectorize@.";
+  let t = State.create ppf_dump cl in
+  State.dump t "*** Vectorize@.";
   let cfg = Cfg_with_layout.cfg cl in
-  (* CR-someday tip: the function may someday take a cfg_with_infos instead of
-     creating a new one *)
-  let cfg_with_infos = lazy (Cfg_with_infos.make cl) in
-  let liveness (instruction : _ Cfg.instruction) =
-    Cfg_with_infos.(liveness_find (Lazy.force t.cfg_with_infos) instruction.id).before
-  in
+  let liveness = State.liveness t in
   (* Iterate in layout order instead of default block order to make debugging easier. *)
   let layout =  Cfg_with_layout.layout cl in
   DLL.iter layout ~f:(fun label ->
     let block = Block.create (Cfg.get_block_exn cfg label) liveness in
     let instruction_count = Block.size block in
-    dump t "\nBlock %d:\n" label;
+    State.dump t "\nBlock %d:\n" label;
     if instruction_count > max_block_size_to_vectorize
     then (
-      dump t
+      State.dump t
         "Skipping block %d with %d instructions (> %d = max_block_size_to_vectorize).\n"
         label instruction_count
         max_block_size_to_vectorize)
