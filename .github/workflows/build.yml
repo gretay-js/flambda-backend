@@ -75,7 +75,7 @@ jobs:
 
           # macos-15-large is the only one that runs on intel currently.
           - name: flambda2_macos
-            config: --enable-middle-end=flambda2 --disable-warn-error
+            config: --enable-middle-end=flambda2
             os: macos-15
 
           - name: irc
@@ -197,7 +197,7 @@ jobs:
         cat $SOURCE_DIR/menhirLib.ml > $TARGET_DIR/menhirLib.ml
 
     - name: Install GNU parallel
-      if: matrix.os == 'macos-latest'
+      if: matrix.os == 'macos-15'
       run: HOMEBREW_NO_INSTALL_CLEANUP=TRUE brew install parallel
 
     - name: Disable any testcases
