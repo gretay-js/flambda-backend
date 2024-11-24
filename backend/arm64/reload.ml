@@ -12,7 +12,7 @@
 (*   special exception on linking described in the file LICENSE.          *)
 (*                                                                        *)
 (**************************************************************************)
-
+[@@@ocaml.warning "+a-4-9-40-41-42"]
 (* Reloading for the ARM 64 bits *)
 
 open Reg

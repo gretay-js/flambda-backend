@@ -14,7 +14,7 @@
 (*   special exception on linking described in the file LICENSE.          *)
 (*                                                                        *)
 (**************************************************************************)
-
+[@@@ocaml.warning "+a-40-41-42"]
 (* Specific operations for the ARM processor, 64-bit mode *)
 
 open Format
@@ -58,6 +58,7 @@ type specific_operation =
   | Ibswap of { bitwidth: bswap_bitwidth; } (* endianness conversion *)
   | Imove32       (* 32-bit integer move *)
   | Isignext of int (* sign extension *)
+  | Isimd of Simd.operation
 
 and arith_operation =
     Ishiftadd
@@ -73,7 +74,7 @@ let size_float = 8
 
 let size_vec128 = 16
 
-let allow_unaligned_access = true 
+let allow_unaligned_access = true
 
 (* Behavior of division *)
 
@@ -113,7 +114,7 @@ let print_specific_operation printreg op ppf arg =
   match op with
   | Ifar_poll _ ->
     fprintf ppf "(far) poll"
-  | Ifar_alloc { bytes; } ->
+  | Ifar_alloc { bytes; dbginfo = _ } ->
     fprintf ppf "(far) alloc %i" bytes
   | Ishiftarith(op, shift) ->
       let op_name = function
@@ -172,6 +173,8 @@ let print_specific_operation printreg op ppf arg =
   | Isignext n ->
       fprintf ppf "signext%d %a"
         n printreg arg.(0)
+  | Isimd op ->
+    Simd.print_operation printreg op ppf arg
 
 let equal_addressing_mode left right =
   match left, right with
@@ -209,9 +212,10 @@ let equal_specific_operation left right =
     Int.equal (int_of_bswap_bitwidth left) (int_of_bswap_bitwidth right)
   | Imove32, Imove32 -> true
   | Isignext left, Isignext right -> Int.equal left right
+  | Isimd left, Isimd right -> Simd.equal_operation left right
   | (Ifar_alloc _  | Ifar_poll _  | Ishiftarith _
     | Imuladd | Imulsub | Inegmulf | Imuladdf | Inegmuladdf | Imulsubf
-    | Inegmulsubf | Isqrtf | Ibswap _ | Imove32 | Isignext _), _ -> false
+    | Inegmulsubf | Isqrtf | Ibswap _ | Imove32 | Isignext _ | Isimd _), _ -> false
 
 let isomorphic_specific_operation op1 op2 =
   equal_specific_operation op1 op2
@@ -300,6 +304,7 @@ let operation_is_pure : specific_operation -> bool = function
   | Ibswap _ -> true
   | Imove32 -> true
   | Isignext _ -> true
+  | Isimd op -> Simd.operation_is_pure op
 
 (* Specific operations that can raise *)
 
@@ -317,7 +322,8 @@ let operation_can_raise = function
   | Imove32
   | Ishiftarith (_, _)
   | Isignext _
-  | Ibswap _ -> false
+  | Ibswap _
+  | Isimd _ -> false
 
 let operation_allocates = function
   | Ifar_alloc _ -> true
@@ -333,7 +339,8 @@ let operation_allocates = function
   | Imove32
   | Ishiftarith (_, _)
   | Isignext _
-  | Ibswap _ -> false
+  | Ibswap _
+  | Isimd _ -> false
 
 (* See `amd64/arch.ml`. *)
 let equal_addressing_mode_without_displ (addressing_mode_1: addressing_mode)
@@ -343,5 +350,6 @@ let equal_addressing_mode_without_displ (addressing_mode_1: addressing_mode)
   | Ibased (var1, _), Ibased (var2, _) -> String.equal var1 var2
   | (Iindexed _ | Ibased _), _ -> false
 
-let addressing_offset_in_bytes _ _  ~arg_offset_in_bytes:_  _ _ =
-  None   (* conservative *)
+let addressing_offset_in_bytes (_addressing_mode_1: addressing_mode)
+      (_addressing_mode_2 : addressing_mode) ~arg_offset_in_bytes:_ _ _ =
+  None

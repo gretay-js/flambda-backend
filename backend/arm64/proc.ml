@@ -14,12 +14,12 @@
 (*   special exception on linking described in the file LICENSE.          *)
 (*                                                                        *)
 (**************************************************************************)
-
+[@@@ocaml.warning "+a-40-41-42"]
 (* Description of the ARM processor in 64-bit mode *)
 
 open Misc
-open Cmm
 open Reg
+open Cmm
 open Arch
 open Mach
 
@@ -59,18 +59,21 @@ let float_reg_name =
      "d16"; "d17"; "d18"; "d19"; "d20"; "d21"; "d22"; "d23";
      "d24"; "d25"; "d26"; "d27"; "d28"; "d29"; "d30"; "d31" |]
 
+let float32_reg_name =
+  [| "s0";  "s1";  "s2";  "s3";  "s4";  "s5";  "s6";  "s7";
+     "s8";  "s9";  "s10"; "s11"; "s12"; "s13"; "s14"; "s15";
+     "s16"; "s17"; "s18"; "s19"; "s20"; "s21"; "s22"; "s23";
+     "s24"; "s25"; "s26"; "s27"; "s28"; "s29"; "s30"; "s31" |]
+
 let num_register_classes = 2
 
 let register_class r =
   match (r.typ : machtype_component) with
   | Val | Int | Addr  -> 0
-  | Float -> 1
+  | Float | Float32 -> 1
   | Vec128 ->
     (* CR mslater: (SIMD) arm64 *)
     fatal_error "arm64: got vec128 register"
-  | Float32 ->
-    (* CR mslater: (float32) arm64 *)
-    fatal_error "arm64: got float32 register"
   | Valx2 ->
     (* CR mslater: (SIMD) arm64 *)
     fatal_error "arm64: got valx2 register"
@@ -80,13 +83,10 @@ let num_stack_slot_classes = 2
 let stack_slot_class typ =
   match (typ : machtype_component) with
   | Val | Int | Addr  -> 0
-  | Float -> 1
+  | Float | Float32 -> 1
   | Vec128 ->
     (* CR mslater: (SIMD) arm64 *)
     fatal_error "arm64: got vec128 register"
-  | Float32 ->
-    (* CR mslater: (float32) arm64 *)
-    fatal_error "arm64: got float32 register"
   | Valx2 ->
     (* CR mslater: (SIMD) arm64 *)
     fatal_error "arm64: got valx2 register"
@@ -97,8 +97,7 @@ let types_are_compatible left right =
   | Float, Float ->
     true
   | Float32, _ | _, Float32 ->
-    (* CR mslater: (float32) arm64 *)
-    fatal_error "arm64: got float32 register"
+    true
   | Vec128, _ | _, Vec128 ->
     (* CR mslater: (SIMD) arm64 *)
     fatal_error "arm64: got vec128 register"
@@ -125,16 +124,17 @@ let register_name ty r =
     int_reg_name.(r - first_available_register.(0))
   | Float ->
     float_reg_name.(r - first_available_register.(1))
+  | Float32 ->
+    float32_reg_name.(r - first_available_register.(1))
   | Vec128 ->
     (* CR mslater: (SIMD) arm64 *)
     fatal_error "arm64: got vec128 register"
-  | Float32 ->
-    (* CR mslater: (float32) arm64 *)
-    fatal_error "arm64: got float32 register"
   | Valx2 ->
     (* CR mslater: (SIMD) arm64 *)
     fatal_error "arm64: got valx2 register"
 
+(* CR gyorsh for xclerc: [rotate_registers] used in [coloring] on Mach,
+   but not in IRC on CFG. Are we dropping an optimization here? *)
 let rotate_registers = true
 
 (* Representation of hard registers by pseudo-registers *)
@@ -146,15 +146,18 @@ let hard_int_reg =
   done;
   v
 
-let hard_float_reg =
+let hard_float_reg_gen kind =
   let v = Array.make 32 Reg.dummy in
   for i = 0 to 31 do
-    v.(i) <- Reg.at_location Float (Reg(100 + i))
+    v.(i) <- Reg.at_location kind (Reg(100 + i))
   done;
   v
 
+let hard_float_reg = hard_float_reg_gen Float
+let hard_float32_reg = hard_float_reg_gen Float32
+
 let all_phys_regs =
-  Array.append hard_int_reg hard_float_reg
+  Array.concat [hard_int_reg; hard_float_reg; hard_float32_reg]
 
 let precolored_regs =
   let phys_regs = Reg.set_of_array all_phys_regs in
@@ -164,12 +167,10 @@ let phys_reg ty n =
   match (ty : machtype_component) with
   | Int | Addr | Val -> hard_int_reg.(n)
   | Float -> hard_float_reg.(n - 100)
+  | Float32 -> hard_float32_reg.(n - 100)
   | Vec128 ->
     (* CR mslater: (SIMD) arm64 *)
     fatal_error "arm64: got vec128 register"
-  | Float32 ->
-    (* CR mslater: (float32) arm64 *)
-    fatal_error "arm64: got float32 register"
   | Valx2 ->
     (* CR mslater: (SIMD) arm64 *)
     fatal_error "arm64: got valx2 register"
@@ -179,7 +180,6 @@ let gc_regs_offset _ =
     fatal_error "arm64: gc_reg_offset unreachable"
 
 let reg_x8 = phys_reg Int 8
-let reg_d7 = phys_reg Float 107
 
 let stack_slot slot ty =
   Reg.at_location ty (Stack slot)
@@ -198,15 +198,18 @@ let loc_int last_int make_stack int ofs =
     ofs := !ofs + size_int; l
   end
 
-let loc_float last_float make_stack float ofs =
+let loc_float_gen kind last_float make_stack float ofs =
   if !float <= last_float then begin
-    let l = phys_reg Float !float in
+    let l = phys_reg kind !float in
     incr float; l
   end else begin
     ofs := Misc.align !ofs size_float;
-    let l = stack_slot (make_stack !ofs) Float in
+    let l = stack_slot (make_stack !ofs) kind in
     ofs := !ofs + size_float; l
   end
+
+let loc_float = loc_float_gen Float
+let loc_float32 = loc_float_gen Float32
 
 let loc_int32 last_int make_stack int ofs =
   if !int <= last_int then begin
@@ -234,8 +237,7 @@ let calling_conventions
         (* CR mslater: (SIMD) arm64 *)
         fatal_error "arm64: got vec128 register"
     | Float32 ->
-        (* CR mslater: (float32) arm64 *)
-        fatal_error "arm64: got float32 register"
+        loc.(i) <- loc_float32 last_float make_stack float ofs
     | Valx2 ->
       (* CR mslater: (SIMD) arm64 *)
       fatal_error "arm64: got valx2 register"
@@ -305,8 +307,7 @@ let external_calling_conventions
         (* CR mslater: (SIMD) arm64 *)
         fatal_error "arm64: got vec128 register"
     | XFloat32 ->
-        (* CR mslater: (float32) arm64 *)
-        fatal_error "arm64: got float32 register"
+        loc.(i) <- [| loc_float32 last_float make_stack float ofs |]
     end)
     ty_args;
   (loc, Misc.align !ofs 16)  (* keep stack 16-aligned *)
@@ -350,29 +351,69 @@ let domainstate_ptr_dwarf_register_number = 28
 
 let destroyed_at_c_noalloc_call =
   (* x19-x28, d8-d15 preserved *)
-  Array.append
-  (Array.of_list (List.map (phys_reg Int)
-    [0;1;2;3;4;5;6;7;8;9;10;11;12;13;14;15]))
-  (Array.of_list (List.map (phys_reg Float)
-    [100;101;102;103;104;105;106;107;
-     116;117;118;119;120;121;122;123;
-     124;125;126;127;128;129;130;131]))
+  let int_regs_destroyed_at_c_noalloc_call =
+    [| 0;1;2;3;4;5;6;7;8;9;10;11;12;13;14;15 |]
+  in
+  let float_regs_destroyed_at_c_noalloc_call =
+    [|100;101;102;103;104;105;106;107;
+      116;117;118;119;120;121;122;123;
+      124;125;126;127;128;129;130;131|]
+  in
+  Array.concat [
+    Array.map (phys_reg Int) int_regs_destroyed_at_c_noalloc_call;
+    Array.map (phys_reg Float) float_regs_destroyed_at_c_noalloc_call;
+    Array.map (phys_reg Float32) float_regs_destroyed_at_c_noalloc_call;
+  ]
+
+(* CSE needs to know that all versions of neon are destroyed. *)
+let destroy_neon_reg n =
+  [| phys_reg Float (100 + n); phys_reg Float32 (100 + n); (* phys_reg Vec128 (100 + n) *) |]
+
+let destroy_neon_reg7 = destroy_neon_reg 7
 
 (* note: keep this function in sync with `destroyed_at_{basic,terminator}` below. *)
 let destroyed_at_oper = function
   | Iop(Icall_ind | Icall_imm _) ->
-      all_phys_regs
-  | Iop(Iextcall {alloc; stack_ofs; }) ->
+    all_phys_regs
+  | Iop(Iextcall {alloc; stack_ofs; func = _; ty_res = _; ty_args = _; returns = _; }) ->
     assert (stack_ofs >= 0);
     if alloc || stack_ofs > 0 then all_phys_regs
     else destroyed_at_c_noalloc_call
   | Iop(Ialloc _) | Iop(Ipoll _) ->
-      [| reg_x8 |]
-  | Iop( Istatic_cast (Int_of_float _ | Float_of_int _)
-       | Iload{memory_chunk=Single { reg = Float64 }; _}
-       | Istore(Single { reg = Float64 }, _, _)) ->
-      [| reg_d7 |]            (* d7 / s7 destroyed *)
-  | _ -> [||]
+    [| reg_x8 |]
+  | Iop(Iload{memory_chunk=Single { reg = Float64 }; _})
+  | Iop(Istore(Single { reg = Float64 }, _, _))
+    -> destroy_neon_reg7
+  | Iop(Iload{memory_chunk=Single { reg = Float32 }; _})
+  | Iop(Istore(Single { reg = Float32 }, _, _))
+    -> [||]
+  | Iop(Iload
+          {memory_chunk=(Byte_unsigned|Byte_signed|Sixteen_unsigned|
+                         Sixteen_signed|Thirtytwo_unsigned|Thirtytwo_signed|
+                         Word_int|Word_val|Double|Onetwentyeight_unaligned|
+                         Onetwentyeight_aligned);
+           _ })
+  | Iop(Istore
+          ((Byte_unsigned|Byte_signed|Sixteen_unsigned|Sixteen_signed|
+            Thirtytwo_unsigned|Thirtytwo_signed|Word_int|Word_val|Double|
+            Onetwentyeight_unaligned|Onetwentyeight_aligned),
+           _, _))
+    -> [||]
+  | Iop(Istatic_cast (Int_of_float _ | Float_of_int _
+                     | Float_of_float32 | Float32_of_float))
+    -> [||]
+  | Iop(Istatic_cast (V128_of_scalar _|Scalar_of_v128 _))
+    ->
+    (* CR mslater: (SIMD) arm64 *)
+    Misc.fatal_error "SIMD is not supported on this architecture"
+  | Iop(Imove|Ispill|Ireload|Itailcall_ind|Iopaque|Ibeginregion|Iendregion|
+        Idls_get|Iconst_int _|Iconst_float32 _|Iconst_float _|Iconst_vec128 _|
+        Iconst_symbol _|Itailcall_imm _|Istackoffset _|Iintop _|Iintop_imm (_, _)|
+        Iintop_atomic _|Ifloatop (_, _)|Icsel _|Ireinterpret_cast _|
+        Iname_for_debugger _|Iprobe _|Iprobe_is_enabled _ |Ispecific _)
+  | (Iend|Ireturn _|Iifthenelse (_, _, _)|Iswitch (_, _)|Icatch (_, _, _, _)|
+     Iexit (_, _)|Itrywith (_, _, _)|Iraise _)
+    -> [||]
 
 let destroyed_at_raise = all_phys_regs
 
@@ -392,12 +433,44 @@ let destroyed_at_basic (basic : Cfg_intf.S.basic) =
   | Op Poll -> destroyed_at_alloc_or_poll
   | Op (Alloc _) ->
     destroyed_at_alloc_or_poll
-  | Op( Static_cast (Int_of_float _ | Float_of_int _)
-      | Load {memory_chunk = Single { reg = Float64 }; _ }
-      | Store(Single { reg = Float64 }, _, _)) ->
-    [| reg_d7 |]
-  | Op _ | Poptrap | Prologue ->
-    [||]
+  | Op(Load {memory_chunk = Single { reg = Float64 }; _ }
+      | Store(Single { reg = Float64 }, _, _))
+    -> destroy_neon_reg7
+  | Op (Load {memory_chunk=Single {reg=Float32}; _ })
+  | Op (Store (Single {reg=Float32}, _, _))
+  | Op (Load
+          {memory_chunk=(Byte_unsigned|Byte_signed|Sixteen_unsigned|
+                         Sixteen_signed|Thirtytwo_unsigned|Thirtytwo_signed|
+                         Word_int|Word_val|Double|Onetwentyeight_unaligned|
+                         Onetwentyeight_aligned);
+           _ })
+  | Op (Store
+          ((Byte_unsigned|Byte_signed|Sixteen_unsigned|Sixteen_signed|
+            Thirtytwo_unsigned|Thirtytwo_signed|Word_int|Word_val|Double|
+            Onetwentyeight_unaligned|Onetwentyeight_aligned),
+           _, _))
+    -> [||]
+  | Op (Static_cast
+          (Int_of_float _ | Float_of_int _
+          | Float_of_float32|Float32_of_float))
+    -> [||]
+  | Op (Static_cast
+          (V128_of_scalar _|Scalar_of_v128 _)) ->
+    (* CR mslater: (SIMD) arm64 *)
+    Misc.fatal_error "SIMD is not supported on this architecture"
+  | Op (Specific _
+        | Move | Spill | Reload
+        | Floatop _
+        | Csel _
+        | Reinterpret_cast _ | Const_int _
+        | Const_float32 _ | Const_float _
+        | Const_symbol _ | Const_vec128 _
+        | Stackoffset _
+        | Intop _ | Intop_imm _ | Intop_atomic _
+        | Name_for_debugger _ | Probe_is_enabled _ | Opaque
+        | Begin_region | End_region | Dls_get)
+  | Poptrap | Prologue
+    -> [||]
   | Stack_check _ -> assert false (* not supported *)
 
 (* note: keep this function in sync with `destroyed_at_oper` above,
@@ -431,8 +504,8 @@ let is_destruction_point ~(more_destruction_points : bool) (terminator : Cfg_int
   | Tailcall_func _ | Prim {op = Probe _; _}
   | Specific_can_raise _ ->
     false
-  | Call_no_return { func_symbol = _; alloc; ty_res = _; ty_args = _; }
-  | Prim {op  = External { func_symbol = _; alloc; ty_res = _; ty_args = _; }; _} ->
+  | Call_no_return { func_symbol = _; alloc; ty_res = _; ty_args = _; stack_ofs = _}
+  | Prim {op  = External { func_symbol = _; alloc; ty_res = _; ty_args = _; stack_ofs = _}; _} ->
     if more_destruction_points then
       true
     else
@@ -443,15 +516,39 @@ let is_destruction_point ~(more_destruction_points : bool) (terminator : Cfg_int
 let safe_register_pressure = function
   | Iextcall _ -> 7
   | Ialloc _ | Ipoll _ -> 22
-  | _ -> 23
+  | Imove|Ispill|Ireload|Icall_ind|Itailcall_ind|Iopaque|Ibeginregion|
+    Iendregion|Idls_get|Iconst_int _|Iconst_float32 _|Iconst_float _|
+    Iconst_vec128 _|Iconst_symbol _|Icall_imm _|Itailcall_imm _|Istackoffset _|
+    Iload _|Istore (_, _, _)|Iintop _|Iintop_imm (_, _)|Iintop_atomic _|
+    Ifloatop (_, _)|Icsel _|Ireinterpret_cast _|Istatic_cast _|
+    Iname_for_debugger _|Iprobe _|Iprobe_is_enabled _
+  | Ispecific _
+    -> 23
 
 let max_register_pressure = function
   | Iextcall _ -> [| 7; 8 |]  (* 7 integer callee-saves, 8 FP callee-saves *)
   | Ialloc _ | Ipoll _ -> [| 22; 32 |]
-  | Istatic_cast (Int_of_float _ | Float_of_int _)
   | Iload{memory_chunk=Single { reg = Float64 }; _}
-  | Istore(Single { reg = Float64 }, _, _) -> [| 23; 31 |]
-  | _ -> [| 23; 32 |]
+  | Istore(Single { reg = Float64 }, _, _)
+    -> [| 23; 31 |]
+  | Iload {memory_chunk=Single {reg=Float32}; _ }
+  | Istore (Single {reg=Float32}, _, _)
+  | Iload {memory_chunk=(Byte_unsigned|Byte_signed|Sixteen_unsigned|Sixteen_signed|
+                         Thirtytwo_unsigned|Thirtytwo_signed|Word_int|Word_val|Double|
+                         Onetwentyeight_unaligned|Onetwentyeight_aligned);
+           _ }
+  | Istore ((Byte_unsigned|Byte_signed|Sixteen_unsigned|Sixteen_signed|
+             Thirtytwo_unsigned|Thirtytwo_signed|Word_int|Word_val|Double|
+             Onetwentyeight_unaligned|Onetwentyeight_aligned),
+            _, _)
+  | Istatic_cast _
+  | Ispecific _
+  | Imove|Ispill|Ireload|Icall_ind|Itailcall_ind|Iopaque|Ibeginregion|
+  Iendregion|Idls_get|Iconst_int _|Iconst_float32 _|Iconst_float _|
+  Iconst_vec128 _|Iconst_symbol _|Icall_imm _|Itailcall_imm _|Istackoffset _|
+  Iintop _|Iintop_imm (_, _)|Iintop_atomic _|Ifloatop (_, _)|Icsel _|
+  Ireinterpret_cast _|Iname_for_debugger _|Iprobe _|Iprobe_is_enabled _
+    -> [| 23; 32 |]
 
 (* Layout of the stack *)
 

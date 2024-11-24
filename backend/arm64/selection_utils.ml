@@ -38,8 +38,8 @@ let is_offset chunk n =
        (* CR mslater: (SIMD) arm64 *)
        Misc.fatal_error "arm64: got 128 bit memory chunk"
      | Single { reg = Float32 } ->
-       (* CR mslater: (float32) arm64 *)
-       Misc.fatal_error "arm64: got float32 memory chunk"
+       (* CR melse: idk *)
+       true
 
 let is_logical_immediate_int n = Arch.is_logical_immediate (Nativeint.of_int n)
 
