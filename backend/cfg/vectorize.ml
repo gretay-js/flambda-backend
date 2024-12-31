@@ -2299,12 +2299,16 @@ end = struct
 
   type t =
     { groups : Group.t Instruction.Id.Map.t;
-      (* [all_instructions] is all the scalar instructions in the computations.
-         It is an optimization to cache this value here. It is used for ruling
-         out computations that are invalid or not implementable, and to estimate
-         cost/benefit of vectorized computations. *)
       all_scalar_instructions : Instruction.Id.Set.t;
-      new_positions : int Instruction.Id.Map.t
+          (** [all_scalar_instructions] is all the scalar instructions in the
+              computations.  It is an optimization to cache this value here. It is used
+              for ruling out computations that are invalid or not implementable, and to
+              estimate cost/benefit of vectorized computations. *)
+      new_positions : int Instruction.Id.Map.t;
+          (** [new_positions] is used for validation. *)
+      last_pos : int option
+          (** [last_pos] the position in the block body of the last scalar instruction, used
+             for heuristics. [None] for empty computations. *)
     }
 
   let num_groups t = Instruction.Id.Map.cardinal t.groups
@@ -2621,7 +2625,8 @@ end = struct
   let empty =
     { groups = Instruction.Id.Map.empty;
       all_scalar_instructions = Instruction.Id.Set.empty;
-      new_positions = Instruction.Id.Map.empty
+      new_positions = Instruction.Id.Map.empty;
+      last_pos = None
     }
 
   (* CR gyorsh: if same instruction belongs to two groups, is it handled
@@ -2690,13 +2695,20 @@ end = struct
       let t =
         { groups = map;
           all_scalar_instructions = all_instructions map;
-          new_positions = new_positions map block
+          new_positions = new_positions map block;
+          last_pos = Some (get_last_pos root block)
         }
       in
       State.dump_debug (Block.state block)
         "Computation.from_seed build finished\n%a\n" (dump ~block) t;
       assert (seed_address_does_not_depend_on_tree t block deps seed);
       if is_valid t block deps then Some t else None
+
+  let max_pos o1 o2 =
+    match o1, o2 with
+    | Some p1, Some p2 -> Some (Int.max p1 p2)
+    | None, None -> None
+    | (Some _ as res), None | None, (Some _ as res) -> res
 
   let join t1 t2 =
     { groups =
@@ -2723,7 +2735,8 @@ end = struct
                  pos2=%d"
                 Instruction.Id.print key pos1 pos2;
             Some pos1)
-          t1.new_positions t2.new_positions
+          t1.new_positions t2.new_positions;
+      last_pos = max_pos t1.last_pos t2.last_pos
     }
 
   (** [compatible t t'] returns true if for every group [g] in [t],
@@ -2762,7 +2775,15 @@ end = struct
     | [] -> None
     | trees ->
       (* sort by cost, ascending *)
-      let compare_cost t1 t2 = Int.compare (cost t1) (cost t2) in
+      let compare_cost t1 t2 =
+        let c = Int.compare (cost t1) (cost t2) in
+        if not (c = 0)
+        then c
+        else
+          (* heuristic to prioritize groups that appear later, it reduces the
+             chance they are a dependency of the rest of the body. *)
+          Int.neg (Option.compare Int.compare t1.last_pos t2.last_pos)
+      in
       let trees = List.sort compare_cost trees in
       let rec loop trees acc =
         match trees with
