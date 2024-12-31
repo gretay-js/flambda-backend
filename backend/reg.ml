@@ -196,6 +196,10 @@ let is_reg t =
 let size_of_contents_in_bytes t =
   match t.typ with
   | Vec128 -> Arch.size_vec128
+  | Valx2 ->
+    let s = Arch.size_int*2 in
+    assert (Int.equal s Arch.size_vec128);
+    s
   | Float -> Arch.size_float
   | Float32 ->
     assert (Arch.size_float = 8);
@@ -357,4 +361,8 @@ let types_are_compatible left right =
   | Float32, Float32
   | Vec128, Vec128 ->
     true
-  | (Int | Val | Addr | Float | Float32 | Vec128), _ -> false
+  | Valx2, Valx2 ->
+    true
+  | Valx2, Vec128 | Vec128, Valx2 ->
+    true
+  | (Int | Val | Addr | Float | Float32 | Vec128 | Valx2), _ -> false
