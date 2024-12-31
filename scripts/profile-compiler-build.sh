@@ -29,12 +29,12 @@ if [ -d "$dump_dir" ] && [ "$(ls -A "$dump_dir")" ]; then
   done
 fi
 
-export OCAMLPARAM="_,profile=1,dump-into-csv=1,dump-dir=$dump_dir,regalloc=irc"
+export OCAMLPARAM="_,profile=1,dump-into-csv=1,dump-dir=$dump_dir,regalloc=cfg,vectorize=1"
 export BUILD_OCAMLPARAM="$OCAMLPARAM"
 
 build_compiler() {
   git clean -Xdf
-  autoconf
+  autoconf || autoconf27
   ./configure --enable-ocamltest --enable-warn-error --enable-dev --prefix="$(pwd)"/_install
   make install
 }
