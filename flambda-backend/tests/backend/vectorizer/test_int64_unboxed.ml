@@ -12,12 +12,12 @@ end
 
 type t1 = { mutable d0 : int64# ; mutable d1: int64# }
 
-let[@inline never] [@local never][@specialize never] add_unboxed_pairs_mutable_record (a : t1) (b: t1) (c : t1) : t1 =
+let[@inline never] [@local never][@specialize never] add_mutable_record (a : t1) (b: t1) (c : t1) : t1 =
   c.d0 <- Int64_u.add a.d0 b.d0;
   c.d1 <- Int64_u.add a.d1 b.d1;
   c
 
-let[@inline never] [@local never][@specialize never] copy_unboxed_pairs_mutable_record (a : t1) (b: t1) : unit =
+let[@inline never] [@local never][@specialize never] copy_mutable_record (a : t1) (b: t1) : unit =
   b.d0 <- a.d0;
   b.d1 <- a.d1;
   ()
@@ -28,7 +28,7 @@ type t2 = {
   mutable d2: int64# ;
   mutable d3: int64# }
 
-let add_unboxed_fours_mutable_record (a : t1) (b: t1) (c : t2) : unit =
+let[@inline never] [@local never][@specialize never] add_fours_mutable_record (a : t1) (b: t1) (c : t2) : unit =
   c.d0 <- Int64_u.add a.d0 b.d0;
   c.d1 <- Int64_u.add a.d1 b.d1;
   c.d2 <- Int64_u.add a.d0 b.d0;
@@ -50,9 +50,12 @@ let () =
   let a = { d0 = #8L; d1 = #96L } in
   let b = { d0 = #80L; d1 = #14L } in
   let c = { d0 = #8L; d1 = #96L } in
+  let d = { d0 = #0L; d1 = #0L; d2 = #0L; d3 = #0L } in
   let res = { d0 = #0L; d1 = -#10L } in
-  Format.printf "add_unboxed_pairs_mutable_record %a\n" print_t1
-    (add_unboxed_pairs_mutable_record a b c);
-  copy_unboxed_pairs_mutable_record c res;
-  Format.printf "copy_unboxed_pairs_mutable_record %a\n" print_t1 res;
+  Format.printf "add_mutable_record %a\n" print_t1
+    (add_mutable_record a b c);
+  copy_mutable_record c res;
+  Format.printf "copy_mutable_record %a\n" print_t1 res;
+  add_fours_mutable_record a b d;
+  Format.printf "add_fours_mutable_record %a\n" print_t4 d;
   ()

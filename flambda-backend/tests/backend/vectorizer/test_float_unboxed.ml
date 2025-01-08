@@ -17,14 +17,14 @@ type t1 = { mutable d0: float#;
           }
 
 
-let[@inline never] [@local never][@specialize never] copy_unboxed_pairs_mutable_record (a : t1) (b: t1) : unit =
+let[@inline never] [@local never][@specialize never] copy_mutable_record (a : t1) (b: t1) : unit =
   b.d0 <- a.d0;
   b.d1 <- a.d1;
   ()
 
 (* Currently, can't vectorize because of the specific floatmem operation (looks like
    it is treated overly conservatively. *)
-let[@inline never] [@local never][@specialize never] add_unboxed_pairs_mutable_record (a : t1) (b: t1) (c : t1) : t1 =
+let[@inline never] [@local never][@specialize never] add_mutable_record (a : t1) (b: t1) (c : t1) : t1 =
   c.d0 <- Float_u.add a.d0 b.d0;
   c.d1 <- Float_u.add a.d1 b.d1;
   c.d2 <- Float_u.add a.d2 b.d2;
@@ -73,8 +73,8 @@ let () =
   let b = { d0 = #80.; d1 = #14.; d2 = #0.; d3 = -#0.5 } in
   let c = { d0 = #8.; d1 = #96.; d2 = #0.; d3 = -#0. } in
   let res = { d0 = #0.; d1 = -#10.; d2 = #1.; d3 = -#1. } in
-  Format.printf "add_unboxed_pairs_mutable_record %a\n" print_t1
-    (add_unboxed_pairs_mutable_record a b c);
-  copy_unboxed_pairs_mutable_record c res;
-  Format.printf "copy_unboxed_pairs_mutable_record %a\n" print_t1 res;
+  Format.printf "add_mutable_record %a\n" print_t1
+    (add_mutable_record a b c);
+  copy_mutable_record c res;
+  Format.printf "copy_mutable_record %a\n" print_t1 res;
   ()

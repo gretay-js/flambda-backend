@@ -33,7 +33,7 @@ end
 type t1 = { mutable d0 : int32# ; mutable d1: int32#; mutable d2: int32#; mutable d3: int32#  }
 
 (* Currently, can't vectorize because not adjacent and have an unnecessary sign extension. *)
-let[@inline never] [@local never][@specialize never] add_unboxed_pairs_mutable_record (a : t1) (b: t1) (c : t1) : t1 =
+let[@inline never] [@local never][@specialize never] add_mutable_record (a : t1) (b: t1) (c : t1) : t1 =
   c.d0 <- Int32_u.add a.d0 b.d0;
   c.d1 <- Int32_u.add a.d1 b.d1;
   c.d2 <- Int32_u.add a.d2 b.d2;
@@ -198,8 +198,8 @@ let () =
   let a = { d0 = #8l; d1 = #96l; d2 = -#10l; d3 = #0l } in
   let b = { d0 = #80l; d1 = #14l; d2 = -#30l; d3 = -#100l } in
   let c = { d0 = #8l; d1 = #96l; d2 = #0l; d3 = #0l } in
-  Format.printf "add_unboxed_pairs_mutable_record %a\n" print_t1
-    (add_unboxed_pairs_mutable_record a b c);
+  Format.printf "add_mutable_record %a\n" print_t1
+    (add_mutable_record a b c);
   let ar1 = create_array ~len:4 ~init:#30l in
   let ar2 = create_array ~len:4 ~init:#0l in
   copy_array_four ar1 ar2 ~pos:0;
