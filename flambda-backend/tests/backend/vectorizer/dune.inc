@@ -578,7 +578,7 @@
  (action
   (with-outputs-to
    %{target}
-   (with-accepted-exit-codes 1
+   (with-accepted-exit-codes 0
     (run %{deps})))))
 
 (rule

@@ -176,7 +176,7 @@ let () =
   print_test "test_int64";
   print_test "test_float";
   print_test "test_float32_unboxed";
+  print_test "test_int32_unboxed";
   (* can't vectorize *)
-  print_test ~filter_exit_code:1 "test_int32_unboxed";
   print_test ~filter_exit_code:1 "test_register_compatible";
   ()
