@@ -102,7 +102,7 @@ let num_register_classes = 2
 let register_class r =
   match r.typ with
   | Val | Int | Addr -> 0
-  | Float | Float32 | Vec128 -> 1
+  | Float | Float32 | Vec128 | Valx2 -> 1
 
 let num_stack_slot_classes = 3
 
@@ -110,7 +110,7 @@ let stack_slot_class typ =
   match (typ : machtype_component) with
   | Val | Addr | Int -> 0
   | Float | Float32 -> 1
-  | Vec128 -> 2
+  | Vec128 | Valx2 -> 2
 
 let stack_class_tag c =
   match c with
@@ -128,7 +128,7 @@ let register_name ty r =
   match (ty : machtype_component) with
   | Int | Addr | Val ->
     int_reg_name.(r - first_available_register.(0))
-  | Float | Float32 | Vec128 ->
+  | Float | Float32 | Vec128 | Valx2 ->
     float_reg_name.(r - first_available_register.(1))
 
 (* Pack registers starting at %rax so as to reduce the number of REX
@@ -229,6 +229,8 @@ let calling_conventions first_int last_int first_float last_float make_stack fir
         loc.(i) <- stack_slot (make_stack !ofs) Vec128;
         ofs := !ofs + size_vec128
       end
+    | Valx2 ->
+      Misc.fatal_error "Unexpected machtype_component Valx2"
     | Float32 ->
         if !float <= last_float then begin
           loc.(i) <- phys_reg Float32 !float;
@@ -327,6 +329,8 @@ let win64_loc_external_arguments arg =
     | Vec128 ->
         (* CR mslater: (SIMD) win64 calling convention requires pass by reference *)
         Misc.fatal_error "SIMD external arguments are not supported on Win64"
+    | Valx2 ->
+      Misc.fatal_error "Unexpected machtype_component Valx2"
   done;
   (loc, Misc.align !ofs 16)  (* keep stack 16-aligned *)
 
