@@ -79,9 +79,12 @@ let select_operation_bmi2 op args =
 let select_operation_sse op args =
   match op with
   | "caml_sse_float32_sqrt" | "sqrtf" -> Some (Sqrt_scalar_f32, args)
-  | "caml_sse_float32_max" -> Some (Max_scalar_f32, args)
-  | "caml_sse_float32_min" -> Some (Min_scalar_f32, args)
-  | "caml_sse_cast_float32_int64" -> Some (Round_current_f32_i64, args)
+  | "caml_simd_float32_max" | "caml_sse_float32_max" ->
+    Some (Max_scalar_f32, args)
+  | "caml_simd_float32_min" | "caml_sse_float32_min" ->
+    Some (Min_scalar_f32, args)
+  | "caml_sse_cast_float32_int64" | "caml_simd_cast_float32_int64" ->
+    Some (Round_current_f32_i64, args)
   | "caml_sse_float32x4_cmp" ->
     let i, args = extract_constant args ~max:7 op in
     Some (Cmp_f32 (float_condition_of_int i), args)
@@ -347,9 +350,21 @@ let select_operation_sse41 op args =
          actually be cross-platform. Currently, non-amd64 architectures will
          fall back to a C implementation. If we want the arm64 backend to
          specialize it, we should redefine the constant mapping from the amd64
-         values to a new sum type. *)
+         values to a new sum type.
+
+         gyorsh: This builtin is not exposed in the interface float32.mli, it is
+         only used in the implementation. arm64 backend implements the interface
+         differently. I don't think we need to redefine the constant mapping for
+         amd64. *)
       let i, args = extract_constant args ~max:15 op in
       Some (Round_scalar_f32 (float_rounding_of_int i), args)
+    | "caml_simd_float32_round_current" ->
+      Some (Round_scalar_f32 RoundCurrent, args)
+    | "caml_simd_float32_round_neg_inf" ->
+      Some (Round_scalar_f32 RoundDown, args)
+    | "caml_simd_float32_round_pos_inf" -> Some (Round_scalar_f32 RoundUp, args)
+    | "caml_simd_float32_round_towards_zero" ->
+      Some (Round_scalar_f32 RoundTruncate, args)
     | "caml_sse41_int8x16_max" -> Some (Max_i8, args)
     | "caml_sse41_int32x4_max" -> Some (Max_i32, args)
     | "caml_sse41_int16x8_max_unsigned" -> Some (Max_unsigned_i16, args)

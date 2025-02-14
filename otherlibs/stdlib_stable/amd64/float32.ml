@@ -248,11 +248,11 @@ let[@inline] max (x : t) (y : t) =
 
 module With_weird_nan_behavior = struct
   external min : t -> t -> t
-    = "caml_sse_float32_min_bytecode" "caml_sse_float32_min"
+    = "caml_simd_float32_min_bytecode" "caml_simd_float32_min"
     [@@noalloc] [@@unboxed] [@@builtin]
 
   external max : t -> t -> t
-    = "caml_sse_float32_max_bytecode" "caml_sse_float32_max"
+    = "caml_simd_float32_max_bytecode" "caml_simd_float32_max"
     [@@noalloc] [@@unboxed] [@@builtin]
 end
 
@@ -278,7 +278,7 @@ let[@inline] min_max_num (x : t) (y : t) =
   else (y, x)
 
 external iround_current : t -> int64
-  = "caml_sse_cast_float32_int64_bytecode" "caml_sse_cast_float32_int64"
+  = "caml_simd_cast_float32_int64_bytecode" "caml_simd_cast_float32_int64"
   [@@noalloc] [@@unboxed] [@@builtin]
 
 external round_intrinsic : (int[@untagged]) -> (t[@unboxed]) -> (t[@unboxed])
