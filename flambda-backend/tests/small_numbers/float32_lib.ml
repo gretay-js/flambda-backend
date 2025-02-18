@@ -155,7 +155,12 @@ module CF32 = struct
 end
 
 let bit_eq f1 f2 =
-  assert (CF32.to_bits f1 = CF32.to_bits f2 || (CF32.is_nan f1 && CF32.is_nan f2))
+  if not ((CF32.to_bits f1 = CF32.to_bits f2) || (CF32.is_nan f1 && CF32.is_nan f2)) then (
+    Printf.printf "f1: %f (=%lx) is_nan=%b\n\
+                   f2: %f (=%lx) is_nan=%b\n"
+      (CF32.to_float f1) (CF32.to_bits f1) (CF32.is_nan f1)
+      (CF32.to_float f2) (CF32.to_bits f2) (CF32.is_nan f2);
+    assert false)
 
 let () =
   bit_eq F32.zero CF32.zero;
@@ -958,4 +963,3 @@ module Bigarray = struct
     ;;
   end
 end
-

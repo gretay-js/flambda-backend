@@ -147,6 +147,7 @@ class selector =
         | [Cop (Cmulf Float64, args, _); arg] ->
           Ispecific Inegmulsubf, arg :: args
         | _ -> super#select_operation op args dbg)
+      | Cpackf32 -> Ispecific (Isimd Zip1_f32), args
       (* Recognize floating-point square root *)
       | Cextcall { func = "sqrt" | "sqrtf" } -> Ispecific Isqrtf, args
       | Cextcall { func; builtin = true; _ } -> (

@@ -34,11 +34,11 @@
 ;; for now, just keep the interfaces in sync
 (rule
  (alias   runtest)
- (action (diff amd64/float.mli arm64/float.mli)))
+ (action (diff amd64/float32.mli arm64/float32.mli)))
 
 (rule
  (alias   runtest)
- (action (diff amd64/float_u.mli arm64/float_u.mli)))
+ (action (diff amd64/float32_u.mli arm64/float32_u.mli)))
 
 (rule
  (alias   runtest)
@@ -49,7 +49,7 @@
    (or
     (= %{architecture} "amd64")
     (= %{architecture} "arm64")))
-  "%{env:ARCH=amd64}/*.ml{,i}")
+  (files "%{env:ARCH=amd64}/*.ml{,i}"))
 
 (rule
  (targets stdlib_stable.ml stdlib_stable.mli)
