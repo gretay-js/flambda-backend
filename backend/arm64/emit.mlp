@@ -508,11 +508,6 @@ module BR = Branch_relaxation.Make (struct
   let epilogue_size () =
     if !contains_calls then 3 else 2
 
-  let simd_size (op : Simd.operation)  =
-    match op with
-    | Round_f32 _ -> 1
-    | Round_f32_i64 -> 1
-
   let memory_access_size (memory_chunk : Cmm.memory_chunk) =
     match memory_chunk with
     | Single { reg = Float64 } -> 2
@@ -649,7 +644,7 @@ module BR = Branch_relaxation.Make (struct
       end
     | Lstackcheck _ -> 5
     | Lop (Specific (Isimd simd)) ->
-      simd_size simd
+      Simd.instr_size simd
 
   let relax_poll ~return_label =
     Lop (Specific (Ifar_poll { return_label }))
@@ -672,10 +667,15 @@ let name_for_float_comparison : Cmm.float_comparison -> string = function
 
 let emit_simd_instr (op : Simd.operation) i =
   match op with
-  | Round_f32 rounding_mode ->
-    `  frint{emit_string (Simd.rounding_mode_instruction_suffix rounding_mode)} {emit_reg i.res.(0)}, {emit_reg i.arg.(0)}\n`
+  (* unary instructions with register operands *)
+  | Round_f32 _
   | Round_f32_i64 ->
-    `  fcvtns {emit_reg i.res.(0)}, {emit_reg i.arg.(0)}\n`
+      `	{emit_string (Simd.emit_opcode op)}	{emit_reg i.res.(0)}, {emit_reg i.arg.(0)}\n`
+  (* binary instructions with register operands *)
+  | Min_scalar_f32
+  | Max_scalar_f32
+    ->
+    `	{emit_string (Simd.emit_opcode op)}	{emit_reg i.res.(0)}, {emit_reg i.arg.(0)}, {emit_reg i.arg.(1)}\n`
 
 (* Output the assembly code for allocation. *)
 

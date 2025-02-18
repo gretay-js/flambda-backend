@@ -19,11 +19,13 @@ open Simd
 
 let select_simd_instr op args =
   match op with
-  | "caml_neon_float32_round_neg_inf" -> Some (Round_f32 Neg_inf, args)
-  | "caml_neon_float32_round_pos_inf" -> Some (Round_f32 Pos_inf, args)
-  | "caml_neon_float32_round_towards_zero" -> Some (Round_f32 Zero, args)
-  | "caml_neon_float32_round_current" -> Some (Round_f32 Current, args)
-  | "caml_neon_cast_float32_int64" -> Some (Round_f32_i64, args)
+  | "caml_simd_float32_round_neg_inf" -> Some (Round_f32 Neg_inf, args)
+  | "caml_simd_float32_round_pos_inf" -> Some (Round_f32 Pos_inf, args)
+  | "caml_simd_float32_round_towards_zero" -> Some (Round_f32 Zero, args)
+  | "caml_simd_float32_round_current" -> Some (Round_f32 Current, args)
+  | "caml_simd_cast_float32_int64" -> Some (Round_f32_i64, args)
+  | "caml_simd_float32_min" -> Some (Min_scalar_f32, args)
+  | "caml_simd_float32_max" -> Some (Max_scalar_f32, args)
   | _ -> None
 
 let select_operation op args =
