@@ -247,13 +247,26 @@ let[@inline] max (x : t) (y : t) =
   else x
 
 module With_weird_nan_behavior = struct
+  (* The behavior of instructions on arm64 and amd64 is not the same in a
+     subtle way:
+
+     (arm64) fmin, fmax:
+     Negative zero compares less than positive zero.
+
+     (amd64) minss, maxsss:
+     If the values being compared are both 0.0s (of either sign), the
+     value in the second source operand is returned.
+
+     This causes some tests to fai with the builtin. The C stubs are identical.
+     We disable the builtin for now.
+   *)
   external min : t -> t -> t
     = "caml_simd_float32_min_bytecode" "caml_simd_float32_min"
-    [@@noalloc] [@@unboxed] [@@builtin]
+    [@@noalloc] [@@unboxed] (* [@@builtin] *)
 
   external max : t -> t -> t
     = "caml_simd_float32_max_bytecode" "caml_simd_float32_max"
-    [@@noalloc] [@@unboxed] [@@builtin]
+    [@@noalloc] [@@unboxed] (* [@@builtin] *)
 end
 
 let[@inline] min_max (x : t) (y : t) =
