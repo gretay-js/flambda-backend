@@ -247,6 +247,24 @@ let[@inline] max (x : t) (y : t) =
   else x
 
 module With_weird_nan_behavior = struct
+  (* arm64 implementation is [fcmp; fcsel]
+
+     The behavior of min/max instructions on arm64 and amd64
+     is not the same in a subtle way:
+
+     (arm64) fmin, fmax:
+     Negative zero compares less than positive zero.
+
+     (amd64) minss, maxsss:
+     If the values being compared are both 0.0s (of either sign), the
+     value in the second source operand is returned.
+
+     On arm64, if the flag [FPCR.AH] is set, arm64 behavior matches amd64,
+     but unfortunately the default for macos on arm64 is [FPCR.AH=0].
+     This causes some tests to fail when builtin is compiled to
+     [fmin/fmax] on arm64. Specifically, tests that fail have one
+     of their inputs as negative zero, for example: [min -0.0 +0.0].
+   *)
   external min : t -> t -> t
     = "caml_simd_float32_min_bytecode" "caml_simd_float32_min"
     [@@noalloc] [@@unboxed] [@@builtin]

@@ -671,11 +671,17 @@ let emit_simd_instr (op : Simd.operation) i =
   | Round_f32 _
   | Round_f32_i64 ->
       `	{emit_string (Simd.emit_opcode op)}	{emit_reg i.res.(0)}, {emit_reg i.arg.(0)}\n`
-  (* binary instructions with register operands *)
+  (* min/max: generate a sequence that matches the weird semantics of amd64 instruction
+     "minss", even when the flag [FPCR.AH] is not set. A separate intrinsics generates
+     fmin/fmax arm64 instructions directly. *)
   | Min_scalar_f32
+    ->
+    `	fcmp	{emit_reg i.arg.(0)}, {emit_reg i.arg.(1)}\n`;
+    `	fcsel	{emit_reg i.res.(0)}, {emit_reg i.arg.(0)}, {emit_reg i.arg.(1)}, mi\n`
   | Max_scalar_f32
     ->
-    `	{emit_string (Simd.emit_opcode op)}	{emit_reg i.res.(0)}, {emit_reg i.arg.(0)}, {emit_reg i.arg.(1)}\n`
+    `	fcmp	{emit_reg i.arg.(0)}, {emit_reg i.arg.(1)}\n`;
+    `	fcsel	{emit_reg i.res.(0)}, {emit_reg i.arg.(0)}, {emit_reg i.arg.(1)}, gt\n`
 
 (* Output the assembly code for allocation. *)
 
