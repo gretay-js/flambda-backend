@@ -302,7 +302,7 @@ class virtual selector_generic =
       | Cendregion -> basic_op End_region, args
       | Cpackf32 | Copaque | Cbswap _ | Cprefetch _ | Craise _
       | Ctuple_field (_, _) ->
-        Misc.fatal_error "Selection.select_oper"
+        Misc.fatal_errorf "Selection.select_oper %s" (Printcmm.operation Debuginfo.none op)  
 
     method private select_arith_comm (op : Simple_operation.integer_operation)
         (args : Cmm.expression list) : basic_or_terminator * Cmm.expression list
