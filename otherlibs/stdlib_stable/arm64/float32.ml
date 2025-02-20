@@ -257,6 +257,8 @@ module With_weird_nan_behavior = struct
      If the values being compared are both 0.0s (of either sign), the
      value in the second source operand is returned.
 
+     On arm64, if the flag [FPCR.AH] is set, arm64 behavior matches amd64,
+     but unfortunately the default for macos on arm64 is [FPCR.AH=0].
      This causes some tests to fai with the builtin. The C stubs are identical.
      We disable the builtin for now.
    *)
