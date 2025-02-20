@@ -347,7 +347,7 @@ static inline float caml_simd_float32_round(int mode, float f) {
   case ROUND_POS_INF: return ceilf(f);
   case ROUND_ZERO:    return truncf(f);
   case ROUND_CURRENT: return rintf(f);
-  default: caml_fatal_error("Unknown rounding mode.");
+  default: caml_fatal_error("Unknown rounding mode %d.", mode);
   }
 }
 
