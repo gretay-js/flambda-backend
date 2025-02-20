@@ -461,7 +461,7 @@ val max : t -> t -> t
 module With_weird_nan_behavior : sig
   external min : t -> t -> t
     = "caml_simd_float32_min_bytecode" "caml_simd_float32_min"
-    [@@noalloc] [@@unboxed] [@@builtin]
+    [@@noalloc] [@@unboxed] (* [@@builtin] *)
   (** [min x y] returns the minimum of [x] and [y].
       If either [x] or [y] is [nan], [y] is returned.
       If both [x] and [y] equal zero, [y] is returned.
@@ -469,7 +469,7 @@ module With_weird_nan_behavior : sig
 
   external max : t -> t -> t
     = "caml_simd_float32_max_bytecode" "caml_simd_float32_max"
-    [@@noalloc] [@@unboxed] [@@builtin]
+    [@@noalloc] [@@unboxed] (* [@@builtin] *)
   (** [max x y] returns the maximum of [x] and [y].
       If either [x] or [y] is [nan], [y] is returned.
       If both [x] and [y] equal zero, [y] is returned.

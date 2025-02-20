@@ -249,11 +249,11 @@ let[@inline] max (x : t) (y : t) =
 module With_weird_nan_behavior = struct
   external min : t -> t -> t
     = "caml_simd_float32_min_bytecode" "caml_simd_float32_min"
-    [@@noalloc] [@@unboxed] [@@builtin]
+    [@@noalloc] [@@unboxed] (* [@@builtin] *)
 
   external max : t -> t -> t
     = "caml_simd_float32_max_bytecode" "caml_simd_float32_max"
-    [@@noalloc] [@@unboxed] [@@builtin]
+    [@@noalloc] [@@unboxed] (* [@@builtin] *)
 end
 
 let[@inline] min_max (x : t) (y : t) =
