@@ -365,7 +365,7 @@ float caml_simd_float32_round_current(float f) {
 }
 
 CAMLprim value caml_simd_float32_round_current_bytecode(value f) {
-  return caml_copy_float32(caml_simd_float32_round(Int_val(ROUND_CURRENT), Float32_val(f)));
+  return caml_copy_float32(caml_simd_float32_round(ROUND_CURRENT, Float32_val(f)));
 }
 
 float caml_simd_float32_round_neg_inf(float f) {
@@ -373,7 +373,7 @@ float caml_simd_float32_round_neg_inf(float f) {
 }
 
 CAMLprim value caml_simd_float32_round_neg_inf_bytecode(value f) {
-  return caml_copy_float32(caml_simd_float32_round(Int_val(ROUND_NEG_INF), Float32_val(f)));
+  return caml_copy_float32(caml_simd_float32_round(ROUND_NEG_INF, Float32_val(f)));
 }
 
 float caml_simd_float32_round_pos_inf(float f) {
@@ -381,7 +381,7 @@ float caml_simd_float32_round_pos_inf(float f) {
 }
 
 CAMLprim value caml_simd_float32_round_pos_inf_bytecode(value f) {
-  return caml_copy_float32(caml_simd_float32_round(Int_val(ROUND_POS_INF), Float32_val(f)));
+  return caml_copy_float32(caml_simd_float32_round(ROUND_POS_INF, Float32_val(f)));
 }
 
 float caml_simd_float32_round_towards_zero(float f) {
@@ -389,7 +389,7 @@ float caml_simd_float32_round_towards_zero(float f) {
 }
 
 CAMLprim value caml_simd_float32_round_towards_zero_bytecode(value f) {
-  return caml_copy_float32(caml_simd_float32_round(Int_val(ROUND_ZERO), Float32_val(f)));
+  return caml_copy_float32(caml_simd_float32_round(ROUND_ZERO, Float32_val(f)));
 }
 
 enum { FP_normal, FP_subnormal, FP_zero, FP_infinite, FP_nan };
