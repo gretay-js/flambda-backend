@@ -16,4 +16,12 @@
 
 (* SIMD instruction reload for ARM64 *)
 
-let reload_operation _ _ arg res = arg, res
+let reload_operation makereg op arg res =
+  let stackp r =
+    match r.Reg.loc with Stack _ -> true | Reg _ | Unknown -> false
+  in
+  let ensure_reg reg = if stackp reg then makereg reg else reg in
+  match Simd_proc.register_behavior op with
+  (* Argument and result must be in registers. *)
+  | Rf32_Rf32_to_RegF32 | Rf32_to_Rf32 | Rf32_to_Ri64 ->
+    Array.map ensure_reg arg, Array.map ensure_reg res
