@@ -147,12 +147,7 @@ class selector =
         | [Cop (Cmulf Float64, args, _); arg] ->
           Ispecific Inegmulsubf, arg :: args
         | _ -> super#select_operation op args dbg)
-      | Cpackf32 ->
-        (* We must operate on registers. This is because if the second argument
-           was a float stack slot, the resulting UNPCKLPS instruction would
-           enforce the validity of loading it as a 128-bit memory location, even
-           though it only loads 64 bits. *)
-        Ispecific (Isimd Zip1_f32), args
+      | Cpackf32 -> Ispecific (Isimd Zip1_f32), args
       (* Recognize floating-point square root *)
       | Cextcall { func = "sqrt" | "sqrtf" } -> Ispecific Isqrtf, args
       | Cextcall { func; builtin = true; _ } -> (

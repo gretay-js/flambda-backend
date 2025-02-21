@@ -29,6 +29,7 @@ open Simple_operation
 open Linear
 open Emitaux
 
+module DSL = Arm64_ast.DSL
 (* Tradeoff between code size and code speed *)
 
 let fastcode_flag = ref true
@@ -89,6 +90,10 @@ let int_reg_name_w =
 
 let emit_wreg = function
     {loc = Reg r; _} -> emit_string int_reg_name_w.(r)
+  | {loc = (Stack _ | Unknown); _}  -> fatal_error "Emit.emit_wreg"
+
+let emit_vreg get_reg = function
+    {loc = Reg r; _} -> emit_string (DSL.reg_name (get_reg r))
   | {loc = (Stack _ | Unknown); _}  -> fatal_error "Emit.emit_wreg"
 
 (* Layout of the stack frame *)
@@ -675,7 +680,12 @@ let check_simd_instr (register_behavior : Simd_proc.register_behavior) i =
     assert (Reg.is_reg reg);
   in
   match register_behavior with
-  | Rf32_Rf32_to_RegF32 ->
+  | Rf32x2_Rf32x2_to_Rf32x2 ->
+    (* float32x2 is represented as Float machtype *)
+    check_reg Float i.arg.(0);
+    check_reg Float i.arg.(1);
+    check_reg Float i.res.(0)
+  | Rf32_Rf32_to_Rf32 ->
     check_reg Float32 i.arg.(0);
     check_reg Float32 i.arg.(1);
     check_reg Float32 i.res.(0)
@@ -688,11 +698,16 @@ let check_simd_instr (register_behavior : Simd_proc.register_behavior) i =
 
 let emit_simd_operands (register_behavior : Simd_proc.register_behavior) i =
   match register_behavior with
-  | Rf32_Rf32_to_RegF32 ->
-    `{emit_reg i.res.(0)}, {emit_reg i.arg.(0)}, {emit_reg i.arg.(1)}`
-  | Rf32_to_Rf32
+  | Rf32x2_Rf32x2_to_Rf32x2 ->
+    let emit_vreg = emit_vreg DSL.reg_v2s in
+    `{emit_vreg i.res.(0)}, {emit_vreg i.arg.(0)}, {emit_vreg i.arg.(1)}`
+  | Rf32_Rf32_to_Rf32 ->
+    let emit_vreg = emit_vreg DSL.reg_s in
+    `{emit_vreg i.res.(0)}, {emit_vreg i.arg.(0)}, {emit_vreg i.arg.(1)}`
+  | Rf32_to_Rf32 ->
+    `{emit_vreg DSL.reg_s i.res.(0)}, {emit_vreg DSL.reg_s i.arg.(0)}`
   | Rf32_to_Ri64 ->
-    `{emit_reg i.res.(0)}, {emit_reg i.arg.(0)}, {emit_reg i.arg.(1)}`
+    `{emit_vreg DSL.reg_s i.res.(0)}, {emit_vreg DSL.reg_x i.arg.(0)}`
 
 let emit_simd_instr (op : Simd.operation) i =
   let b = Simd_proc.register_behavior op in

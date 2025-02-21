@@ -57,9 +57,8 @@ type operation =
 
 let instr_size op =
   match op with
-  | Round_f32 _ | Round_f32_i64 | Min_scalar_f32 | Max_scalar_f32 | Zip1_f32
-  | Fmin_f32 | Fmax_f32 ->
-    1
+  | Min_scalar_f32 | Max_scalar_f32 -> 2
+  | Round_f32 _ | Round_f32_i64 | Zip1_f32 | Fmin_f32 | Fmax_f32 -> 1
 
 let emit_opcode op =
   match op with
