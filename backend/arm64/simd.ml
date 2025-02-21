@@ -46,9 +46,9 @@ type operation =
   | Round_f32 of Rounding_mode.t
   | Round_f32_i64
   | Zip1_f32
-    (* [Min_scalar_f32/Max_scalar_f32] are emitted as a sequence of instructions
-       that matches amd64 semantics of the same intrinsic
-       [caml_simd_float32_min/max], regardless of the value of [FPCR.AH]. *)
+  (* [Min_scalar_f32/Max_scalar_f32] are emitted as a sequence of instructions
+     that matches amd64 semantics of the same intrinsic
+     [caml_simd_float32_min/max], regardless of the value of [FPCR.AH]. *)
   | Min_scalar_f32
   | Max_scalar_f32
   (* [Fmin/Fmax] are emitted as the corresponding arm64 single instructions. *)
@@ -74,7 +74,7 @@ let emit_opcode op =
 
 let print_name op =
   match op with
-  | Round_f32 rounding_mode | Round_f32_i64 | Zip1_f32 | Fmin_f32 | Fmax_f32 ->
+  | Round_f32 _ | Round_f32_i64 | Zip1_f32 | Fmin_f32 | Fmax_f32 ->
     emit_opcode op
   | Min_scalar_f32 -> "min_scalar_f32"
   | Max_scalar_f32 -> "max_scalar_f32"
@@ -82,8 +82,8 @@ let print_name op =
 let print_operation printreg op ppf arg =
   (* CR gyorsh: does not support memory operands (except stack operands). *)
   Format.fprintf ppf "%s %a" (print_name op)
-    (Format.pp_print_list ~sep:Format.pp_print_space printreg)
-    arg
+    (Format.pp_print_seq ~pp_sep:Format.pp_print_space printreg)
+    (arg |> Array.to_seq)
 
 let equal_operation op1 op2 =
   match op1, op2 with
@@ -91,17 +91,19 @@ let equal_operation op1 op2 =
   | Round_f32_i64, Round_f32_i64 -> true
   | Min_scalar_f32, Min_scalar_f32
   | Max_scalar_f32, Max_scalar_f32
-  | Fmin_f32 | Fmax_f32 ->
+  | Fmin_f32, Fmin_f32
+  | Fmax_f32, Fmax_f32
+  | Zip1_f32, Zip1_f32 ->
     true
   | ( ( Round_f32 _ | Round_f32_i64 | Min_scalar_f32 | Max_scalar_f32 | Fmin_f32
-      | Fmax_f32 ),
+      | Fmax_f32 | Zip1_f32 ),
       _ ) ->
     false
 
 let class_of_operation op =
   match op with
   | Round_f32 _ | Round_f32_i64 | Min_scalar_f32 | Max_scalar_f32 | Fmin_f32
-  | Fmax_f32 ->
+  | Fmax_f32 | Zip1_f32 ->
     Pure
 
 let operation_is_pure op = match class_of_operation op with Pure -> true

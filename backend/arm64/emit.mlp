@@ -665,21 +665,55 @@ let name_for_float_comparison : Cmm.float_comparison -> string = function
   | CFge -> "ge"
   | CFnge -> "lt"
 
+let check_simd_instr (register_behavior : Simd_proc.register_behavior) i =
+  (* Ensure that operation size and register size match.
+     On arm64, operation size is encoded solely into the operands
+     (unlike amd64 where the opcode itself usually indicates operation size). *)
+  let check_reg typ reg =
+    (* same type and not on stack *)
+    assert (Cmm.equal_machtype_component typ reg.typ);
+    assert (Reg.is_reg reg);
+  in
+  match register_behavior with
+  | Rf32_Rf32_to_RegF32 ->
+    check_reg Float32 i.arg.(0);
+    check_reg Float32 i.arg.(1);
+    check_reg Float32 i.res.(0)
+  | Rf32_to_Rf32 ->
+    check_reg Float32 i.arg.(0);
+    check_reg Float32 i.res.(0)
+  | Rf32_to_Ri64 ->
+    check_reg Float32 i.arg.(0);
+    check_reg Int i.res.(0)
+
+let _emit_simd_operands (register_behavior : Simd_proc.register_behavior) i =
+  match register_behavior with
+  | Rf32_Rf32_to_RegF32 ->
+    `{emit_reg i.res.(0)}, {emit_reg i.arg.(0)}, {emit_reg i.arg.(1)}`
+  | Rf32_to_Rf32
+  | Rf32_to_Ri64 ->
+    `{emit_reg i.res.(0)}, {emit_reg i.arg.(0)}, {emit_reg i.arg.(1)}`
+
 let emit_simd_instr (op : Simd.operation) i =
+  check_simd_instr (Simd_proc.register_behavior op) i;
   match op with
   (* unary instructions with register operands *)
-  | Round_f32 _
+  | Round_f32 _ ->
+    `	{emit_string (Simd.emit_opcode op)}	{emit_reg i.res.(0)}, {emit_reg i.arg.(0)}\n`
   | Round_f32_i64 ->
-      `	{emit_string (Simd.emit_opcode op)}	{emit_reg i.res.(0)}, {emit_reg i.arg.(0)}\n`
+    `	{emit_string (Simd.emit_opcode op)}	{emit_reg i.res.(0)}, {emit_reg i.arg.(0)}\n`
+  (* binary instructions with register operands *)
+  | Fmin_f32
+  | Fmax_f32
+  | Zip1_f32 ->
+    `	{emit_string (Simd.emit_opcode op)}	{emit_reg i.res.(0)}, {emit_reg i.arg.(0)}, {emit_reg i.arg.(1)}\n`
   (* min/max: generate a sequence that matches the weird semantics of amd64 instruction
      "minss", even when the flag [FPCR.AH] is not set. A separate intrinsics generates
      fmin/fmax arm64 instructions directly. *)
-  | Min_scalar_f32
-    ->
+  | Min_scalar_f32 ->
     `	fcmp	{emit_reg i.arg.(0)}, {emit_reg i.arg.(1)}\n`;
     `	fcsel	{emit_reg i.res.(0)}, {emit_reg i.arg.(0)}, {emit_reg i.arg.(1)}, mi\n`
-  | Max_scalar_f32
-    ->
+  | Max_scalar_f32 ->
     `	fcmp	{emit_reg i.arg.(0)}, {emit_reg i.arg.(1)}\n`;
     `	fcsel	{emit_reg i.res.(0)}, {emit_reg i.arg.(0)}, {emit_reg i.arg.(1)}, gt\n`
 
