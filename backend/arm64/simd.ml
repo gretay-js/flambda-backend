@@ -16,8 +16,6 @@
 
 (* SIMD instructions for ARM64 *)
 
-open Format
-
 type operation_class = Pure
 
 module Rounding_mode = struct
@@ -47,42 +45,63 @@ end
 type operation =
   | Round_f32 of Rounding_mode.t
   | Round_f32_i64
+  | Zip1_f32
+    (* [Min_scalar_f32/Max_scalar_f32] are emitted as a sequence of instructions
+       that matches amd64 semantics of the same intrinsic
+       [caml_simd_float32_min/max], regardless of the value of [FPCR.AH]. *)
   | Min_scalar_f32
   | Max_scalar_f32
+  (* [Fmin/Fmax] are emitted as the corresponding arm64 single instructions. *)
+  | Fmin_f32
+  | Fmax_f32
 
 let instr_size op =
   match op with
-  | Round_f32 _ | Round_f32_i64 | Min_scalar_f32 | Max_scalar_f32 -> 1
+  | Round_f32 _ | Round_f32_i64 | Min_scalar_f32 | Max_scalar_f32 | Zip1_f32
+  | Fmin_f32 | Fmax_f32 ->
+    1
 
 let emit_opcode op =
   match op with
   | Round_f32 rounding_mode ->
     "frint" ^ Rounding_mode.instruction_suffix rounding_mode
   | Round_f32_i64 -> "fcvtns"
-  | Min_scalar_f32 -> "fmin"
-  | Max_scalar_f32 -> "fmax"
+  | Fmin_f32 -> "fmin"
+  | Fmax_f32 -> "fmax"
+  | Zip1_f32 -> "zip1"
+  | Min_scalar_f32 -> "Min_scalar_f32: instruction sequence"
+  | Max_scalar_f32 -> "Max_scalar_f32: instruction sequence"
+
+let print_name op =
+  match op with
+  | Round_f32 rounding_mode | Round_f32_i64 | Zip1_f32 | Fmin_f32 | Fmax_f32 ->
+    emit_opcode op
+  | Min_scalar_f32 -> "min_scalar_f32"
+  | Max_scalar_f32 -> "max_scalar_f32"
 
 let print_operation printreg op ppf arg =
-  match op with
-  | Round_f32 mode ->
-    fprintf ppf "frint%a %a %a" Rounding_mode.print_rounding_mode mode printreg
-      arg.(0) printreg arg.(1)
-  | Round_f32_i64 ->
-    fprintf ppf "fcvtzs %a %a" printreg arg.(0) printreg arg.(1)
-  | Min_scalar_f32 ->
-    fprintf ppf "min_scalar_f32 %a %a" printreg arg.(0) printreg arg.(1)
-  | Max_scalar_f32 ->
-    fprintf ppf "max_scalar_f32 %a %a" printreg arg.(0) printreg arg.(1)
+  (* CR gyorsh: does not support memory operands (except stack operands). *)
+  Format.fprintf ppf "%s %a" (print_name op)
+    (Format.pp_print_list ~sep:Format.pp_print_space printreg)
+    arg
 
 let equal_operation op1 op2 =
   match op1, op2 with
   | Round_f32 mode, Round_f32 mode' -> Rounding_mode.equal mode mode'
   | Round_f32_i64, Round_f32_i64 -> true
-  | Min_scalar_f32, Min_scalar_f32 | Max_scalar_f32, Max_scalar_f32 -> true
-  | (Round_f32 _ | Round_f32_i64 | Min_scalar_f32 | Max_scalar_f32), _ -> false
+  | Min_scalar_f32, Min_scalar_f32
+  | Max_scalar_f32, Max_scalar_f32
+  | Fmin_f32 | Fmax_f32 ->
+    true
+  | ( ( Round_f32 _ | Round_f32_i64 | Min_scalar_f32 | Max_scalar_f32 | Fmin_f32
+      | Fmax_f32 ),
+      _ ) ->
+    false
 
 let class_of_operation op =
   match op with
-  | Round_f32 _ | Round_f32_i64 | Min_scalar_f32 | Max_scalar_f32 -> Pure
+  | Round_f32 _ | Round_f32_i64 | Min_scalar_f32 | Max_scalar_f32 | Fmin_f32
+  | Fmax_f32 ->
+    Pure
 
 let operation_is_pure op = match class_of_operation op with Pure -> true
