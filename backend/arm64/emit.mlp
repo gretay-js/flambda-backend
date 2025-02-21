@@ -686,7 +686,7 @@ let check_simd_instr (register_behavior : Simd_proc.register_behavior) i =
     check_reg Float32 i.arg.(0);
     check_reg Int i.res.(0)
 
-let _emit_simd_operands (register_behavior : Simd_proc.register_behavior) i =
+let emit_simd_operands (register_behavior : Simd_proc.register_behavior) i =
   match register_behavior with
   | Rf32_Rf32_to_RegF32 ->
     `{emit_reg i.res.(0)}, {emit_reg i.arg.(0)}, {emit_reg i.arg.(1)}`
@@ -695,18 +695,9 @@ let _emit_simd_operands (register_behavior : Simd_proc.register_behavior) i =
     `{emit_reg i.res.(0)}, {emit_reg i.arg.(0)}, {emit_reg i.arg.(1)}`
 
 let emit_simd_instr (op : Simd.operation) i =
-  check_simd_instr (Simd_proc.register_behavior op) i;
+  let b = Simd_proc.register_behavior op in
+  check_simd_instr b i;
   match op with
-  (* unary instructions with register operands *)
-  | Round_f32 _ ->
-    `	{emit_string (Simd.emit_opcode op)}	{emit_reg i.res.(0)}, {emit_reg i.arg.(0)}\n`
-  | Round_f32_i64 ->
-    `	{emit_string (Simd.emit_opcode op)}	{emit_reg i.res.(0)}, {emit_reg i.arg.(0)}\n`
-  (* binary instructions with register operands *)
-  | Fmin_f32
-  | Fmax_f32
-  | Zip1_f32 ->
-    `	{emit_string (Simd.emit_opcode op)}	{emit_reg i.res.(0)}, {emit_reg i.arg.(0)}, {emit_reg i.arg.(1)}\n`
   (* min/max: generate a sequence that matches the weird semantics of amd64 instruction
      "minss", even when the flag [FPCR.AH] is not set. A separate intrinsics generates
      fmin/fmax arm64 instructions directly. *)
@@ -716,6 +707,12 @@ let emit_simd_instr (op : Simd.operation) i =
   | Max_scalar_f32 ->
     `	fcmp	{emit_reg i.arg.(0)}, {emit_reg i.arg.(1)}\n`;
     `	fcsel	{emit_reg i.res.(0)}, {emit_reg i.arg.(0)}, {emit_reg i.arg.(1)}, gt\n`
+  | Round_f32 _
+  | Round_f32_i64
+  | Fmin_f32
+  | Fmax_f32
+  | Zip1_f32 ->
+    `	{emit_string (Simd.emit_opcode op)}	{emit_simd_operands b i}\n`
 
 (* Output the assembly code for allocation. *)
 
