@@ -162,12 +162,11 @@ end
 let bit_eq u1 f2 =
   let f1 = F32.to_float32 u1 in
   if not ((CF32.to_bits f1 = CF32.to_bits f2) || (CF32.is_nan f1 && CF32.is_nan f2)) then (
-    Printf.printf "%f (=%lx)\n%f (=%lx)\nis_nan f1=%b\nis_nan f2=%b\n" (CF32.to_float f1) (CF32.to_bits f1)
-      (CF32.to_float f2) (CF32.to_bits f2)
-      (CF32.is_nan f1) (CF32.is_nan f2);
-    assert false;
-  )
-  
+    Printf.printf "f1: %f (=%lx) is_nan=%b\n\
+                   f2: %f (=%lx) is_nan=%b\n"
+      (CF32.to_float f1) (CF32.to_bits f1) (CF32.is_nan f1)
+      (CF32.to_float f2) (CF32.to_bits f2) (CF32.is_nan f2);
+    assert false)
 
 let () =
   CF32.check_float32s (fun f _ ->
