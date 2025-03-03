@@ -77,9 +77,7 @@
 (rule
  (alias runtest)
  (enabled_if
-  (and
-   (= %{context_name} "main")
-   (= %{architecture} "amd64")))
+   (= %{context_name} "main"))
  (action
   (progn
    (diff empty.expected basic.out)
@@ -207,9 +205,7 @@
 (rule
  (alias runtest)
  (enabled_if
-  (and
-   (= %{context_name} "main")
-   (= %{architecture} "amd64")))
+   (= %{context_name} "main"))
  (action
   (progn
    (diff empty.expected basic_nodynlink.out)
