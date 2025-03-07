@@ -9,16 +9,12 @@
 
 (foreign_library
  (archive_name stubs)
- (enabled_if
-  (and
-   (= %{context_name} "main")))
  (language c)
  (names stubs)
  (flags
    (:standard
      (:include flags.sexp)))
  (include_dirs "../../../%{env:RUNTIME_DIR=runtime-dir-env-var-not-set}"))
-
 
 (rule
  (targets flags.sexp)
@@ -41,7 +37,7 @@
   (with-stdout-to
    flags.sexp
    (echo ""))))
-   
+
 ; Tests with external assembler
 
 (executables
