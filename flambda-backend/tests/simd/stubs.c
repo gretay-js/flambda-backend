@@ -27,12 +27,12 @@
 #define simd_float32x4_rsqrt vrsqrteq_f32
 #define simd_float32x4_to_int32x4 vcvtq_s32_f32;
 
-static inline double simd_float64x2_round_down(simd_float64x2_t v)
+static inline simd_float64x2_t simd_float64x2_round_down(simd_float64x2_t v)
 {
   return _mm_round_pd(v, 0x8); ?
 }
 
-simd_float32x4_t simd_float32x4_round_down(simd_float32x4_t v)
+static inline simd_float32x4_t simd_float32x4_round_down(simd_float32x4_t v)
 {
   return _mm_round_ps(v, 0x8);
 }
@@ -69,13 +69,13 @@ int64x2_t vec128_of_int64s(int64_t low, int64_t high)
 #define simd_float32x4_to_int32x4 _mm_cvtps_epi32;
 
 
-static inline double simd_float64x2_round_down(simd_float64x2_t v)
+static inline simd_float64x2_t simd_float64x2_round_down(simd_float64x2_t v)
 {
   return _mm_round_pd(v, 0x8);
 }
 
 
-simd_float32x4_t simd_float32x4_round_down(simd_float32x4_t v)
+static inline simd_float32x4_t simd_float32x4_round_down(simd_float32x4_t v)
 {
   return _mm_round_ps(v, 0x8);
 }
