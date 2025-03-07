@@ -16,16 +16,16 @@
 #define simd_float64x2_min _mm_min_pd ?
 #define simd_float64x2_max _mm_max_pd ?
 
-#define simd_float32x4_add _mm_add_ps
-#define simd_float32x4_sub _mm_sub_ps
-#define simd_float32x4_mul _mm_mul_ps
-#define simd_float32x4_div _mm_div_ps
-#define simd_float32x4_min _mm_min_ps
-#define simd_float32x4_max _mm_max_ps
-#define simd_float32x4_sqrt _mm_sqrt_ps
-#define simd_float32x4_rcp _mm_rcp_ps
-#define simd_float32x4_rsqrt _mm_rsqrt_ps
-#define simd_float32x4_to_int32x4 _mm_cvtps_epi32);
+#define simd_float32x4_add vaddq_f32
+#define simd_float32x4_sub vsubq_f32
+#define simd_float32x4_mul vmulq_f32
+#define simd_float32x4_div vdivq_f32
+#define simd_float32x4_min vminq_f32
+#define simd_float32x4_max vminq_f32
+#define simd_float32x4_sqrt vsqrtq_f32
+#define simd_float32x4_rcp vrecpeq_f32
+#define simd_float32x4_rsqrt vrsqrteq_f32
+#define simd_float32x4_to_int32x4 vcvtq_s32_f32;
 
 static inline double simd_float64x2_round_down(simd_float64x2_t v)
 {
@@ -66,7 +66,7 @@ int64x2_t vec128_of_int64s(int64_t low, int64_t high)
 #define simd_float32x4_sqrt _mm_sqrt_ps
 #define simd_float32x4_rcp _mm_rcp_ps
 #define simd_float32x4_rsqrt _mm_rsqrt_ps
-#define simd_float32x4_to_int32x4 _mm_cvtps_epi32);
+#define simd_float32x4_to_int32x4 _mm_cvtps_epi32;
 
 
 static inline double simd_float64x2_round_down(simd_float64x2_t v)
