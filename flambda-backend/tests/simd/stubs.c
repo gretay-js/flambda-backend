@@ -66,7 +66,7 @@ int64x2_t vec128_of_int64s(int64_t low, int64_t high)
 #define simd_float32x4_sqrt _mm_sqrt_ps
 #define simd_float32x4_rcp _mm_rcp_ps
 #define simd_float32x4_rsqrt _mm_rsqrt_ps
-#define simd_float32x4_to_int32x4 _mm_cvtps_epi32;
+#define simd_float32x4_to_int32x4 _mm_cvtps_epi32
 
 
 static inline simd_float64x2_t simd_float64x2_round_down(simd_float64x2_t v)
@@ -789,4 +789,3 @@ int32_t float32_round(int32_t f) {
   simd_float32x4_t v = simd_dup_float32x4(float_of_int32(f));
   return simd_extract_float32x4(simd_float32x4_round_down(v), 0);
 }
-#endif /* __ARM_NEON */
