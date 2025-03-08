@@ -18,6 +18,8 @@
 
 val use_ocamlcfg : bool ref
 val dump_cfg : bool ref
+val use_llvm_backend : bool ref
+val dump_llvmir : bool ref
 val cfg_invariants : bool ref
 val regalloc : string ref
 val default_regalloc_linscan_threshold : int

@@ -32,6 +32,18 @@ let mk_no_ocamlcfg f =
   "-no-ocamlcfg", Arg.Unit f, " Do not use ocamlcfg"
 ;;
 
+let mk_llvm_backend f =
+  "-llvm-backend", Arg.Unit f, " Use LLVM backend"
+;;
+
+let mk_no_llvm_backend f =
+  "-no-llvm-backend", Arg.Unit f, " Do not use LLVM backend"
+;;
+
+let mk_dllvmir f =
+  "-dllvmir", Arg.Unit f, " (undocumented)"
+;;
+
 let mk_dcfg f =
   "-dcfg", Arg.Unit f, " (undocumented)"
 ;;
@@ -753,6 +765,8 @@ module type Oxcaml_options = sig
   val davail : unit -> unit
   val dranges : unit -> unit
   val ddebug_invariants : unit -> unit
+  val llvm_backend : unit -> unit
+  val dllvmir : unit -> unit
   val dcfg : unit -> unit
   val dcfg_invariants : unit -> unit
   val regalloc : string -> unit
@@ -892,6 +906,8 @@ struct
     mk_ddebug_invariants F.ddebug_invariants;
     mk_ocamlcfg F.ocamlcfg;
     mk_no_ocamlcfg F.no_ocamlcfg;
+    mk_llvm_backend F.llvm_backend;
+    mk_dllvmir F.dllvmir;
     mk_dcfg F.dcfg;
     mk_dcfg_invariants F.dcfg_invariants;
     mk_regalloc F.regalloc;
@@ -1061,6 +1077,7 @@ module Oxcaml_options_impl = struct
   let set' r () = r := true
   let clear' r () = r := false
 
+
   let ocamlcfg = set' Oxcaml_flags.use_ocamlcfg
   let no_ocamlcfg = clear' Oxcaml_flags.use_ocamlcfg
   let dcfg = set' Oxcaml_flags.dump_cfg
@@ -1070,6 +1087,9 @@ module Oxcaml_options_impl = struct
   let regalloc_param x = Oxcaml_flags.regalloc_params := x :: !Oxcaml_flags.regalloc_params
   let regalloc_validate = set' Oxcaml_flags.regalloc_validate
   let no_regalloc_validate = clear' Oxcaml_flags.regalloc_validate
+  let llvm_backend = set' Oxcaml_flags.use_llvm_backend
+  let no_llvm_backend = clear' Oxcaml_flags.use_llvm_backend
+  let dllvmir = set' Oxcaml_flags.dump_llvmir
 
   let vectorize = set' Oxcaml_flags.vectorize
   let no_vectorize = clear' Oxcaml_flags.vectorize
@@ -1440,6 +1460,7 @@ module Extra_params = struct
     | "dump-inlining-paths" -> set' Oxcaml_flags.dump_inlining_paths
     | "davail" -> set' Oxcaml_flags.davail
     | "dranges" -> set' Oxcaml_flags.dranges
+    | "llvm-backend" -> set' Oxcaml_flags.use_llvm_backend
     | "ddebug-invariants" -> set' Dwarf_flags.ddebug_invariants
     | "reorder-blocks-random" ->
        set_int_option' Oxcaml_flags.reorder_blocks_random

@@ -14,6 +14,8 @@
 (*                                                                        *)
 (**************************************************************************)
 let use_ocamlcfg = ref true             (* -[no-]ocamlcfg *)
+let use_llvm_backend = ref false        (* -[no-]llvm-backend *)
+let dump_llvmir = ref false             (* -dllvmir *)
 let dump_cfg = ref false                (* -dcfg *)
 let cfg_invariants = ref false          (* -dcfg-invariants *)
 let regalloc = ref ""                   (* -regalloc *)
