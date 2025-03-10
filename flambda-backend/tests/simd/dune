@@ -5,8 +5,8 @@
  (wrapped false)
  (modules test_helpers))
 
-;; (copy_files#
-;;   (files "%{env:ARCH=amd64}/*.ml{,i}"))
+(copy_files#
+  (files "%{env:ARCH=amd64}/*.ml{,i}"))
 
 ;; (rule
 ;;  (alias   runtest)
