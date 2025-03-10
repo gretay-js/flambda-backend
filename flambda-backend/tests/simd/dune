@@ -242,13 +242,15 @@
    (diff empty.expected consts_nodynlink.out)
    (diff empty.expected consts_u_nodynlink.out))))
 
-; Tests with probes / internal assembler - not supported on macOS
+; Tests with probes / internal assembler - not supported on macOS or arm64
 
 (executable
  (name probes)
  (modules probes)
  (enabled_if
-  (<> %{system} macosx))
+  (and
+    (<> %{system} macosx)
+    (= %{architecture} amd64)))
  (foreign_archives stubs))
 
 (rule
@@ -305,7 +307,9 @@
   scalar_ops_internal)
  (libraries simd_test_helpers stdlib_stable stdlib_upstream_compatible)
  (enabled_if
-  (<> %{system} macosx))
+  (and
+   (<> %{system} macosx)
+   (<> %{system} arm64)))
  (foreign_archives stubs)
  (ocamlopt_flags
   (:standard -internal-assembler)))
@@ -314,7 +318,8 @@
  (enabled_if
   (and
    (= %{context_name} "main")
-   (<> %{system} macosx)))
+   (<> %{system} macosx)
+   (= %{architecture} amd64)))
  (targets
   probes.out
   basic_internal.out
