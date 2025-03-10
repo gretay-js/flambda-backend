@@ -5,6 +5,13 @@
  (wrapped false)
  (modules test_helpers))
 
+;; (copy_files#
+;;   (files "%{env:ARCH=amd64}/*.ml{,i}"))
+
+;; (rule
+;;  (alias   runtest)
+;;  (action (diff amd64/builtins.mli arm64/builtins.mli)))
+
 ; Stubs
 
 (foreign_library
@@ -42,7 +49,7 @@
 
 (executables
  (names basic basic_u ops ops_u arrays arrays_u scalar_ops consts consts_u)
- (modules basic basic_u ops ops_u arrays arrays_u scalar_ops consts consts_u)
+ (modules basic basic_u ops ops_u arrays arrays_u scalar_ops consts consts_u builtins)
  (libraries simd_test_helpers stdlib_stable stdlib_upstream_compatible)
  (foreign_archives stubs))
 
@@ -169,7 +176,7 @@
   consts_u_nodynlink
   arrays_nodynlink
   arrays_u_nodynlink
-  scalar_ops_nodynlink)
+  scalar_ops_nodynlink builtins)
  (libraries simd_test_helpers stdlib_stable stdlib_upstream_compatible)
  (foreign_archives stubs)
  (ocamlopt_flags
@@ -304,7 +311,7 @@
   consts_u_internal
   arrays_internal
   arrays_u_internal
-  scalar_ops_internal)
+  scalar_ops_internal builtins)
  (libraries simd_test_helpers stdlib_stable stdlib_upstream_compatible)
  (enabled_if
   (and
