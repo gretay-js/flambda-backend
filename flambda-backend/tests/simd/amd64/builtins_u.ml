@@ -1,3 +1,17 @@
+(* !!!
+
+Should be kept in sync with builtins.ml.
+CR-someday mslater: with layout polymorphism, the tests could be functorized.
+
+!!! *)
+
+type int8x16 = int8x16#
+type int16x8 = int16x8#
+type int32x4 = int32x4#
+type int64x2 = int64x2#
+type float32x4 = float32x4#
+type float64x2 = float64x2#
+
 module Float64 = struct
   type t = float
 
