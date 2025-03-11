@@ -19,29 +19,23 @@
 open Arch
 open Simd
 
-type error = |
+type error = Bad_immediate of string
 
 exception Error of error
 
-let bad_immediate dbg fmt =
-  let loc = Debuginfo.to_location dbg in
-  Format.kasprintf
-    (fun msg -> Location.prerr_warning loc (Warnings.Illegal_builtin_arg msg))
-    fmt
+let bad_immediate fmt =
+  Format.kasprintf (fun msg -> raise (Error (Bad_immediate msg))) fmt
 
 (* Assumes untagged int *)
-let[@ocaml.warning "-4"] extract_constant args dbg name ~max =
+let[@ocaml.warning "-4"] extract_constant args name ~max =
   match args with
   | Cmm.Cconst_int (i, _) :: args ->
     if i < 0 || i > max
     then
-      bad_immediate dbg "Immediate for %s must be in range [0,%d] (got %d)" name
-        max i;
+      bad_immediate "Immediate for %s must be in range [0,%d] (got %d)" name max
+        i;
     i, args
-  | _ ->
-    bad_immediate dbg "Did not get integer immediate for %s" name;
-    (* this will cause *)
-    max + 1, args
+  | _ -> bad_immediate "Did not get integer immediate for %s" name
 
 let float_condition_of_int = function
   | 0 -> EQf
@@ -52,7 +46,7 @@ let float_condition_of_int = function
   | 5 -> NLTf
   | 6 -> NLEf
   | 7 -> ORDf
-  | i -> bad_immediate dbg "Invalid float condition immediate: %d" i
+  | i -> bad_immediate "Invalid float condition immediate: %d" i
 
 let float_rounding_of_int = function
   (* Starts at 8, as these rounding modes also imply _MM_FROUND_NO_EXC (0x8) *)
@@ -61,9 +55,9 @@ let float_rounding_of_int = function
   | 0xA -> RoundUp
   | 0xB -> RoundTruncate
   | 0xC -> RoundCurrent
-  | i -> bad_immediate dbg "Invalid float rounding immediate: %d" i
+  | i -> bad_immediate "Invalid float rounding immediate: %d" i
 
-let select_operation_clmul op args dbg =
+let select_operation_clmul op args =
   if not (Arch.Extension.enabled CLMUL)
   then None
   else
@@ -73,7 +67,7 @@ let select_operation_clmul op args dbg =
       Some (Clmul_64 i, args)
     | _ -> None
 
-let select_operation_bmi2 op args dbg =
+let select_operation_bmi2 op args =
   if not (Arch.Extension.enabled BMI2)
   then None
   else
@@ -82,7 +76,7 @@ let select_operation_bmi2 op args dbg =
     | "caml_bmi2_int64_deposit_bits" -> Some (Deposit_64, args)
     | _ -> None
 
-let select_operation_sse op args dbg =
+let select_operation_sse op args =
   match op with
   | "caml_sse_float32_sqrt" | "sqrtf" -> Some (Sqrt_scalar_f32, args)
   | "caml_simd_float32_max" | "caml_sse_float32_max" ->
@@ -113,7 +107,7 @@ let select_operation_sse op args dbg =
     Some (Shuffle_32 i, args)
   | _ -> None
 
-let select_operation_sse2 op args dbg =
+let select_operation_sse2 op args =
   match op with
   | "caml_sse2_float64_sqrt" | "sqrt" -> Some (Sqrt_scalar_f64, args)
   | "caml_sse2_float64_max" -> Some (Max_scalar_f64, args)
@@ -239,7 +233,7 @@ let select_operation_sse2 op args dbg =
   | "caml_sse2_int16x8_mul_hadd_int32x4" -> Some (Mul_hadd_i16_to_i32, args)
   | _ -> None
 
-let select_operation_sse3 op args dbg =
+let select_operation_sse3 op args =
   if not (Arch.Extension.enabled SSE3)
   then None
   else
@@ -255,7 +249,7 @@ let select_operation_sse3 op args dbg =
     | "caml_sse3_vec128_dup_even_32" -> Some (Dup_even_32, args)
     | _ -> None
 
-let select_operation_ssse3 op args dbg =
+let select_operation_ssse3 op args =
   if not (Arch.Extension.enabled SSSE3)
   then None
   else
@@ -280,7 +274,7 @@ let select_operation_ssse3 op args dbg =
       Some (Mul_unsigned_hadd_saturating_i8_to_i16, args)
     | _ -> None
 
-let select_operation_sse41 op args dbg =
+let select_operation_sse41 op args =
   if not (Arch.Extension.enabled SSE4_1)
   then None
   else
@@ -386,7 +380,7 @@ let select_operation_sse41 op args dbg =
     | "caml_sse41_int32x4_mul_low" -> Some (Mullo_i32, args)
     | _ -> None
 
-let select_operation_sse42 op args dbg =
+let select_operation_sse42 op args =
   if not (Arch.Extension.enabled SSE4_2)
   then None
   else
@@ -438,28 +432,26 @@ let select_operation_sse42 op args dbg =
       Some (Cmpistrz i, args)
     | _ -> None
 
-let select_simd_instr op args dbg =
+let select_simd_instr op args =
   let or_else try_ ctr opt =
-    match opt with
-    | Some x -> Some x
-    | None -> Option.map ctr (try_ op args dbg)
+    match opt with Some x -> Some x | None -> Option.map ctr (try_ op args)
   in
   None
-  |> or_else select_operation_clmul (fun (op, args, dbg) -> CLMUL op, args)
-  |> or_else select_operation_bmi2 (fun (op, args, dbg) -> BMI2 op, args)
-  |> or_else select_operation_sse (fun (op, args, dbg) -> SSE op, args)
-  |> or_else select_operation_sse2 (fun (op, args, dbg) -> SSE2 op, args)
-  |> or_else select_operation_sse3 (fun (op, args, dbg) -> SSE3 op, args)
-  |> or_else select_operation_ssse3 (fun (op, args, dbg) -> SSSE3 op, args)
-  |> or_else select_operation_sse41 (fun (op, args, dbg) -> SSE41 op, args)
-  |> or_else select_operation_sse42 (fun (op, args, dbg) -> SSE42 op, args)
+  |> or_else select_operation_clmul (fun (op, args) -> CLMUL op, args)
+  |> or_else select_operation_bmi2 (fun (op, args) -> BMI2 op, args)
+  |> or_else select_operation_sse (fun (op, args) -> SSE op, args)
+  |> or_else select_operation_sse2 (fun (op, args) -> SSE2 op, args)
+  |> or_else select_operation_sse3 (fun (op, args) -> SSE3 op, args)
+  |> or_else select_operation_ssse3 (fun (op, args) -> SSSE3 op, args)
+  |> or_else select_operation_sse41 (fun (op, args) -> SSE41 op, args)
+  |> or_else select_operation_sse42 (fun (op, args) -> SSE42 op, args)
 
-let select_operation op args dbg =
-  select_simd_instr op args dbg
+let select_operation op args =
+  select_simd_instr op args
   |> Option.map (fun (op, args) -> Mach.(Ispecific (Isimd op), args))
 
-let select_operation_cfg op args dbg =
-  select_simd_instr op args dbg
+let select_operation_cfg op args =
+  select_simd_instr op args
   |> Option.map (fun (op, args) -> Operation.Specific (Isimd op), args)
 
 let pseudoregs_for_operation (register_behavior : Simd_proc.register_behavior)
