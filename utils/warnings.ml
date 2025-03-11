@@ -131,6 +131,7 @@ type t =
   | Unboxing_impossible                     (* 210 *)
   | Mod_by_top of string                    (* 211 *)
   | Unnecessary_allow_any_kind              (* 212 *)
+  | Illegal_builtin_arg of string           (* 213 *)
 
 (* If you remove a warning, leave a hole in the numbering.  NEVER change
    the numbers of existing warnings.
@@ -221,6 +222,7 @@ let number = function
   | Unboxing_impossible -> 210
   | Mod_by_top _ -> 211
   | Unnecessary_allow_any_kind -> 212
+  | Illegal_builtin_arg _ -> 213
 ;;
 (* DO NOT REMOVE the ;; above: it is used by
    the testsuite/ests/warnings/mnemonics.mll test to determine where
@@ -1261,6 +1263,8 @@ let message = function
     Printf.sprintf
       "[@@allow_any_kind_in_intf] and [@@allow_any_kind_in_impl] set on a \n\
        type, but the kind matches. The attributes can be removed."
+  | Illegal_builtin_arg s ->
+      Printf.sprintf "%s\nMay cause miscompilation." s
 ;;
 
 let nerrors = ref 0

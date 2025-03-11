@@ -234,7 +234,7 @@ class selector =
           in
           Ispecific (Icldemote addr), [eloc]
         | _ -> (
-          match Simd_selection.select_operation func args with
+          match Simd_selection.select_operation func args dbg with
           | Some (op, args) -> op, args
           | None -> super#select_operation op args dbg))
       (* Recognize store instructions *)

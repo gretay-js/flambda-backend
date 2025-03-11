@@ -137,6 +137,7 @@ type t =
   | Unboxing_impossible                     (* 210 *)
   | Mod_by_top of string                    (* 211 *)
   | Unnecessary_allow_any_kind              (* 212 *)
+  | Illegal_builtin_arg of string           (* 213 *)
 
 type alert = {kind:string; message:string; def:loc; use:loc}
 
