@@ -379,7 +379,7 @@ let float_literals = ref ([] : (int64 * label) list)
 let vec128_literals = ref ([] : (Cmm.vec128_bits * label) list)
 
 (* Label a floating-point literal *)
-let float_literal p f =
+let add_literal p f =
   try
     List.assoc f !p
   with Not_found ->
@@ -400,17 +400,17 @@ let emit_literals p align emit_literal =
     p := []
   end
 
-let emit_float_literal f lbl =
+let emit_float_literal (f, lbl) =
      `{emit_label lbl}:`; emit_float64_directive ".quad" f
 
-let emit_vec128_literal { high; low; } lbl =
+let emit_vec128_literal (({ high; low; } : Cmm.vec128_bits), lbl) =
      `{emit_label lbl}:\n`;
-     emit_float64_directive ".quad" low
+     emit_float64_directive ".quad" low;
      emit_float64_directive ".quad" high
 
 let emit_literals () =
   emit_literals float_literals size_float emit_float_literal;
-  emit_literals vec128_literals size_vec128 emit_vec128_literal;
+  emit_literals vec128_literals size_vec128 emit_vec128_literal
 
 (* Emit code to load the address of a symbol *)
 
@@ -1018,10 +1018,10 @@ let emit_instr i =
     | Lop (Const_float32 f) ->
         DSL.check_reg Float32 i.res.(0);
         let fe = Int64.of_int32 f in
-        if f = 0L then
+        if f = 0l then
           `	fmov	{emit_reg i.res.(0)}, wzr\n`
         else if is_immediate_float fe then
-          `	fmov	{emit_sreg i.res.(0)}, #{emit_printf "%.7f" (Int32.float_of_bits f)}\n`
+          `	fmov	{emit_reg i.res.(0)}, #{emit_printf "%.7f" (Int32.float_of_bits f)}\n`
         else begin
           let lbl = float_literal fe in
           emit_load_literal i.res.(0) lbl
@@ -1035,7 +1035,7 @@ let emit_instr i =
           let lbl = float_literal f in
           emit_load_literal i.res.(0) lbl
         end
-    | Lop(Const_vec128 ({high; low} as l) ->
+    | Lop(Const_vec128 ({high; low} as l)) ->
       DSL.check_reg Vec128 i.res.(0);
       begin match (high, low) with
       | 0x0000_0000_0000_0000L, 0x0000_0000_0000_0000L ->
@@ -1525,8 +1525,8 @@ let emit_item (d : Cmm.data_item) =
   | Csingle f -> emit_float32_directive ".long" (Int32.bits_of_float f)
   | Cdouble f -> emit_float64_directive ".quad" (Int64.bits_of_float f)
   | Cvec128 { high; low; } ->
-     emit_float64_directive ".quad" (Int64.bits_of_float low);
-     emit_float64_directive ".quad" (Int64.bits_of_float high);
+     emit_float64_directive ".quad" low;
+     emit_float64_directive ".quad" high;
   | Csymbol_address s -> `	.quad	{emit_symbol s.sym_name}\n`
   | Csymbol_offset (s, o) -> `	.quad	{emit_symbol s.sym_name}+{emit_int o}\n`
   | Cstring s -> emit_string_directive "	.ascii  " s
