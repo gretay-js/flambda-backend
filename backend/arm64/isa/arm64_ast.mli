@@ -110,7 +110,7 @@ module Instruction_name : sig
     | CBZ
     | CSEL
     | CSET
-  (* neon *)
+    (* neon *)
     | MOV
     | MOVI
     | FMOV
@@ -157,6 +157,7 @@ module DSL : sig
   val reg_x : int -> Operand.t
 
   val imm : int -> Operand.t
+
   (* CR gyorsh: [print_*] functions below are exposed temporarily to use DSL for
      some but not all instructions in [emit.mlp]. They can eventually*)
   val print_ins : Instruction_name.t -> Operand.t array -> string
