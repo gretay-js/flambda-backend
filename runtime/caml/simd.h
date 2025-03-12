@@ -55,7 +55,7 @@ typedef poly128_t simd_poly128_t;
 typedef float32x4_t simd_float32x4_t;
 typedef float32x2_t simd_float32x2_t;
 typedef float64x2_t simd_float64x2_t;
-typedef int128_t simd_int128_t;
+typedef poly128_t simd_int128_t;
 typedef int64x2_t simd_int64x2_t;
 
 #define Vec128_val(v)  vld1q_f32((const float*)Bp_val(v))
