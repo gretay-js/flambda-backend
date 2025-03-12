@@ -65,46 +65,38 @@ let float32_reg_name =
      "s16"; "s17"; "s18"; "s19"; "s20"; "s21"; "s22"; "s23";
      "s24"; "s25"; "s26"; "s27"; "s28"; "s29"; "s30"; "s31" |]
 
+let vec128_reg_name =
+  [| "q0";  "q1";  "q2";  "q3";  "q4";  "q5";  "q6";  "q7";
+     "q8";  "q9";  "q10"; "q11"; "q12"; "q13"; "q14"; "q15";
+     "q16"; "q17"; "q18"; "q19"; "q20"; "q21"; "q22"; "q23";
+     "q24"; "q25"; "q26"; "q27"; "q28"; "q29"; "q30"; "q31" |]
+
 let num_register_classes = 2
 
 let register_class r =
   match (r.typ : machtype_component) with
   | Val | Int | Addr  -> 0
   | Float | Float32 -> 1
-  | Vec128 ->
-    (* CR mslater: (SIMD) arm64 *)
-    fatal_error "arm64: got vec128 register"
-  | Valx2 ->
-    (* CR mslater: (SIMD) arm64 *)
-    fatal_error "arm64: got valx2 register"
+  | Vec128 -> 1
+  | Valx2 -> 1
 
-let num_stack_slot_classes = 2
+let num_stack_slot_classes = 3
 
 let stack_slot_class typ =
   match (typ : machtype_component) with
   | Val | Int | Addr  -> 0
   | Float | Float32 -> 1
-  | Vec128 ->
-    (* CR mslater: (SIMD) arm64 *)
-    fatal_error "arm64: got vec128 register"
-  | Valx2 ->
-    (* CR mslater: (SIMD) arm64 *)
-    fatal_error "arm64: got valx2 register"
+  | Vec128 -> 3
+  | Valx2 -> 3
 
 let types_are_compatible left right =
   match left.typ, right.typ with
   | (Int | Val | Addr), (Int | Val | Addr)
-  | Float, Float ->
+  | Float, Float
+  | Float32, Float32
+  | (Valx2 | Vec128), (Valx2 | Vec128) ->
     true
-  | Float32, _ | _, Float32 ->
-    true
-  | Vec128, _ | _, Vec128 ->
-    (* CR mslater: (SIMD) arm64 *)
-    fatal_error "arm64: got vec128 register"
-  | Valx2, _ | _, Valx2 ->
-    (* CR mslater: (SIMD) arm64 *)
-    fatal_error "arm64: got valx2 register"
-  | (Int | Val | Addr | Float), _ -> false
+  | (Int | Val | Addr | Float | Float32 | Vec128 | Valx2), _ -> false
 
 let stack_class_tag c =
   match c with
@@ -126,12 +118,8 @@ let register_name ty r =
     float_reg_name.(r - first_available_register.(1))
   | Float32 ->
     float32_reg_name.(r - first_available_register.(1))
-  | Vec128 ->
-    (* CR mslater: (SIMD) arm64 *)
-    fatal_error "arm64: got vec128 register"
-  | Valx2 ->
-    (* CR mslater: (SIMD) arm64 *)
-    fatal_error "arm64: got valx2 register"
+  | Vec128 | Valx2 ->
+    vec128_reg_name.(r - first_available_register.(1))
 
 (* CR gyorsh for xclerc: [rotate_registers] used in [coloring] on Mach,
    but not in IRC on CFG. Are we dropping an optimization here? *)
@@ -155,9 +143,10 @@ let hard_float_reg_gen kind =
 
 let hard_float_reg = hard_float_reg_gen Float
 let hard_float32_reg = hard_float_reg_gen Float32
+let hard_vec128_reg = hard_float_reg_gen Vec128
 
 let all_phys_regs =
-  Array.concat [hard_int_reg; hard_float_reg; hard_float32_reg]
+  Array.concat [hard_int_reg; hard_float_reg; hard_float32_reg; hard_vec128_reg]
 
 let precolored_regs =
   let phys_regs = Reg.set_of_array all_phys_regs in
@@ -168,15 +157,9 @@ let phys_reg ty n =
   | Int | Addr | Val -> hard_int_reg.(n)
   | Float -> hard_float_reg.(n - 100)
   | Float32 -> hard_float32_reg.(n - 100)
-  | Vec128 ->
-    (* CR mslater: (SIMD) arm64 *)
-    fatal_error "arm64: got vec128 register"
-  | Valx2 ->
-    (* CR mslater: (SIMD) arm64 *)
-    fatal_error "arm64: got valx2 register"
+  | Vec128 | Valx2 -> hard_vec128_reg.(n - 100)
 
 let gc_regs_offset _ =
-    (* CR mslater: (SIMD) arm64 *)
     fatal_error "arm64: gc_reg_offset unreachable"
 
 let reg_x8 = phys_reg Int 8
@@ -198,18 +181,20 @@ let loc_int last_int make_stack int ofs =
     ofs := !ofs + size_int; l
   end
 
-let loc_float_gen kind last_float make_stack float ofs =
+let loc_float_gen kind size last_float make_stack float ofs =
   if !float <= last_float then begin
     let l = phys_reg kind !float in
     incr float; l
   end else begin
-    ofs := Misc.align !ofs size_float;
+    ofs := Misc.align !ofs size;
     let l = stack_slot (make_stack !ofs) kind in
-    ofs := !ofs + size_float; l
+    ofs := !ofs + size; l
   end
 
-let loc_float = loc_float_gen Float
-let loc_float32 = loc_float_gen Float32
+let loc_float = loc_float_gen Float Arch.size_float
+(* float32 slots still take up a full word *)
+let loc_float32 = loc_float_gen Float32 Arch.size_float
+let loc_vec128 = loc_float_gen Vec128 Arch.size_vec128
 
 let loc_int32 last_int make_stack int ofs =
   if !int <= last_int then begin
@@ -234,14 +219,13 @@ let calling_conventions
     | Float ->
         loc.(i) <- loc_float last_float make_stack float ofs
     | Vec128 ->
-        (* CR mslater: (SIMD) arm64 *)
-        fatal_error "arm64: got vec128 register"
+        loc.(i) <- loc_vec128 last_float make_stack float ofs
     | Float32 ->
         loc.(i) <- loc_float32 last_float make_stack float ofs
     | Valx2 ->
-      (* CR mslater: (SIMD) arm64 *)
-      fatal_error "arm64: got valx2 register"
+        Misc.fatal_error "Unexpected machtype_component Valx2"
   done;
+  (* CR mslater: (SIMD) will need to be 32/64 if vec256/512 are used. *)
   (loc, Misc.align (max 0 !ofs) 16)  (* keep stack 16-aligned *)
 
 let incoming ofs =
@@ -304,8 +288,7 @@ let external_calling_conventions
     | XFloat ->
         loc.(i) <- [| loc_float last_float make_stack float ofs |]
     | XVec128 ->
-        (* CR mslater: (SIMD) arm64 *)
-        fatal_error "arm64: got vec128 register"
+        loc.(i) <- [| loc_vec128 last_float make_stack float ofs |]
     | XFloat32 ->
         loc.(i) <- [| loc_float32 last_float make_stack float ofs |]
     end)
@@ -367,7 +350,7 @@ let destroyed_at_c_noalloc_call =
 
 (* CSE needs to know that all versions of neon are destroyed. *)
 let destroy_neon_reg n =
-  [| phys_reg Float (100 + n); phys_reg Float32 (100 + n); (* phys_reg Vec128 (100 + n) *) |]
+  [| phys_reg Float (100 + n); phys_reg Float32 (100 + n); phys_reg Vec128 (100 + n) |]
 
 let destroy_neon_reg7 = destroy_neon_reg 7
 
@@ -403,9 +386,6 @@ let destroyed_at_oper = function
                      | Float_of_float32 | Float32_of_float))
     -> [||]
   | Iop(Istatic_cast (V128_of_scalar _|Scalar_of_v128 _))
-    ->
-    (* CR mslater: (SIMD) arm64 *)
-    Misc.fatal_error "SIMD is not supported on this architecture"
   | Iop(Imove|Ispill|Ireload|Itailcall_ind|Iopaque|Ibeginregion|Iendregion|
         Idls_get|Iconst_int _|Iconst_float32 _|Iconst_float _|Iconst_vec128 _|
         Iconst_symbol _|Itailcall_imm _|Istackoffset _|Iintop _|Iintop_imm (_, _)|
@@ -455,9 +435,7 @@ let destroyed_at_basic (basic : Cfg_intf.S.basic) =
           | Float_of_float32|Float32_of_float))
     -> [||]
   | Op (Static_cast
-          (V128_of_scalar _|Scalar_of_v128 _)) ->
-    (* CR mslater: (SIMD) arm64 *)
-    Misc.fatal_error "SIMD is not supported on this architecture"
+          (V128_of_scalar _|Scalar_of_v128 _))
   | Op (Specific _
         | Move | Spill | Reload
         | Floatop _
@@ -615,9 +593,8 @@ let assemble_file infile outfile =
 let init () = ()
 
 let operation_supported = function
+  | Cprefetch _ | Catomic _ -> false
   | Cpopcnt
-  | Cprefetch _ | Catomic _
-  (* CR mslater: (float32) arm64 *)
   | Cnegf Float32 | Cabsf Float32 | Caddf Float32
   | Csubf Float32 | Cmulf Float32 | Cdivf Float32
   | Cpackf32
@@ -627,7 +604,6 @@ let operation_supported = function
   | Cstatic_cast (Float_of_float32 | Float32_of_float |
                   Int_of_float Float32 | Float_of_int Float32 |
                   V128_of_scalar _ | Scalar_of_v128 _)
-    -> false   (* Not implemented *)
   | Cclz _ | Cctz _ | Cbswap _
   | Capply _ | Cextcall _ | Cload _ | Calloc _ | Cstore _
   | Caddi | Csubi | Cmuli | Cmulhi _ | Cdivi | Cmodi

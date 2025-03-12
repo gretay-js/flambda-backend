@@ -194,6 +194,7 @@ module Instruction_name = struct
     | CSEL
     | CSET
     (* neon *)
+    | MOVI
     | FMOV
     | FADD
     | FSUB
@@ -247,7 +248,7 @@ module Instruction_name = struct
     | CSET ->
       "cset"
       (* neon *)
-      (* neon *)
+    | MOVI -> "movi"
     | FMOV -> "fmov"
     | FADD -> "fadd"
     | FSUB -> "fsub"
@@ -472,7 +473,9 @@ module DSL = struct
 
   let gp_operand_array name = operand_array GP_reg_name.last (Reg_name.GP name)
 
-  let reg_v2s = neon_operand_array Neon_reg_name.(Vector V2S)
+  (* let reg_v2s = neon_operand_array Neon_reg_name.(Vector V2S) *)
+
+  let reg_v2d = neon_operand_array Neon_reg_name.(Vector V2D)
 
   let reg_s = neon_operand_array Neon_reg_name.(Scalar S)
 
@@ -484,7 +487,9 @@ module DSL = struct
 
   let reg_x = gp_operand_array GP_reg_name.X
 
-  let reg_v2s index = reg_v2s.(index)
+  (* let reg_v2s index = reg_v2s.(index) *)
+
+  let reg_v2d index = reg_v2d.(index)
 
   let reg_s index = reg_s.(index)
 
@@ -495,6 +500,8 @@ module DSL = struct
   let reg_w index = reg_w.(index)
 
   let reg_x index = reg_x.(index)
+
+  let imm n = Operand.Imm n
 
   let ins name operands = Asm.Ins { name; operands }
 
