@@ -111,6 +111,7 @@ module Instruction_name : sig
     | CSEL
     | CSET
   (* neon *)
+    | MOV
     | MOVI
     | FMOV
     | FADD

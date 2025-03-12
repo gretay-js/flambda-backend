@@ -193,7 +193,8 @@ module Instruction_name = struct
     | CBZ
     | CSEL
     | CSET
-    (* neon *)
+  (* neon *)
+    | MOV
     | MOVI
     | FMOV
     | FADD
@@ -247,7 +248,8 @@ module Instruction_name = struct
     | CSEL -> "csel"
     | CSET ->
       "cset"
-      (* neon *)
+    (* neon *)
+    | MOV -> "mov"
     | MOVI -> "movi"
     | FMOV -> "fmov"
     | FADD -> "fadd"

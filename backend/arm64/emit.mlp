@@ -729,9 +729,7 @@ module BR = Branch_relaxation.Make (struct
                               Float_of_int64 | Int64_of_float)) -> 1
     | Lop (Reinterpret_cast (Float32_of_float | Float_of_float32 |
                               Float32_of_int32 | Int32_of_float32)) -> 1
-    | Lop (Reinterpret_cast V128_of_v128) ->
-      (* CR mslater: (SIMD) arm64 *)
-      Misc.fatal_error "SIMD is not supported on this architecture"
+    | Lop (Reinterpret_cast V128_of_v128) -> 1
     | Lop (Static_cast (Float_of_int Float64 | Int_of_float Float64)) -> 1
     | Lop (Static_cast (Float_of_int Float32 | Int_of_float Float32 |
                          Float_of_float32 | Float32_of_float)) -> 1
@@ -928,29 +926,74 @@ let emit_load_literal dst lbl =
 
 let move (src : Reg.t) (dst : Reg.t) =
   let distinct = not (Reg.same_loc src dst) in
-  if distinct then
-    match src.typ, src.loc, dst.typ, dst.loc with
-    | (Vec128|Valx2), _, _, _
-    | _, _, (Vec128|Valx2),_ ->
-      (* CR mslater: (SIMD) arm64 *)
-      Misc.fatal_error "SIMD is not supported on this architecture"
-    | _, Unknown, _, _
-    | _, _, _, Unknown ->
-      Misc.fatal_errorf
-      "Illegal move with an unknown register location (%a to %a)\n"
-      Printreg.reg src Printreg.reg dst
-    | (Float|Float32), Reg _, (Val|Addr|Int|Float|Float32), Reg _ ->
-      `	fmov	{emit_reg dst}, {emit_reg src}\n`
-    | (Int|Val|Addr), Reg _, (Val|Addr|Int|Float|Float32), Reg _ ->
-      `	mov	{emit_reg dst}, {emit_reg src}\n`
-    | _, Reg _, _, Stack _ ->
-      `	str	{emit_reg src}, {emit_stack dst}\n`
-    | _, Stack _, _, Reg _ ->
-      `	ldr	{emit_reg dst}, {emit_stack src}\n`
-    | _, Stack _, _, Stack _ ->
+  match src.typ, src.loc, dst.typ, dst.loc with
+  | Float, Reg _, Float, Reg _
+  | Float32, Reg _, Float32, Reg _
+  | (Vec128|Valx2), Reg _, (Vec128|Valx2), Reg _ ->
+    if distinct then
+      DSL.ins I.FMOV [| DSL.emit_reg dst; DSL.emit_reg src |]
+  | (Int | Val | Addr), Reg _, (Int | Val | Addr), Reg _ ->
+    if distinct then
+      DSL.ins I.MOV [| DSL.emit_reg dst; DSL.emit_reg src |]
+  | _, Reg _, _, Stack _ ->
+     `	str	{emit_reg src}, {emit_stack dst}\n`
+  | _, Stack _, _, Reg _ ->
+     `	ldr	{emit_reg dst}, {emit_stack src}\n`
+  | _, Stack _, _, Stack _ ->
       Misc.fatal_errorf
       "Illegal move between registers (%a to %a)\n"
       Printreg.reg src Printreg.reg dst
+  | _, Unknown, _, (Reg _ | Stack _ | Unknown)
+  | _, (Reg _ | Stack _), _, Unknown ->
+      Misc.fatal_errorf
+      "Illegal move with an unknown register location (%a to %a)\n"
+      Printreg.reg src Printreg.reg dst
+  | (Float | Float32 | Vec128 | Int | Val | Addr | Valx2), (Reg _), _, _ ->
+      Misc.fatal_errorf
+       "Illegal move between registers of differing types (%a to %a)\n"
+       Printreg.reg src Printreg.reg dst
+
+let emit_reinterpret_cast (cast : Cmm.reinterpret_cast) i =
+    let src = i.arg.(0) in
+    let dst = i.res.(0) in
+    let distinct = not (Reg.same_loc src dst) in
+    match cast with
+    | Int64_of_float | Float_of_int64 ->
+        ` fmov {emit_reg dst}, {emit_reg src}\n`
+    | Float32_of_int32 ->
+        DSL.check_reg Float32 dst;
+        ` fmov {emit_reg dst}, {emit_wreg src}\n`
+    | Int32_of_float32 ->
+        DSL.check_reg Float32 src;
+        ` fmov {emit_wreg dst}, {emit_reg src}\n`
+    | Float32_of_float | Float_of_float32 ->
+      if distinct then
+        (* CR melse: I think this might be broken - maybe we need to do fmov dN,
+           dM without referring to single-precision registers? *)
+        ` fmov {emit_reg dst}, {emit_reg src}\n`
+    | V128_of_v128 ->
+      if distinct then
+        ` fmov {emit_reg dst}, {emit_reg src}\n`
+    | Int_of_value | Value_of_int -> move src dst
+
+let emit_static_cast (cast : Cmm.static_cast) i =
+    match cast with
+    | Int_of_float Float64 ->
+        `	fcvtzs {emit_reg i.res.(0)}, {emit_reg i.arg.(0)}\n`
+    | Float_of_int Float64 ->
+        DSL.check_reg Float i.res.(0);
+        `	scvtf	{emit_reg i.res.(0)}, {emit_reg i.arg.(0)}\n`
+    | Float_of_int Float32 ->
+        ` scvtf {emit_reg i.res.(0)}, {emit_reg i.arg.(0)}\n`
+    | Int_of_float Float32 ->
+        ` fcvtzs {emit_reg i.res.(0)}, {emit_reg i.arg.(0)}\n`
+    | Float_of_float32 ->
+        ` fcvt {emit_reg i.res.(0)}, {emit_reg i.arg.(0)}\n`
+    | Float32_of_float ->
+        ` fcvt {emit_reg i.res.(0)}, {emit_reg i.arg.(0)}\n`
+    | V128_of_scalar _ | Scalar_of_v128 _ ->
+        (* CR mslater: (SIMD) arm64 *)
+        Misc.fatal_error "SIMD is not supported on this architecture"
 
 (* Output the assembly code for an instruction *)
 
@@ -970,32 +1013,10 @@ let emit_instr i =
     | Lop(Intop_atomic _) ->
       (* Never generated; builtins are not yet translated to atomics *)
       assert false
-    | Lop (Reinterpret_cast (Int64_of_float | Float_of_int64)) ->
-        `	fmov {emit_reg i.res.(0)}, {emit_reg i.arg.(0)}\n`
-    | Lop(Static_cast (Int_of_float Float64)) ->
-        `	fcvtzs {emit_reg i.res.(0)}, {emit_reg i.arg.(0)}\n`
-    | Lop(Static_cast (Float_of_int Float64)) ->
-        `	scvtf	{emit_reg i.res.(0)}, {emit_reg i.arg.(0)}\n`
-    | Lop (Reinterpret_cast (Float32_of_float | Float_of_float32)) ->
-        (* CR melse: I think this might be broken - maybe we need to do fmov dN,
-           dM without referring to single-precision registers? *)
-        ` fmov {emit_reg i.res.(0)}, {emit_reg i.arg.(0)}\n`
-    | Lop (Reinterpret_cast (Float32_of_int32)) ->
-        ` fmov {emit_reg i.res.(0)}, {emit_wreg i.arg.(0)}\n`
-    | Lop (Reinterpret_cast Int32_of_float32) ->
-        ` fmov {emit_wreg i.res.(0)}, {emit_reg i.arg.(0)}\n`
-    | Lop (Static_cast Float_of_int Float32) ->
-        ` scvtf {emit_reg i.res.(0)}, {emit_reg i.arg.(0)}\n`
-    | Lop (Static_cast Int_of_float Float32) ->
-        ` fcvtzs {emit_reg i.res.(0)}, {emit_reg i.arg.(0)}\n`
-    | Lop (Static_cast Float_of_float32) ->
-        ` fcvt {emit_reg i.res.(0)}, {emit_reg i.arg.(0)}\n`
-    | Lop (Static_cast Float32_of_float) ->
-        ` fcvt {emit_reg i.res.(0)}, {emit_reg i.arg.(0)}\n`
-    | Lop(Reinterpret_cast V128_of_v128)
-    | Lop(Static_cast (V128_of_scalar _ | Scalar_of_v128 _)) ->
-        (* CR mslater: (SIMD) arm64 *)
-        Misc.fatal_error "SIMD is not supported on this architecture"
+    | Lop (Reinterpret_cast cast) ->
+      emit_reinterpret_cast cast i
+    | Lop (Static_cast cast) ->
+      emit_static_cast cast i
     | Lop(Move | Spill | Reload) ->
         move i.arg.(0) i.res.(0)
     | Lop(Specific Imove32) ->
@@ -1119,6 +1140,7 @@ let emit_instr i =
         | Thirtytwo_signed ->
             `	ldrsw	{emit_reg dst}, {emit_addressing addressing_mode base}\n`
         | Single { reg = Float64 } ->
+            DSL.check_reg Float dst;
             `	ldr	s7, {emit_addressing addressing_mode base}\n`;
             `	fcvt	{emit_reg dst}, s7\n`
         | Word_int | Word_val ->
@@ -1131,10 +1153,12 @@ let emit_instr i =
         | Double ->
             ` ldr	{emit_reg dst}, {emit_addressing addressing_mode base}\n`
         | Single { reg = Float32 } ->
+            DSL.check_reg Float32 dst;
             ` ldr {emit_reg dst}, {emit_addressing addressing_mode base}\n`
         | Onetwentyeight_aligned | Onetwentyeight_unaligned ->
-            (* CR mslater: (SIMD) arm64 *)
-            fatal_error "arm64: got 128 bit memory chunk"
+            (* CR gyorsh: check alignment *)
+            DSL.check_reg Vec128 dst;
+            ` ldr {emit_reg dst}, {emit_addressing addressing_mode base}\n`
         end
     | Lop(Store(size, addr, assignment)) ->
       (* NB: assignments other than Word_int and Word_val do not follow the
@@ -1155,6 +1179,7 @@ let emit_instr i =
         | Thirtytwo_unsigned | Thirtytwo_signed ->
             `	str	{emit_wreg src}, {emit_addressing addr base}\n`
         | Single { reg = Float64 } ->
+            DSL.check_reg Float src;
             `	fcvt	s7, {emit_reg src}\n`;
             `	str	s7, {emit_addressing addr base}\n`;
         | Word_int | Word_val ->
@@ -1164,10 +1189,12 @@ let emit_instr i =
         | Double ->
           `	str	{emit_reg src}, {emit_addressing addr base}\n`
         | Single { reg = Float32 } ->
+          DSL.check_reg Float32 src;
           ` str {emit_reg src}, {emit_addressing addr base}\n`
         | Onetwentyeight_aligned | Onetwentyeight_unaligned ->
-          (* CR mslater: (SIMD) arm64 *)
-          fatal_error "arm64: got 128 bit memory chunk"
+          (* CR gyorsh: check alignment *)
+          DSL.check_reg Vec128 src;
+          ` str {emit_reg src}, {emit_addressing addr base}\n`
         end
     | Lop(Alloc { bytes = n; dbginfo; mode = Heap }) ->
         assembly_code_for_allocation i ~n ~local:false ~far:false ~dbginfo
@@ -1230,21 +1257,6 @@ let emit_instr i =
       `	fabs	{emit_reg i.res.(0)}, {emit_reg i.arg.(0)}\n`
     | Lop(Floatop ((Float32 | Float64), Inegf)) ->
       `	fneg	{emit_reg i.res.(0)}, {emit_reg i.arg.(0)}\n`
-    | Lop(Reinterpret_cast (Int_of_value | Value_of_int)) ->
-        let src = i.arg.(0) and dst = i.res.(0) in
-        if src.loc <> dst.loc then begin
-          match (src, dst) with
-          | {loc = Reg _}, {loc = Reg _} ->
-              `	mov	{emit_reg dst}, {emit_reg src}\n`
-          | {loc = Reg _}, {loc = Stack _} ->
-              `	str	{emit_reg src}, {emit_stack dst}\n`
-          | {loc = Stack _}, {loc = Reg _} ->
-              `	ldr	{emit_reg dst}, {emit_stack src}\n`
-          | {loc = Stack _}, {loc = Stack _}
-          | _, {loc = Unknown}
-          | {loc = Unknown}, _
-            -> assert false
-        end
     | Lop(Floatop ((Float32 | Float64), Iaddf)) ->
      `	fadd	{emit_reg i.res.(0)}, {emit_reg i.arg.(0)}, {emit_reg i.arg.(1)}\n`
     | Lop(Floatop ((Float32 | Float64), Isubf)) ->
