@@ -504,20 +504,21 @@ module DSL = struct
   let reg_array size name =
     Array.init size (fun i -> Reg.create name i)
 
-  let reg_and_operand_array size name =
+  let reg_and_operand_array ~last name =
+    let size = last + 1 in  
     let reg_array = reg_array size name in
     let op_array = Array.init size (fun i -> Operand.Reg (reg_array.(i))) in
     reg_array, op_array
 
-  let operand_array size name =
-    let _reg_array,op_array = reg_and_operand_array size name in
+  let operand_array ~last name =
+    let _reg_array,op_array = reg_and_operand_array ~last name in
     op_array
 
   let neon_operand_array name =
-    operand_array Neon_reg_name.last (Reg_name.Neon name)
+    operand_array ~last:Neon_reg_name.last (Reg_name.Neon name)
 
   let gp_reg_and_operand_array name =
-    reg_and_operand_array GP_reg_name.last (Reg_name.GP name)
+    reg_and_operand_array ~last:GP_reg_name.last_numbered (Reg_name.GP name)
 
   let reg_x, reg_x_operands = gp_reg_and_operand_array GP_reg_name.X
 
