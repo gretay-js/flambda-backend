@@ -193,6 +193,11 @@ module Instruction_name = struct
     | CBZ
     | CSEL
     | CSET
+    | SXTB
+    | SXTH
+    | SXTW
+    | UXTB
+    | UXTH
     (* neon *)
     | MOV
     | MOVI
@@ -247,6 +252,11 @@ module Instruction_name = struct
     | CBZ -> "cbz"
     | CSEL -> "csel"
     | CSET -> "cset"
+    | SXTB -> "sxtb"
+    | SXTH -> "sxth"
+    | SXTW -> "sxtw"
+    | UXTB -> "uxtb"
+    | UXTH -> "uxth"
     (* neon *)
     | MOV -> "mov"
     | MOVI -> "movi"
@@ -533,6 +543,8 @@ module DSL = struct
 
   let literal l =
     Operand.(Mem (Addressing_mode.Literal l))
+
+  let reg_v4s index = Operand.Reg (Reg.create (Reg_name.(Vector V4S)) index)
 
   let reg_v2d index = reg_v2d_operands.(index)
 

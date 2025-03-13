@@ -492,6 +492,9 @@ module DSL (* :sig
   let emit_reg_v2d reg =
      reg_v2d (reg_index reg)
 
+  let emit_reg_v4s reg =
+     reg_v2d (reg_index reg)
+
   let emit_reg reg =
     (* use machtype to select register name *)
     let index = reg_index reg in
@@ -975,15 +978,72 @@ let emit_reinterpret_cast (cast : Cmm.reinterpret_cast) i =
     | Int_of_value | Value_of_int -> move src dst
 
 let emit_static_cast (cast : Cmm.static_cast) i =
+    let dst = i.res.(0) in
+    let src = i.arg.(0) in
+    let distinct = not (Reg.same_loc src dst) in
     match cast with
-    | Int_of_float (Float64 | Float32) | Scalar_of_v128 _ ->
-        `	fcvtzs	{emit_reg i.res.(0)}, {emit_reg i.arg.(0)}\n`
-    | Float_of_int (Float64 | Float32) | V128_of_scalar _ ->
-        `	scvtf	{emit_reg i.res.(0)}, {emit_reg i.arg.(0)}\n`
+    | Int_of_float Float64 ->
+       DSL.check_reg Float src;
+       DSL.ins I.FCVTZS[| DSL.emit_reg dst; DSL.emit_reg src |]
+    | Int_of_float Float32 ->
+       DSL.check_reg Float32 src;
+       DSL.ins I.FCVTZS[| DSL.emit_reg dst; DSL.emit_reg src |]
+    | Float_of_int Float64 ->
+      DSL.check_reg Float dst;
+      DSL.ins I.SCVTF [| DSL.emit_reg dst; DSL.emit_reg src |];
+    | Float_of_int Float32 ->
+      DSL.check_reg Float32 dst;
+      DSL.ins I.SCVTF [| DSL.emit_reg dst; DSL.emit_reg src |];
     | Float_of_float32 ->
-        ` fcvt {emit_reg i.res.(0)}, {emit_reg i.arg.(0)}\n`
+      DSL.check_reg Float dst;
+      DSL.check_reg Float32 src;
+      DSL.ins I.FCVT [| DSL.emit_reg dst; DSL.emit_reg src |];
     | Float32_of_float ->
-        ` fcvt {emit_reg i.res.(0)}, {emit_reg i.arg.(0)}\n`
+      DSL.check_reg Float32 dst;
+      DSL.check_reg Float src;
+      DSL.ins I.FCVT [| DSL.emit_reg dst; DSL.emit_reg src |];
+    | Scalar_of_v128 v ->
+      DSL.check_reg Vec128 src;
+      begin match v with
+       | Int8x16 ->
+         DSL.ins I.FMOV [| DSL.emit_reg_w dst; DSL.emit_reg_s src |];
+         DSL.ins I.UXTB [| DSL.emit_reg dst; DSL.emit_reg_w dst; |];
+       | Int16x8 ->
+         DSL.ins I.FMOV [| DSL.emit_reg_w dst; DSL.emit_reg_s src |];
+         DSL.ins I.UXTH [| DSL.emit_reg dst; DSL.emit_reg_w dst; |];
+       | Int32x4 ->
+         DSL.ins I.FMOV [| DSL.emit_reg_w dst; DSL.emit_reg_s src |]
+       | Int64x2 ->
+         DSL.ins I.FMOV [| DSL.emit_reg dst; DSL.emit_reg_d src |]
+       | Float32x4 ->
+         if distinct then (
+           DSL.check_reg Float32 dst;
+           DSL.ins I.FMOV [| DSL.emit_reg dst; DSL.emit_reg_s src |])
+       | Float64x2 -
+         if distinct then (
+           DSL.check_reg Float dst;
+           DSL.ins I.FMOV [| DSL.emit_reg dst ; DSL.emit_reg_d src |])
+      end
+    | V128_of_scalar _ ->
+       DSL.check_reg Vec128 dst;
+       begin match v with
+       | Int8x16 ->
+         DSL.ins I.FMOV [| DSL.emit_reg_s dst; DSL.emit_reg_w src |];
+       | Int16x8 ->
+         DSL.ins I.FMOV [| DSL.emit_reg_s dst; DSL.emit_reg_w src |];
+       | Int32x4 ->
+         DSL.ins I.FMOV [| DSL.emit_reg_s dst; DSL.emit_reg_w src |]
+       | Int64x2 ->
+         DSL.ins I.FMOV [| DSL.emit_reg_d dst; DSL.emit_reg src |]
+       | Float32x4 ->
+         if distinct then (
+           DSL.check_reg Float32 src;
+           DSL.ins I.FMOV [| DSL.emit_reg_s dst; DSL.emit_reg src |])
+       | Float64x2 -
+         if distinct then (
+           DSL.check_reg Float src;
+           DSL.ins I.FMOV [| DSL.emit_reg_d dst ; DSL.emit_reg src |])
+      end
 
 (* Output the assembly code for an instruction *)
 

@@ -110,6 +110,11 @@ module Instruction_name : sig
     | CBZ
     | CSEL
     | CSET
+    | SXTB
+    | SXTH
+    | SXTW
+    | UXTB
+    | UXTH
     (* neon *)
     | MOV
     | MOVI
@@ -146,6 +151,8 @@ end
 module DSL : sig
 
   val reg_v2d : int -> Operand.t
+
+  val reg_v4s : int -> Operand.t
 
   val reg_s : int -> Operand.t
 
