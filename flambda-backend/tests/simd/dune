@@ -56,8 +56,10 @@
  (foreign_archives stubs))
 
 (rule
- (enabled_if
-  (= %{context_name} "main"))
+(enabled_if
+  (and
+    (<> %{system} macosx)
+    (= %{architecture} amd64)))
  (targets
   basic.out
   basic_u.out
@@ -110,7 +112,9 @@
 (rule
  (alias runtest)
  (enabled_if
-   (= %{context_name} "main"))
+  (and
+    (<> %{system} macosx)
+    (= %{architecture} amd64)))
  (action
   (progn
    (diff empty.expected basic.out)
@@ -186,7 +190,9 @@
 
 (rule
  (enabled_if
-  (= %{context_name} "main"))
+  (and
+    (<> %{system} macosx)
+    (= %{architecture} amd64)))
  (targets
   basic_nodynlink.out
   basic_u_nodynlink.out
@@ -238,7 +244,9 @@
 (rule
  (alias runtest)
  (enabled_if
-   (= %{context_name} "main"))
+  (and
+    (<> %{system} macosx)
+    (= %{architecture} amd64)))
  (action
   (progn
    (diff empty.expected basic_nodynlink.out)
