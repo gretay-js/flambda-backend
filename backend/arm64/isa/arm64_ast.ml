@@ -344,6 +344,29 @@ module Operand = struct
       Format.fprintf ppf "%s %a" (Kind.to_string kind) Imm.print amount
   end
 
+  let print_separator ppf () = Format.fprintf ppf ", "
+
+  type label = string
+
+  module Addressing_mode = struct
+    (* CR gyorsh: only immediate offsets implemented. *)
+    type t =
+      | Offset of Reg.t * Imm.t
+      | Pre of Reg.t * Imm.t
+      | Post of Reg.t * Imm.t
+      | Literal of label
+
+    let print ppf t =
+      let open Format in
+      match t with
+      | Offset (r,imm) -> fprintf ppf "[%s, %a]" (Reg.name r) Imm.print imm
+      | Pre (r,imm) ->
+          fprintf ppf "[%s, %a]!" (Reg.name r) Imm.print imm
+      | Post (r,imm) ->
+          fprintf ppf "[%s], %a" (Reg.name r) Imm.print imm
+      | Literal l -> fprintf ppf "%s" l
+  end
+
   type t =
     | Imm of Imm.t
     | Reg of Reg.t
@@ -351,6 +374,7 @@ module Operand = struct
     | Shift of Shift.t
     | Sym of string
     | Cond of Instruction_name.Cond.t
+    | Mem of Addressing_mode.t
 
   let print ppf t =
     let open Format in
@@ -361,6 +385,7 @@ module Operand = struct
     | Shift s -> Shift.print ppf s
     | Sym s -> fprintf ppf "%s" s
     | Cond c -> Format.fprintf ppf "%s" (Instruction_name.Cond.to_string c)
+    | Mem m -> Format.fprintf ppf "%a" Addressing_mode.print m
 end
 
 module Instruction = struct
@@ -373,7 +398,7 @@ module Instruction = struct
 
   let print ppf t =
     let { name; operands } = t in
-    let pp_sep ppf () = Format.fprintf ppf ", " in
+    let pp_sep = Operand.print_separator in
     Format.fprintf ppf "%s\t%a"
       (Instruction_name.to_string name)
       (Format.pp_print_seq ~pp_sep Operand.print)
@@ -466,41 +491,60 @@ end
 
 module DSL = struct
   (* Statically allocate some common combinations *)
+  let reg_array size name =
+    Array.init size (fun i -> Reg.create name i)
+
+  let reg_and_operand_array size name =
+    let reg_array = reg_array size name in
+    let op_array = Array.init size (fun i -> Operand.Reg (reg_array.(i))) in
+    reg_array, op_array
+
   let operand_array size name =
-    Array.init size (fun i -> Operand.Reg (Reg.create name i))
+    let _reg_array,op_array = reg_and_operand_array size name in
+    op_array
 
   let neon_operand_array name =
     operand_array Neon_reg_name.last (Reg_name.Neon name)
 
-  let gp_operand_array name = operand_array GP_reg_name.last (Reg_name.GP name)
+  let gp_reg_and_operand_array name =
+    reg_and_operand_array GP_reg_name.last (Reg_name.GP name)
 
-  (* let reg_v2s = neon_operand_array Neon_reg_name.(Vector V2S) *)
+  let reg_x, reg_x_operands = gp_reg_and_operand_array GP_reg_name.X
 
-  let reg_v2d = neon_operand_array Neon_reg_name.(Vector V2D)
+  let _, reg_w_operands = gp_reg_and_operand_array GP_reg_name.W
 
-  let reg_s = neon_operand_array Neon_reg_name.(Scalar S)
+  let reg_v2d_operands = neon_operand_array Neon_reg_name.(Vector V2D)
 
-  let reg_d = neon_operand_array Neon_reg_name.(Scalar D)
+  let reg_s_operands = neon_operand_array Neon_reg_name.(Scalar S)
 
-  let reg_q = neon_operand_array Neon_reg_name.(Scalar Q)
+  let reg_d_operands = neon_operand_array Neon_reg_name.(Scalar D)
 
-  let reg_w = gp_operand_array GP_reg_name.W
+  let reg_q_operands = neon_operand_array Neon_reg_name.(Scalar Q)
 
-  let reg_x = gp_operand_array GP_reg_name.X
 
-  (* let reg_v2s index = reg_v2s.(index) *)
+  let mem ~base ~offset =
+    Operand.(Mem (Addressing_mode.Offset ((reg_x.(base)), offset)))
 
-  let reg_v2d index = reg_v2d.(index)
+  let mem_pre ~base ~offset =
+    Operand.(Mem (Addressing_mode.Pre ((reg_x.(base)), offset)))
 
-  let reg_s index = reg_s.(index)
+  let mem_post ~base ~offset =
+    Operand.(Mem (Addressing_mode.Post ((reg_x.(base)), offset)))
 
-  let reg_d index = reg_d.(index)
+  let literal l =
+    Operand.(Mem (Addressing_mode.Literal l))
 
-  let reg_q index = reg_q.(index)
+  let reg_v2d index = reg_v2d_operands.(index)
 
-  let reg_w index = reg_w.(index)
+  let reg_s index = reg_s_operands.(index)
 
-  let reg_x index = reg_x.(index)
+  let reg_d index = reg_d_operands.(index)
+
+  let reg_q index = reg_q_operands.(index)
+
+  let reg_w index = reg_w_operands.(index)
+
+  let reg_x index = reg_x_operands.(index)
 
   let imm n = Operand.Imm n
 
