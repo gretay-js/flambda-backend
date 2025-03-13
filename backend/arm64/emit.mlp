@@ -959,22 +959,37 @@ let emit_reinterpret_cast (cast : Cmm.reinterpret_cast) i =
     let dst = i.res.(0) in
     let distinct = not (Reg.same_loc src dst) in
     match cast with
-    | Int64_of_float | Float_of_int64 ->
-        ` fmov {emit_reg dst}, {emit_reg src}\n`
+    | Int64_of_float ->
+      DSL.check_reg Float src;
+      DSL.ins I.FMOV [| DSL.emit_reg dst; DSL.emit_reg src |]
+    | Float_of_int64 ->
+      DSL.check_reg Float dst;
+      DSL.ins I.FMOV [| DSL.emit_reg dst; DSL.emit_reg src |]
     | Float32_of_int32 ->
-        DSL.check_reg Float32 dst;
-        ` fmov {emit_reg dst}, {emit_wreg src}\n`
+      DSL.check_reg Float32 dst;
+      DSL.ins I.FMOV [| DSL.emit_reg dst; DSL.emit_reg_w src |]
     | Int32_of_float32 ->
-        DSL.check_reg Float32 src;
-        ` fmov {emit_wreg dst}, {emit_reg src}\n`
-    | Float32_of_float | Float_of_float32 ->
-      if distinct then
+      DSL.check_reg Float32 src;
+      DSL.ins I.FMOV [| DSL.emit_reg_w dst; DSL.emit_reg src |]
+    | Float32_of_float ->
+       if distinct then (
+        DSL.check_reg Float src;
+        DSL.check_reg Float32 dst;
         (* CR melse: I think this might be broken - maybe we need to do fmov dN,
            dM without referring to single-precision registers? *)
-        ` fmov {emit_reg dst}, {emit_reg src}\n`
+          DSL.ins I.FMOV [| DSL.emit_reg dst; DSL.emit_reg src |])
+    | Float_of_float32 ->
+      if distinct then (
+        DSL.check_reg Float23 src;
+        DSL.check_reg Float dst;
+        (* CR melse: I think this might be broken - maybe we need to do fmov dN,
+           dM without referring to single-precision registers? *)
+        DSL.ins I.FMOV [| DSL.emit_reg dst; DSL.emit_reg src |])
     | V128_of_v128 ->
-      if distinct then
-        ` fmov {emit_reg dst}, {emit_reg src}\n`
+      if distinct then (
+        DSL.check_reg Vec128 src;
+        DSL.check_reg Vec128 dst;
+        DSL.ins I.FMOV [| DSL.emit_reg dst; DSL.emit_reg src |])
     | Int_of_value | Value_of_int -> move src dst
 
 let emit_static_cast (cast : Cmm.static_cast) i =
