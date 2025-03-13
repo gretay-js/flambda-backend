@@ -110,7 +110,14 @@ module Instruction_name : sig
     | CBZ
     | CSEL
     | CSET
+    | SXTB
+    | SXTH
+    | SXTW
+    | UXTB
+    | UXTH
     (* neon *)
+    | MOV
+    | MOVI
     | FMOV
     | FADD
     | FSUB
@@ -142,7 +149,10 @@ module Operand : sig
 end
 
 module DSL : sig
-  val reg_v2s : int -> Operand.t
+
+  val reg_v2d : int -> Operand.t
+
+  val reg_v4s : int -> Operand.t
 
   val reg_s : int -> Operand.t
 
@@ -151,6 +161,15 @@ module DSL : sig
   val reg_q : int -> Operand.t
 
   val reg_x : int -> Operand.t
+
+  val reg_w : int -> Operand.t
+
+  val imm : int -> Operand.t
+
+  val mem : base:int -> offset:int -> Operand.t
+  val mem_pre : base:int -> offset:int -> Operand.t
+  val mem_post : base:int -> offset:int -> Operand.t
+  val literal : string -> Operand.t
 
   (* CR gyorsh: [print_*] functions below are exposed temporarily to use DSL for
      some but not all instructions in [emit.mlp]. They can eventually*)
