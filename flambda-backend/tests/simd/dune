@@ -45,7 +45,7 @@
  (action
   (with-stdout-to
    flags.sexp
-   (echo ""))))
+   (echo "()"))))
 
 ; Tests with external assembler
 
