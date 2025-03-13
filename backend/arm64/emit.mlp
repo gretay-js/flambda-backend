@@ -946,14 +946,13 @@ let emit_load_literal dst lbl =
 
 let move (src : Reg.t) (dst : Reg.t) =
   let distinct = not (Reg.same_loc src dst) in
+  if distinct then
   match src.typ, src.loc, dst.typ, dst.loc with
   | Float, Reg _, Float, Reg _
   | Float32, Reg _, Float32, Reg _
   | (Vec128|Valx2), Reg _, (Vec128|Valx2), Reg _ ->
-    if distinct then
       DSL.ins I.FMOV [| DSL.emit_reg dst; DSL.emit_reg src |]
   | (Int | Val | Addr), Reg _, (Int | Val | Addr), Reg _ ->
-    if distinct then
       DSL.ins I.MOV [| DSL.emit_reg dst; DSL.emit_reg src |]
   | _, Reg _, _, Stack _ ->
      `	str	{emit_reg src}, {emit_stack dst}\n`
