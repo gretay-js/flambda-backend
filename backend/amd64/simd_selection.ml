@@ -100,7 +100,9 @@ let select_operation_sse op args =
   | "caml_sse_vec128_high_64_to_low_64" -> Some (High_64_to_low_64, args)
   | "caml_sse_vec128_low_64_to_high_64" -> Some (Low_64_to_high_64, args)
   | "caml_sse_vec128_interleave_high_32" -> Some (Interleave_high_32, args)
-  | "caml_sse_vec128_interleave_low_32" -> Some (Interleave_low_32, args)
+  | "caml_simd_vec128_interleave_low_32" | "caml_sse_vec128_interleave_low_32"
+    ->
+    Some (Interleave_low_32, args)
   | "caml_sse_vec128_movemask_32" -> Some (Movemask_32, args)
   | "caml_sse_vec128_shuffle_32" ->
     let i, args = extract_constant args ~max:0xff op in
@@ -117,7 +119,7 @@ let select_operation_sse2 op args =
   | "caml_sse2_int8x16_add" -> Some (Add_i8, args)
   | "caml_sse2_int16x8_add" -> Some (Add_i16, args)
   | "caml_sse2_int32x4_add" -> Some (Add_i32, args)
-  | "caml_sse2_int64x2_add" -> Some (Add_i64, args)
+  | "caml_simd_int64x2_add" | "caml_sse2_int64x2_add" -> Some (Add_i64, args)
   | "caml_sse2_float64x2_add" -> Some (Add_f64, args)
   | "caml_sse2_int8x16_add_saturating" -> Some (Add_saturating_i8, args)
   | "caml_sse2_int16x8_add_saturating" -> Some (Add_saturating_i16, args)
@@ -128,7 +130,7 @@ let select_operation_sse2 op args =
   | "caml_sse2_int8x16_sub" -> Some (Sub_i8, args)
   | "caml_sse2_int16x8_sub" -> Some (Sub_i16, args)
   | "caml_sse2_int32x4_sub" -> Some (Sub_i32, args)
-  | "caml_sse2_int64x2_sub" -> Some (Sub_i64, args)
+  | "caml_simd_int64x2_sub" | "caml_sse2_int64x2_sub" -> Some (Sub_i64, args)
   | "caml_sse2_float64x2_sub" -> Some (Sub_f64, args)
   | "caml_sse2_int8x16_sub_saturating" -> Some (Sub_saturating_i8, args)
   | "caml_sse2_int16x8_sub_saturating" -> Some (Sub_saturating_i16, args)
@@ -225,8 +227,12 @@ let select_operation_sse2 op args =
   | "caml_sse2_vec128_interleave_low_8" -> Some (Interleave_low_8, args)
   | "caml_sse2_vec128_interleave_high_16" -> Some (Interleave_high_16, args)
   | "caml_sse2_vec128_interleave_low_16" -> Some (Interleave_low_16, args)
-  | "caml_sse2_vec128_interleave_high_64" -> Some (Interleave_high_64, args)
-  | "caml_sse2_vec128_interleave_low_64" -> Some (Interleave_low_64, args)
+  | "caml_simd_vec128_interleave_high_64"
+  | "caml_sse2_vec128_interleave_high_64" ->
+    Some (Interleave_high_64, args)
+  | "caml_simd_vec128_interleave_low_64" | "caml_sse2_vec128_interleave_low_64"
+    ->
+    Some (Interleave_low_64, args)
   | "caml_sse2_int16x8_mul_high" -> Some (Mulhi_i16, args)
   | "caml_sse2_int16x8_mul_high_unsigned" -> Some (Mulhi_unsigned_i16, args)
   | "caml_sse2_int16x8_mul_low" -> Some (Mullo_i16, args)

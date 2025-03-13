@@ -31,10 +31,15 @@
    The type refers to the hard register to be used, not to the machtype of the
    corresponding Reg.t. *)
 type register_behavior =
+  (* vector *)
   | Rf32x2_Rf32x2_to_Rf32x2
+  | Rf32x4_Rf32x4_to_Rf32x4
+  | Rf64x2_Rf64x2_to_Rf64x2
+  (* scalar *)
   | Rf32_Rf32_to_Rf32
   | Rf32_to_Rf32
   | Rf32_to_Ri64
+  | Ri64x2_Ri64x2_to_Ri64x2
 
 let register_behavior (op : Simd.operation) =
   match op with
@@ -44,3 +49,6 @@ let register_behavior (op : Simd.operation) =
   (* binary *)
   | Fmin_f32 | Fmax_f32 | Min_scalar_f32 | Max_scalar_f32 -> Rf32_Rf32_to_Rf32
   | Zip1_f32 -> Rf32x2_Rf32x2_to_Rf32x2
+  | Zip1q_f32 -> Rf32x4_Rf32x4_to_Rf32x4
+  | Zip1q_f64 | Zip2q_f64 -> Rf64x2_Rf64x2_to_Rf64x2
+  | Addq_i64 | Subq_i64 -> Ri64x2_Ri64x2_to_Ri64x2
