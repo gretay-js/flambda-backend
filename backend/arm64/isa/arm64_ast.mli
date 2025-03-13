@@ -162,6 +162,8 @@ module DSL : sig
 
   val reg_x : int -> Operand.t
 
+  val reg_w : int -> Operand.t
+
   val imm : int -> Operand.t
 
   val mem : base:int -> offset:int -> Operand.t

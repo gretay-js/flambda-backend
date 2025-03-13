@@ -544,7 +544,7 @@ module DSL = struct
   let literal l =
     Operand.(Mem (Addressing_mode.Literal l))
 
-  let reg_v4s index = Operand.Reg (Reg.create (Reg_name.(Vector V4S)) index)
+  let reg_v4s index = Operand.Reg (Reg.create (Reg_name.Neon (Vector V4S)) index)
 
   let reg_v2d index = reg_v2d_operands.(index)
 
@@ -557,6 +557,8 @@ module DSL = struct
   let reg_w index = reg_w_operands.(index)
 
   let reg_x index = reg_x_operands.(index)
+
+  let reg_w index = reg_w_operands.(index)
 
   let imm n = Operand.Imm n
 

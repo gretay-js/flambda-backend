@@ -469,12 +469,21 @@ let max_out_of_line_code_offset ~num_call_gc =
     max_offset
   end
 
-module DSL (* :sig
- *   include DSL
- *   val instr : Linear.instruction -> unit
- *   val simd_instr : Simd.operation -> Linear.instruction -> string
- *   val simd_instr_size : Simd.operation -> int
- * end *) = struct
+module DSL : sig
+
+  val check_reg : Cmm.machtype_component -> Reg.t -> unit
+  val emit_reg : Reg.t -> Arm64_ast.Operand.t
+  val emit_reg_d : Reg.t -> Arm64_ast.Operand.t
+  val emit_reg_s : Reg.t -> Arm64_ast.Operand.t
+  val emit_reg_w : Reg.t -> Arm64_ast.Operand.t
+  val emit_reg_v2d : Reg.t -> Arm64_ast.Operand.t
+  val imm : int -> Arm64_ast.Operand.t
+  val ins : I.t -> Arm64_ast.Operand.t array -> unit
+
+  val simd_instr : Simd.operation -> Linear.instruction -> unit
+  val simd_instr_size : Simd.operation -> int
+
+end = struct
   include Arm64_ast.DSL
   let check_reg typ reg =
    (* same type and not on stack *)
@@ -489,11 +498,13 @@ module DSL (* :sig
       r - Proc.first_available_register.(reg_class)
     | {loc = (Stack _ | Unknown); _}  -> fatal_error "Emit.reg"
 
-  let emit_reg_v2d reg =
-     reg_v2d (reg_index reg)
+  let emit_reg_v2d reg = reg_v2d (reg_index reg)
 
-  let emit_reg_v4s reg =
-     reg_v2d (reg_index reg)
+  let emit_reg_w reg = reg_w (reg_index reg)
+
+  let emit_reg_s reg = reg_s (reg_index reg)
+
+  let emit_reg_d reg = reg_d (reg_index reg)
 
   let emit_reg reg =
     (* use machtype to select register name *)
@@ -513,7 +524,6 @@ module DSL (* :sig
     (* Ensure that operation size and register size match.
        On arm64, operation size is encoded solely into the operands
        (unlike amd64 where the opcode itself usually indicates operation size). *)
-
     match register_behavior with
     | Rf32x2_Rf32x2_to_Rf32x2 ->
       (* float32x2 is represented as Float machtype *)
@@ -552,7 +562,6 @@ module DSL (* :sig
       (* Special case: f32 argument is represented by machtype Float (to avoid classifying
          it as a reinterpret cast), and uses vector f32x2 register in the instruction
          encoding. *)
-      let emit_reg_s reg = reg_s (reg_index reg) in
       [| emit_reg_s i.res.(0); emit_reg_s i.arg.(0); emit_reg_s i.arg.(1)|]
     | Rf32_Rf32_to_Rf32 ->
       emit_regs_binary i
@@ -736,7 +745,9 @@ module BR = Branch_relaxation.Make (struct
     | Lop (Static_cast (Float_of_int Float64 | Int_of_float Float64)) -> 1
     | Lop (Static_cast (Float_of_int Float32 | Int_of_float Float32 |
                          Float_of_float32 | Float32_of_float)) -> 1
-    | Lop (Static_cast (V128_of_scalar _ | Scalar_of_v128 _)) -> 1
+    | Lop (Static_cast (Scalar_of_v128 (Int8x16 | Int16x8))) -> 2
+    | Lop (Static_cast (Scalar_of_v128 (Int32x4 | Int64x2 | Float32x4 | Float64x2))) -> 1
+    | Lop (Static_cast (V128_of_scalar _ )) -> 1
     | Lop (Floatop (Float64, (Iaddf | Isubf | Imulf | Idivf))) -> 1
     | Lop (Floatop (Float32, (Iaddf | Isubf | Imulf | Idivf))) -> 1
     | Lop (Specific Inegmulf) -> 1
@@ -980,7 +991,7 @@ let emit_reinterpret_cast (cast : Cmm.reinterpret_cast) i =
           DSL.ins I.FMOV [| DSL.emit_reg dst; DSL.emit_reg src |])
     | Float_of_float32 ->
       if distinct then (
-        DSL.check_reg Float23 src;
+        DSL.check_reg Float32 src;
         DSL.check_reg Float dst;
         (* CR melse: I think this might be broken - maybe we need to do fmov dN,
            dM without referring to single-precision registers? *)
@@ -1034,12 +1045,12 @@ let emit_static_cast (cast : Cmm.static_cast) i =
          if distinct then (
            DSL.check_reg Float32 dst;
            DSL.ins I.FMOV [| DSL.emit_reg dst; DSL.emit_reg_s src |])
-       | Float64x2 -
+       | Float64x2 ->
          if distinct then (
            DSL.check_reg Float dst;
            DSL.ins I.FMOV [| DSL.emit_reg dst ; DSL.emit_reg_d src |])
       end
-    | V128_of_scalar _ ->
+    | V128_of_scalar v ->
        DSL.check_reg Vec128 dst;
        begin match v with
        | Int8x16 ->
@@ -1054,7 +1065,7 @@ let emit_static_cast (cast : Cmm.static_cast) i =
          if distinct then (
            DSL.check_reg Float32 src;
            DSL.ins I.FMOV [| DSL.emit_reg_s dst; DSL.emit_reg src |])
-       | Float64x2 -
+       | Float64x2 ->
          if distinct then (
            DSL.check_reg Float src;
            DSL.ins I.FMOV [| DSL.emit_reg_d dst ; DSL.emit_reg src |])
