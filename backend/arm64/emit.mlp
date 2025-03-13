@@ -1004,13 +1004,14 @@ let emit_instr i =
     | Lop(Const_int n) ->
         emit_intconst i.res.(0) n
     | Lop (Const_float32 f) ->
-        let f = Int64.of_int32 f in
-        if f = 0L then
+        DSL.check_reg Float32 i.res.(0);
+        let fe = Int64.of_int32 f in
+        if f = 0l then
           `	fmov	{emit_reg i.res.(0)}, wzr\n`
-        else if is_immediate_float f then
-          `	fmov	{emit_reg i.res.(0)}, #{emit_printf "%.7f" (Int64.float_of_bits f)}\n`
+        else if is_immediate_float fe then
+          `	fmov	{emit_reg i.res.(0)}, #{emit_printf "%.7f" (Int32.float_of_bits f)}\n`
         else begin
-          let lbl = float_literal f in
+          let lbl = float_literal fe in
           emit_load_literal i.res.(0) lbl
         end
     | Lop(Const_float f) ->
