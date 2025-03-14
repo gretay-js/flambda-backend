@@ -594,8 +594,21 @@ end
 
 module Float_arrays = struct
 
-  include Builtins.Float_interleave
+  module Float_interleave = struct
+    external interleave_low_32 : float32x4 -> float32x4 -> float32x4
+      = "caml_vec128_unreachable" "caml_simd_vec128_interleave_low_32"
+    [@@noalloc] [@@unboxed] [@@builtin]
 
+    (* Re-exposes SSE and SSE2 intrinisics with a different type. *)
+    external interleave_low_64s : float32x4 -> float32x4 -> float32x4
+      = "caml_vec128_unreachable" "caml_simd_vec128_interleave_low_64"
+    [@@noalloc] [@@unboxed] [@@builtin]
+
+    external interleave_low_64 : float64x2 -> float64x2 -> float64x2
+      = "caml_vec128_unreachable" "caml_simd_vec128_interleave_low_64"
+    [@@noalloc] [@@unboxed] [@@builtin]
+  end
+    
   external low_of64 : float -> float64x2 = "caml_vec128_unreachable" "caml_float64x2_low_of_float"
     [@@noalloc] [@@unboxed] [@@builtin]
 

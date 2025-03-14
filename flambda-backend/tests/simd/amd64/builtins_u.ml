@@ -748,18 +748,3 @@ module SSE41_Util = struct
     = "caml_vec128_unreachable" "caml_sse41_vec128_blendv_64"
     [@@noalloc] [@@unboxed] [@@builtin]
 end
-
-module Float_interleave = struct
-  (* Re-exposes SSE and SSE2 intrinisics with a different type. *)
-  external interleave_low_32 : float32x4 -> float32x4 -> float32x4
-    = "caml_vec128_unreachable" "caml_sse_vec128_interleave_low_32"
-    [@@noalloc] [@@unboxed] [@@builtin]
-
-  external interleave_low_64s : float32x4 -> float32x4 -> float32x4
-    = "caml_vec128_unreachable" "caml_sse2_vec128_interleave_low_64"
-    [@@noalloc] [@@unboxed] [@@builtin]
-
-  external interleave_low_64 : float64x2 -> float64x2 -> float64x2
-    = "caml_vec128_unreachable" "caml_sse2_vec128_interleave_low_64"
-    [@@noalloc] [@@unboxed] [@@builtin]
-end
