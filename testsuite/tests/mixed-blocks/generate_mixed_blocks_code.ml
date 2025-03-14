@@ -648,8 +648,8 @@ let main n ~bytecode =
   if not bytecode then (
     line {|external box_int64x2 : int64x2# -> int64x2 = "%%box_vec128"|};
     line {|external unbox_int64x2 : int64x2 -> int64x2# = "%%unbox_vec128"|};
-    line {|external interleave_low_64 : int64x2# -> int64x2# -> int64x2# = "" "caml_sse2_vec128_interleave_low_64" [@@unboxed] [@@builtin]|};
-    line {|external interleave_high_64 : int64x2# -> int64x2# -> int64x2# = "" "caml_sse2_vec128_interleave_high_64" [@@unboxed] [@@builtin]|};
+    line {|external interleave_low_64 : int64x2# -> int64x2# -> int64x2# = "" "caml_simd_vec128_interleave_low_64" [@@unboxed] [@@builtin]|};
+    line {|external interleave_high_64 : int64x2# -> int64x2# -> int64x2# = "" "caml_simd_vec128_interleave_high_64" [@@unboxed] [@@builtin]|};
     line {|external int64x2_of_int64 : int64 -> int64x2# = "" "caml_int64x2_low_of_int64" [@@unboxed] [@@builtin]|};
     line {|external int64_of_int64x2 : int64x2# -> int64 = "" "caml_int64x2_low_to_int64" [@@unboxed] [@@builtin]|};
     line {|let create_int64x2 () =

@@ -20,8 +20,8 @@ let create_int64_u () = Stdlib_upstream_compatible.Int64_u.of_int64 (Random.int6
 let create_nativeint_u () = Stdlib_upstream_compatible.Nativeint_u.of_nativeint (Random.nativeint 0x7FFF_FFFF_FFFF_FFFFn)
 external box_int64x2 : int64x2# -> int64x2 = "%box_vec128"
 external unbox_int64x2 : int64x2 -> int64x2# = "%unbox_vec128"
-external interleave_low_64 : int64x2# -> int64x2# -> int64x2# = "" "caml_sse2_vec128_interleave_low_64" [@@unboxed] [@@builtin]
-external interleave_high_64 : int64x2# -> int64x2# -> int64x2# = "" "caml_sse2_vec128_interleave_high_64" [@@unboxed] [@@builtin]
+external interleave_low_64 : int64x2# -> int64x2# -> int64x2# = "" "caml_simd_vec128_interleave_low_64" [@@unboxed] [@@builtin]
+external interleave_high_64 : int64x2# -> int64x2# -> int64x2# = "" "caml_simd_vec128_interleave_high_64" [@@unboxed] [@@builtin]
 external int64x2_of_int64 : int64 -> int64x2# = "" "caml_int64x2_low_of_int64" [@@unboxed] [@@builtin]
 external int64_of_int64x2 : int64x2# -> int64 = "" "caml_int64x2_low_to_int64" [@@unboxed] [@@builtin]
 let create_int64x2 () =
@@ -1958,7 +1958,7 @@ let t_orig149_B = t149_B in
   check_int32 (Stdlib_upstream_compatible.Int32_u.to_int32 t74.i32_1) (Stdlib_upstream_compatible.Int32_u.to_int32 t_orig74.i32_1) ~message:"t74.i32_1";
   let () = match t75_A, t_orig75_A with
       | A (a0), A (b0) -> check_int64x2 (box_int64x2 a0) (box_int64x2 b0) ~message:"t75_A.0";
-      
+
     in
   let () = match t76_A, t_orig76_A with
       | A (a0), A (b0) -> check_int64x2 (box_int64x2 a0) (box_int64x2 b0) ~message:"t76_A.0";
@@ -1970,7 +1970,7 @@ let t_orig149_B = t149_B in
     in
   let () = match t77_A, t_orig77_A with
       | A a, A b -> check_int64x2 (box_int64x2 a.int64x2_u0) (box_int64x2 b.int64x2_u0) ~message:"t77_A.int64x2_u0";
-      
+
     in
   let () = match t78_A, t_orig78_A with
       | A (a0), A (b0) -> check_int64x2 (box_int64x2 a0) (box_int64x2 b0) ~message:"t78_A.0";
@@ -1995,7 +1995,7 @@ let t_orig149_B = t149_B in
   let () = match t80_A, t_orig80_A with
       | A (a0, a1), A (b0, b1) -> check_string a0 b0 ~message:"t80_A.0";
 check_int64x2 (box_int64x2 a1) (box_int64x2 b1) ~message:"t80_A.1";
-      
+
     in
   let () = match t81_A, t_orig81_A with
       | A (a0), A (b0) -> check_int64x2 (box_int64x2 a0) (box_int64x2 b0) ~message:"t81_A.0";
@@ -2029,7 +2029,7 @@ check_int64x2 (box_int64x2 a1) (box_int64x2 b1) ~message:"t83_A.1";
   let () = match t84_A, t_orig84_A with
       | A a, A b -> check_string a.str0 b.str0 ~message:"t84_A.str0";
 check_int64x2 (box_int64x2 a.int64x2_u1) (box_int64x2 b.int64x2_u1) ~message:"t84_A.int64x2_u1";
-      
+
     in
   let () = match t85_A, t_orig85_A with
       | A (a0), A (b0) -> check_int64x2 (box_int64x2 a0) (box_int64x2 b0) ~message:"t85_A.0";
@@ -2079,7 +2079,7 @@ check_int64x2 (box_int64x2 a.int64x2_u1) (box_int64x2 b.int64x2_u1) ~message:"t8
     in
   let () = match t89_A, t_orig89_A with
       | A (a0), A (b0) -> check_float (Stdlib_upstream_compatible.Float_u.to_float a0) (Stdlib_upstream_compatible.Float_u.to_float b0) ~message:"t89_A.0";
-      
+
     in
   let () = match t90_A, t_orig90_A with
       | A (a0), A (b0) -> check_int64x2 (box_int64x2 a0) (box_int64x2 b0) ~message:"t90_A.0";
@@ -2141,7 +2141,7 @@ check_int64x2 (box_int64x2 a.int64x2_u1) (box_int64x2 b.int64x2_u1) ~message:"t9
     in
   let () = match t95_A, t_orig95_A with
       | A a, A b -> check_int64x2 (box_int64x2 a.int64x2_u0) (box_int64x2 b.int64x2_u0) ~message:"t95_A.int64x2_u0";
-      
+
     in
   let () = match t96_A, t_orig96_A with
       | A (a0), A (b0) -> check_int64x2 (box_int64x2 a0) (box_int64x2 b0) ~message:"t96_A.0";
@@ -2213,7 +2213,7 @@ check_int64x2 (box_int64x2 a.int64x2_u1) (box_int64x2 b.int64x2_u1) ~message:"t9
   let () = match t102_A, t_orig102_A with
       | A (a0, a1), A (b0, b1) -> check_float a0 b0 ~message:"t102_A.0";
 check_int64x2 (box_int64x2 a1) (box_int64x2 b1) ~message:"t102_A.1";
-      
+
     in
   let () = match t103_A, t_orig103_A with
       | A (a0), A (b0) -> check_int64x2 (box_int64x2 a0) (box_int64x2 b0) ~message:"t103_A.0";
@@ -2298,7 +2298,7 @@ check_int64x2 (box_int64x2 a1) (box_int64x2 b1) ~message:"t109_A.1";
   let () = match t110_A, t_orig110_A with
       | A a, A b -> check_string a.str0 b.str0 ~message:"t110_A.str0";
 check_int64x2 (box_int64x2 a.int64x2_u1) (box_int64x2 b.int64x2_u1) ~message:"t110_A.int64x2_u1";
-      
+
     in
   let () = match t111_A, t_orig111_A with
       | A (a0), A (b0) -> check_int64x2 (box_int64x2 a0) (box_int64x2 b0) ~message:"t111_A.0";
@@ -2400,7 +2400,7 @@ check_int64x2 (box_int64x2 a.int64x2_u1) (box_int64x2 b.int64x2_u1) ~message:"t1
   let () = match t119_A, t_orig119_A with
       | A (a0, a1), A (b0, b1) -> check_string a0 b0 ~message:"t119_A.0";
 check_float (Stdlib_upstream_compatible.Float_u.to_float a1) (Stdlib_upstream_compatible.Float_u.to_float b1) ~message:"t119_A.1";
-      
+
     in
   let () = match t120_A, t_orig120_A with
       | A (a0), A (b0) -> check_int64x2 (box_int64x2 a0) (box_int64x2 b0) ~message:"t120_A.0";
@@ -2516,7 +2516,7 @@ check_float (Stdlib_upstream_compatible.Float_u.to_float a1) (Stdlib_upstream_co
   let () = match t129_A, t_orig129_A with
       | A a, A b -> check_string a.str0 b.str0 ~message:"t129_A.str0";
 check_int64x2 (box_int64x2 a.int64x2_u1) (box_int64x2 b.int64x2_u1) ~message:"t129_A.int64x2_u1";
-      
+
     in
   let () = match t130_A, t_orig130_A with
       | A (a0), A (b0) -> check_int64x2 (box_int64x2 a0) (box_int64x2 b0) ~message:"t130_A.0";
@@ -2641,7 +2641,7 @@ check_int64x2 (box_int64x2 a.int64x2_u1) (box_int64x2 b.int64x2_u1) ~message:"t1
     in
   let () = match t140_A, t_orig140_A with
       | A (a0), A (b0) -> check_float32 (Stdlib_stable.Float32_u.to_float32 a0) (Stdlib_stable.Float32_u.to_float32 b0) ~message:"t140_A.0";
-      
+
     in
   let () = match t141_A, t_orig141_A with
       | A (a0), A (b0) -> check_int64x2 (box_int64x2 a0) (box_int64x2 b0) ~message:"t141_A.0";
