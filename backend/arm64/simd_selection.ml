@@ -19,21 +19,19 @@ open Simd
 
 (* Intrinsics naming conventions:
 
-   "caml_simd_*" for intrinsics used in the compiler distribution
-   libraries, for example "caml_simd_float32_round_current" and
-   "caml_simd_float32_min", or in compiler tests, for example
-   "caml_simd_vec128_interleave_low_32". The behavior must match the
-   corresponding amd64 intrinsics, and the name usually matches the
-   corresponding "caml_sse*" intrinsic.
+   "caml_simd_*" for intrinsics used in the compiler distribution libraries, for
+   example "caml_simd_float32_round_current" and "caml_simd_float32_min", or in
+   compiler tests, for example "caml_simd_vec128_interleave_low_32". The
+   behavior must match the corresponding amd64 intrinsics, and the name usually
+   matches the corresponding "caml_sse*" intrinsic.
 
    "caml_neon_<type>_<mnemonic>" for example scalar type
-   "caml_neon_float32_fmax" and vector type "caml_neon_float64x2_zip1"
-   where the constructor such as [Zip1q_f64] matches the naming
-   convention used by the standard arm intrinsics.
+   "caml_neon_float32_fmax" and vector type "caml_neon_float64x2_zip1" where the
+   constructor such as [Zip1q_f64] matches the naming convention used by the
+   standard arm intrinsics.
 
-   Some intrinsics have both names to make it easier to correlate with
-   both amd64 intrinsics and arm64 instructions, depending on context.
-*)
+   Some intrinsics have both names to make it easier to correlate with both
+   amd64 intrinsics and arm64 instructions, depending on context. *)
 
 let select_simd_instr op args =
   match op with
@@ -47,15 +45,16 @@ let select_simd_instr op args =
   | "caml_neon_float32_fmin" -> Some (Fmin_f32, args)
   | "caml_neon_float32_fmax" -> Some (Fmax_f32, args)
   | "caml_neon_float32x2_zip1" -> Some (Zip1_f32, args)
-  | "caml_simd_vec128_interleave_low_32"
-  | "caml_neon_float32x4_zip1" -> Some (Zip1q_f32, args)
-  | "caml_simd_vec128_interleave_low_64"
-  | "caml_neon_float64x2_zip1" -> Some (Zip1q_f64, args)
-  (* | "caml_sse2_vec128_interleave_low_64" -> Some (Interleave_low_64, args) *)
-  (*                                             (\* punpcklqdq *\) *)
-  (* zip1 vd.2d vn.2d vm.2d *)
-  (* | "caml_sse_vec128_interleave_low_32" -> Some (Interleave_low_32, args) *)
-  (*                                            (\* unpcklps   *\) *) (* zip1 vd.4s vn.4s vm.4s *)
+  | "caml_simd_vec128_interleave_low_32" | "caml_neon_float32x4_zip1" ->
+    Some (Zip1q_f32, args)
+  | "caml_simd_vec128_interleave_low_64" | "caml_neon_float64x2_zip1" ->
+    Some (Zip1q_f64, args)
+    (* | "caml_sse2_vec128_interleave_low_64" -> Some (Interleave_low_64, args) *)
+    (*                                             (\* punpcklqdq *\) *)
+    (* zip1 vd.2d vn.2d vm.2d *)
+    (* | "caml_sse_vec128_interleave_low_32" -> Some (Interleave_low_32, args) *)
+    (*                                            (\* unpcklps   *\) *)
+    (* zip1 vd.4s vn.4s vm.4s *)
   | _ -> None
 
 let select_operation op args =

@@ -41,12 +41,12 @@ end
 type operation =
   | Round_f32 of Rounding_mode.t
   | Round_f32_i64
-(* [Min_scalar_f32/Max_scalar_f32] are emitted as a sequence of instructions
+  (* [Min_scalar_f32/Max_scalar_f32] are emitted as a sequence of instructions
      that matches amd64 semantics of the same intrinsic
      [caml_simd_float32_min/max], regardless of the value of [FPCR.AH]. *)
   | Min_scalar_f32
   | Max_scalar_f32
-(* [Fmin/Fmax] are emitted as the corresponding arm64 single instructions. *)
+  (* [Fmin/Fmax] are emitted as the corresponding arm64 single instructions. *)
   | Fmin_f32
   | Fmax_f32
   | Zip1_f32
@@ -81,10 +81,8 @@ let equal_operation op1 op2 =
   | Fmax_f32, Fmax_f32
   | Zip1_f32, Zip1_f32 ->
     true
-  | Zip1q_f32, Zip1q_f32 ->
-      true
-  | Zip1q_f64, Zip1q_f64 ->
-    true  
+  | Zip1q_f32, Zip1q_f32 -> true
+  | Zip1q_f64, Zip1q_f64 -> true
   | ( ( Round_f32 _ | Round_f32_i64 | Min_scalar_f32 | Max_scalar_f32 | Fmin_f32
       | Fmax_f32 | Zip1_f32 | Zip1q_f32 | Zip1q_f64 ),
       _ ) ->
