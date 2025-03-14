@@ -227,7 +227,9 @@ let select_operation_sse2 op args =
   | "caml_sse2_vec128_interleave_low_8" -> Some (Interleave_low_8, args)
   | "caml_sse2_vec128_interleave_high_16" -> Some (Interleave_high_16, args)
   | "caml_sse2_vec128_interleave_low_16" -> Some (Interleave_low_16, args)
-  | "caml_sse2_vec128_interleave_high_64" -> Some (Interleave_high_64, args)
+  | "caml_simd_vec128_interleave_high_64"
+  | "caml_sse2_vec128_interleave_high_64" ->
+    Some (Interleave_high_64, args)
   | "caml_simd_vec128_interleave_low_64" | "caml_sse2_vec128_interleave_low_64"
     ->
     Some (Interleave_low_64, args)

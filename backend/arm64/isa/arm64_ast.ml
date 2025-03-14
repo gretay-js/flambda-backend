@@ -223,6 +223,7 @@ module Instruction_name = struct
     | FMIN
     | FMAX
     | ZIP1
+    | ZIP2
     | FCMP
     | FCSEL
 
@@ -282,6 +283,7 @@ module Instruction_name = struct
     | FMIN -> "fmin"
     | FMAX -> "fmax"
     | ZIP1 -> "zip1"
+    | ZIP2 -> "zip2"
     | FCMP -> "fcmp"
     | FCSEL -> "fcsel"
 

@@ -608,7 +608,7 @@ module Float_arrays = struct
       = "caml_vec128_unreachable" "caml_simd_vec128_interleave_low_64"
     [@@noalloc] [@@unboxed] [@@builtin]
   end
-    
+
   external low_of64 : float -> float64x2 = "caml_vec128_unreachable" "caml_float64x2_low_of_float"
     [@@noalloc] [@@unboxed] [@@builtin]
 

@@ -49,4 +49,4 @@ let register_behavior (op : Simd.operation) =
   | Fmin_f32 | Fmax_f32 | Min_scalar_f32 | Max_scalar_f32 -> Rf32_Rf32_to_Rf32
   | Zip1_f32 -> Rf32x2_Rf32x2_to_Rf32x2
   | Zip1q_f32 -> Rf32x4_Rf32x4_to_Rf32x4
-  | Zip1q_f64 -> Rf64x2_Rf64x2_to_Rf64x2
+  | Zip1q_f64 | Zip2q_f64 -> Rf64x2_Rf64x2_to_Rf64x2

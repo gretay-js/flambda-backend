@@ -52,6 +52,7 @@ type operation =
   | Zip1_f32
   | Zip1q_f32
   | Zip1q_f64
+  | Zip2q_f64
 
 let print_name op =
   match op with
@@ -60,6 +61,7 @@ let print_name op =
   | Zip1_f32 -> "Zip1_f32"
   | Zip1q_f32 -> "Zip1q_f32"
   | Zip1q_f64 -> "Zip1q_f64"
+  | Zip2q_f64 -> "Zip2q_f64"
   | Fmin_f32 -> "Fmin_f32"
   | Fmax_f32 -> "Fmax_f32"
   | Min_scalar_f32 -> "min_scalar_f32"
@@ -83,15 +85,16 @@ let equal_operation op1 op2 =
     true
   | Zip1q_f32, Zip1q_f32 -> true
   | Zip1q_f64, Zip1q_f64 -> true
+  | Zip2q_f64, Zip2q_f64 -> true
   | ( ( Round_f32 _ | Round_f32_i64 | Min_scalar_f32 | Max_scalar_f32 | Fmin_f32
-      | Fmax_f32 | Zip1_f32 | Zip1q_f32 | Zip1q_f64 ),
+      | Fmax_f32 | Zip1_f32 | Zip1q_f32 | Zip1q_f64 | Zip2q_f64 ),
       _ ) ->
     false
 
 let class_of_operation op =
   match op with
   | Round_f32 _ | Round_f32_i64 | Min_scalar_f32 | Max_scalar_f32 | Fmin_f32
-  | Fmax_f32 | Zip1_f32 | Zip1q_f32 | Zip1q_f64 ->
+  | Fmax_f32 | Zip1_f32 | Zip1q_f32 | Zip1q_f64 | Zip2q_f64 ->
     Pure
 
 let operation_is_pure op = match class_of_operation op with Pure -> true

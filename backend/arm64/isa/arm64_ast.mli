@@ -140,6 +140,7 @@ module Instruction_name : sig
     | FMIN
     | FMAX
     | ZIP1
+    | ZIP2
     | FCMP
     | FCSEL
 end
