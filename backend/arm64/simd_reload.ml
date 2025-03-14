@@ -23,5 +23,6 @@ let reload_operation makereg op arg res =
   let ensure_reg reg = if stackp reg then makereg reg else reg in
   match Simd_proc.register_behavior op with
   (* Argument and result must be in registers. *)
-  | Rf32_Rf32_to_Rf32 | Rf32_to_Rf32 | Rf32_to_Ri64 | Rf32x2_Rf32x2_to_Rf32x2 ->
+  | Rf32_Rf32_to_Rf32 | Rf32_to_Rf32 | Rf32_to_Ri64 | Rf32x2_Rf32x2_to_Rf32x2
+  | Rf32x4_Rf32x4_to_Rf32x4 | Rf64x2_Rf64x2_to_Rf64x2 ->
     Array.map ensure_reg arg, Array.map ensure_reg res

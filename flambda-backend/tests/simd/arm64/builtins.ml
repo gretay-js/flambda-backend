@@ -851,4 +851,3 @@ module SSE42_String = struct
     (int[@untagged]) = "caml_vec128_unreachable" "caml_sse42_vec128_cmpistrz"
     [@@noalloc] [@@builtin]
 end
-

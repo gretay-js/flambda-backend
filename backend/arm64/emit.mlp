@@ -506,6 +506,10 @@ end = struct
       r - Proc.first_available_register.(reg_class)
     | {loc = (Stack _ | Unknown); _}  -> fatal_error "Emit.reg"
 
+  let emit_reg_v2s reg = reg_v2s (reg_index reg)
+
+  let emit_reg_v4s reg = reg_v4s (reg_index reg)
+
   let emit_reg_v2d reg = reg_v2d (reg_index reg)
 
   let emit_reg_w reg = reg_w int_reg_name_to_index.(reg_index reg)
@@ -537,7 +541,12 @@ end = struct
       (* float32x2 is represented as Float machtype *)
       check_reg Float i.arg.(0);
       check_reg Float i.arg.(1);
-      check_reg Float i.res.(0)
+      check_reg Float i.res.(0);
+    | Rf32x4_Rf32x4_to_Rf32x4
+    | Rf64x2_Rf64x2_to_Rf64x2 ->
+      check_reg Vec128 i.arg.(0);
+      check_reg Vec128 i.arg.(1);
+      check_reg Vec128 i.res.(0);
     | Rf32_Rf32_to_Rf32 ->
       check_reg Float32 i.arg.(0);
       check_reg Float32 i.arg.(1);
@@ -570,7 +579,11 @@ end = struct
       (* Special case: f32 argument is represented by machtype Float (to avoid classifying
          it as a reinterpret cast), and uses vector f32x2 register in the instruction
          encoding. *)
-      [| emit_reg_s i.res.(0); emit_reg_s i.arg.(0); emit_reg_s i.arg.(1)|]
+      [| emit_reg_v2s i.res.(0); emit_reg_v2s i.arg.(0); emit_reg_v2s i.arg.(1)|]
+    | Rf32x4_Rf32x4_to_Rf32x4 ->
+      [| emit_reg_v4s i.res.(0); emit_reg_v4s i.arg.(0); emit_reg_v4s i.arg.(1)|]
+    | Rf64x2_Rf64x2_to_Rf64x2 ->
+      [| emit_reg_v2d i.res.(0); emit_reg_v2d i.arg.(0); emit_reg_v2d i.arg.(1)|]
     | Rf32_Rf32_to_Rf32 ->
       emit_regs_binary i
     | Rf32_to_Rf32
@@ -580,7 +593,7 @@ end = struct
   let simd_instr_size (op : Simd.operation)  =
     match op with
     | Min_scalar_f32 | Max_scalar_f32 -> 2
-    | Round_f32 _ | Round_f32_i64 | Zip1_f32 | Fmin_f32 | Fmax_f32 -> 1
+    | Round_f32 _ | Round_f32_i64 | Zip1_f32 | Zip1q_f32 | Zip1q_f64 | Fmin_f32 | Fmax_f32 -> 1
 
   let emit_rounding_mode (rm : Simd.Rounding_mode.t) : I.Rounding_mode.t =
     match rm with
@@ -611,7 +624,8 @@ end = struct
       ins I.FMIN operands
     | Fmax_f32 ->
       ins I.FMAX operands
-    | Zip1_f32 ->
+    | Zip1_f32    | Zip1q_f32
+    | Zip1q_f64  ->
       ins I.ZIP1 operands
 end
 

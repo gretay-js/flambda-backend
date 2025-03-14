@@ -100,7 +100,9 @@ let select_operation_sse op args =
   | "caml_sse_vec128_high_64_to_low_64" -> Some (High_64_to_low_64, args)
   | "caml_sse_vec128_low_64_to_high_64" -> Some (Low_64_to_high_64, args)
   | "caml_sse_vec128_interleave_high_32" -> Some (Interleave_high_32, args)
-  | "caml_sse_vec128_interleave_low_32" -> Some (Interleave_low_32, args)
+  | "caml_simd_vec128_interleave_low_32" | "caml_sse_vec128_interleave_low_32"
+    ->
+    Some (Interleave_low_32, args)
   | "caml_sse_vec128_movemask_32" -> Some (Movemask_32, args)
   | "caml_sse_vec128_shuffle_32" ->
     let i, args = extract_constant args ~max:0xff op in
@@ -226,7 +228,9 @@ let select_operation_sse2 op args =
   | "caml_sse2_vec128_interleave_high_16" -> Some (Interleave_high_16, args)
   | "caml_sse2_vec128_interleave_low_16" -> Some (Interleave_low_16, args)
   | "caml_sse2_vec128_interleave_high_64" -> Some (Interleave_high_64, args)
-  | "caml_sse2_vec128_interleave_low_64" -> Some (Interleave_low_64, args)
+  | "caml_simd_vec128_interleave_low_64" | "caml_sse2_vec128_interleave_low_64"
+    ->
+    Some (Interleave_low_64, args)
   | "caml_sse2_int16x8_mul_high" -> Some (Mulhi_i16, args)
   | "caml_sse2_int16x8_mul_high_unsigned" -> Some (Mulhi_unsigned_i16, args)
   | "caml_sse2_int16x8_mul_low" -> Some (Mullo_i16, args)

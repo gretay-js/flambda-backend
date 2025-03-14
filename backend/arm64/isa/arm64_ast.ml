@@ -369,11 +369,9 @@ module Operand = struct
     let print ppf t =
       let open Format in
       match t with
-      | Offset (r,imm) -> fprintf ppf "[%s, %a]" (Reg.name r) Imm.print imm
-      | Pre (r,imm) ->
-          fprintf ppf "[%s, %a]!" (Reg.name r) Imm.print imm
-      | Post (r,imm) ->
-          fprintf ppf "[%s], %a" (Reg.name r) Imm.print imm
+      | Offset (r, imm) -> fprintf ppf "[%s, %a]" (Reg.name r) Imm.print imm
+      | Pre (r, imm) -> fprintf ppf "[%s, %a]!" (Reg.name r) Imm.print imm
+      | Post (r, imm) -> fprintf ppf "[%s], %a" (Reg.name r) Imm.print imm
       | Literal l -> fprintf ppf "%s" l
   end
 
@@ -501,17 +499,16 @@ end
 
 module DSL = struct
   (* Statically allocate some common combinations *)
-  let reg_array size name =
-    Array.init size (fun i -> Reg.create name i)
+  let reg_array size name = Array.init size (fun i -> Reg.create name i)
 
   let reg_and_operand_array ~last name =
-    let size = last + 1 in  
+    let size = last + 1 in
     let reg_array = reg_array size name in
-    let op_array = Array.init size (fun i -> Operand.Reg (reg_array.(i))) in
+    let op_array = Array.init size (fun i -> Operand.Reg reg_array.(i)) in
     reg_array, op_array
 
   let operand_array ~last name =
-    let _reg_array,op_array = reg_and_operand_array ~last name in
+    let _reg_array, op_array = reg_and_operand_array ~last name in
     op_array
 
   let neon_operand_array name =
@@ -532,20 +529,22 @@ module DSL = struct
 
   let reg_q_operands = neon_operand_array Neon_reg_name.(Scalar Q)
 
-
   let mem ~base ~offset =
-    Operand.(Mem (Addressing_mode.Offset ((reg_x.(base)), offset)))
+    Operand.(Mem (Addressing_mode.Offset (reg_x.(base), offset)))
 
   let mem_pre ~base ~offset =
-    Operand.(Mem (Addressing_mode.Pre ((reg_x.(base)), offset)))
+    Operand.(Mem (Addressing_mode.Pre (reg_x.(base), offset)))
 
   let mem_post ~base ~offset =
-    Operand.(Mem (Addressing_mode.Post ((reg_x.(base)), offset)))
+    Operand.(Mem (Addressing_mode.Post (reg_x.(base), offset)))
 
-  let literal l =
-    Operand.(Mem (Addressing_mode.Literal l))
+  let literal l = Operand.(Mem (Addressing_mode.Literal l))
 
-  let reg_v4s index = Operand.Reg (Reg.create (Reg_name.Neon (Vector V4S)) index)
+  let reg_v2s index =
+    Operand.Reg (Reg.create (Reg_name.Neon (Vector V2S)) index)
+
+  let reg_v4s index =
+    Operand.Reg (Reg.create (Reg_name.Neon (Vector V4S)) index)
 
   let reg_v2d index = reg_v2d_operands.(index)
 
