@@ -314,6 +314,11 @@ let is_immediate_float bits =
   let mant = Int64.logand bits 0xF_FFFF_FFFF_FFFFL in
   exp >= -3 && exp <= 4 && Int64.logand mant 0xF_0000_0000_0000L = mant
 
+let is_immediate_float32 bits =
+  let exp = (Int32.(to_int (shift_right_logical bits 23)) land 0x7F) - 63 in
+  let mant = Int32.logand bits 0x7F_FFFFl in
+  exp >= -3 && exp <= 4 && Int64.logand mant 0x78_0000l = mant
+
 (* Adjust sp (up or down) by the given byte amount *)
 
 let emit_stack_adjustment n =
@@ -1151,13 +1156,13 @@ let emit_instr i =
         emit_intconst i.res.(0) n
     | Lop (Const_float32 f) ->
         DSL.check_reg Float32 i.res.(0);
-        let fe = Int64.of_int32 f in
         if f = 0l then
           `	fmov	{emit_reg i.res.(0)}, wzr\n`
-        else if is_immediate_float fe then
+        else if is_immediate_float32 f then
           `	fmov	{emit_reg i.res.(0)}, #{emit_printf "%.7f" (Int32.float_of_bits f)}\n`
         else begin
-          let lbl = float_literal fe in
+          (* float32 constants still take up 8 bytes; we load the lower half. *)
+          let lbl = float_literal (Int64.of_int32 f) in
           emit_load_literal i.res.(0) lbl
         end
     | Lop(Const_float f) ->
