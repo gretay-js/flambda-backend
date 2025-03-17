@@ -39,6 +39,7 @@ type register_behavior =
   | Rf32_Rf32_to_Rf32
   | Rf32_to_Rf32
   | Rf32_to_Ri64
+  | Ri64x2_Ri64x2_to_Ri64x2
 
 let register_behavior (op : Simd.operation) =
   match op with
@@ -50,3 +51,4 @@ let register_behavior (op : Simd.operation) =
   | Zip1_f32 -> Rf32x2_Rf32x2_to_Rf32x2
   | Zip1q_f32 -> Rf32x4_Rf32x4_to_Rf32x4
   | Zip1q_f64 | Zip2q_f64 -> Rf64x2_Rf64x2_to_Rf64x2
+  | Addq_i64 | Subq_i64 -> Ri64x2_Ri64x2_to_Ri64x2

@@ -51,12 +51,8 @@ let select_simd_instr op args =
     Some (Zip1q_f64, args)
   | "caml_simd_vec128_interleave_high_64" | "caml_neon_float64x2_zip2" ->
     Some (Zip2q_f64, args)
-    (* | "caml_sse2_vec128_interleave_low_64" -> Some (Interleave_low_64, args) *)
-    (*                                             (\* punpcklqdq *\) *)
-    (* zip1 vd.2d vn.2d vm.2d *)
-    (* | "caml_sse_vec128_interleave_low_32" -> Some (Interleave_low_32, args) *)
-    (*                                            (\* unpcklps   *\) *)
-    (* zip1 vd.4s vn.4s vm.4s *)
+  | "caml_simd_int64x2_add" | "caml_neon_int64x2_add" -> Some (Addq_i64, args)
+  | "caml_simd_int64x2_sub" | "caml_neon_int64x2_sub" -> Some (Subq_i64, args)
   | _ -> None
 
 let select_operation op args =
