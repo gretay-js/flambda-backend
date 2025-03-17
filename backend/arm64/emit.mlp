@@ -317,7 +317,7 @@ let is_immediate_float bits =
 let is_immediate_float32 bits =
   let exp = (Int32.(to_int (shift_right_logical bits 23)) land 0x7F) - 63 in
   let mant = Int32.logand bits 0x7F_FFFFl in
-  exp >= -3 && exp <= 4 && Int64.logand mant 0x78_0000l = mant
+  exp >= -3 && exp <= 4 && Int32.logand mant 0x78_0000l = mant
 
 (* Adjust sp (up or down) by the given byte amount *)
 
