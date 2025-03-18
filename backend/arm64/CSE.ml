@@ -22,9 +22,6 @@ let of_simd_class (cl : Simd.operation_class)  =
   match cl with
   | Pure -> Op_pure
 
-let fundecl f =
-  (new cse)#fundecl f
-
 class cfg_cse = object
 
   inherit Cfg_cse.cse_generic as super

@@ -16,7 +16,7 @@
 
 (* SIMD instruction reload for ARM64 *)
 
-open! Int_replace_polymorphic_compare
+open! Int_replace_polymorphic_compare [@@warning "-66"]
 
 let reload_operation makereg op arg res =
   let stackp r =
