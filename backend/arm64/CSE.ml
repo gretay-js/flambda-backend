@@ -18,6 +18,10 @@
 open! Int_replace_polymorphic_compare
 open CSE_utils
 
+let of_simd_class (cl : Simd.operation_class)  =
+  match cl with
+  | Pure -> Op_pure
+
 let fundecl f =
   (new cse)#fundecl f
 
@@ -43,7 +47,7 @@ class cfg_cse = object
        | Ibswap _
        | Imove32
        | Isignext _ -> Op_pure
-       | Isimd op -> Misc.fatal_error "SIMD not implemented")
+       | Isimd op -> of_simd_class (Simd.class_of_operation op))
     | Move | Spill | Reload
     | Floatop _
     | Csel _
