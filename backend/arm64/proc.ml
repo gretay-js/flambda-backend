@@ -14,14 +14,14 @@
 (*   special exception on linking described in the file LICENSE.          *)
 (*                                                                        *)
 (**************************************************************************)
-
+[@@@ocaml.warning "+a-40-41-42"]
 (* Description of the ARM processor in 64-bit mode *)
 
 open! Int_replace_polymorphic_compare
 
 open Misc
-open Cmm
 open Reg
+open Cmm
 open Arch
 
 (* Instruction selection *)
@@ -359,6 +359,47 @@ let destroyed_at_c_noalloc_call =
      116;117;118;119;120;121;122;123;
      124;125;126;127;128;129;130;131]))
 
+(* note: keep this function in sync with `destroyed_at_{basic,terminator}` below. *)
+let destroyed_at_oper = function
+  | Iop(Icall_ind | Icall_imm _) ->
+    all_phys_regs
+  | Iop(Iextcall {alloc; stack_ofs; func = _; ty_res = _; ty_args = _; returns = _; }) ->
+    assert (stack_ofs >= 0);
+    if alloc || stack_ofs > 0 then all_phys_regs
+    else destroyed_at_c_noalloc_call
+  | Iop(Ialloc _) | Iop(Ipoll _) ->
+    [| reg_x8 |]
+  | Iop(Iload{memory_chunk=Single { reg = Float64 }; _})
+  | Iop(Istore(Single { reg = Float64 }, _, _))
+    -> destroy_neon_reg7
+  | Iop(Iload{memory_chunk=Single { reg = Float32 }; _})
+  | Iop(Istore(Single { reg = Float32 }, _, _))
+    -> [||]
+  | Iop(Iload
+          {memory_chunk=(Byte_unsigned|Byte_signed|Sixteen_unsigned|
+                         Sixteen_signed|Thirtytwo_unsigned|Thirtytwo_signed|
+                         Word_int|Word_val|Double|Onetwentyeight_unaligned|
+                         Onetwentyeight_aligned);
+           _ })
+  | Iop(Istore
+          ((Byte_unsigned|Byte_signed|Sixteen_unsigned|Sixteen_signed|
+            Thirtytwo_unsigned|Thirtytwo_signed|Word_int|Word_val|Double|
+            Onetwentyeight_unaligned|Onetwentyeight_aligned),
+           _, _))
+    -> [||]
+  | Iop(Istatic_cast (Int_of_float _ | Float_of_int _
+                     | Float_of_float32 | Float32_of_float))
+    -> [||]
+  | Iop(Istatic_cast (V128_of_scalar _|Scalar_of_v128 _))
+  | Iop(Imove|Ispill|Ireload|Itailcall_ind|Iopaque|Ibeginregion|Iendregion|
+        Idls_get|Iconst_int _|Iconst_float32 _|Iconst_float _|Iconst_vec128 _|
+        Iconst_symbol _|Itailcall_imm _|Istackoffset _|Iintop _|Iintop_imm (_, _)|
+        Iintop_atomic _|Ifloatop (_, _)|Icsel _|Ireinterpret_cast _|
+        Iname_for_debugger _|Iprobe _|Iprobe_is_enabled _ |Ispecific _)
+  | (Iend|Ireturn _|Iifthenelse (_, _, _)|Iswitch (_, _)|Icatch (_, _, _, _)|
+     Iexit (_, _)|Itrywith (_, _, _)|Iraise _)
+    -> [||]
+
 let destroyed_at_raise = all_phys_regs
 
 let destroyed_at_reloadretaddr = [| |]
@@ -376,12 +417,42 @@ let destroyed_at_basic (basic : Cfg_intf.S.basic) =
   | Op Poll -> destroyed_at_alloc_or_poll
   | Op (Alloc _) ->
     destroyed_at_alloc_or_poll
-  | Op( Static_cast (Int_of_float _ | Float_of_int _)
-      | Load {memory_chunk = Single { reg = Float64 }; _ }
-      | Store(Single { reg = Float64 }, _, _)) ->
-    [| reg_d7 |]
-  | Op _ | Poptrap | Prologue ->
-    [||]
+  | Op(Load {memory_chunk = Single { reg = Float64 }; _ }
+      | Store(Single { reg = Float64 }, _, _))
+    -> destroy_neon_reg7
+  | Op (Load {memory_chunk=Single {reg=Float32}; _ })
+  | Op (Store (Single {reg=Float32}, _, _))
+  | Op (Load
+          {memory_chunk=(Byte_unsigned|Byte_signed|Sixteen_unsigned|
+                         Sixteen_signed|Thirtytwo_unsigned|Thirtytwo_signed|
+                         Word_int|Word_val|Double|Onetwentyeight_unaligned|
+                         Onetwentyeight_aligned);
+           _ })
+  | Op (Store
+          ((Byte_unsigned|Byte_signed|Sixteen_unsigned|Sixteen_signed|
+            Thirtytwo_unsigned|Thirtytwo_signed|Word_int|Word_val|Double|
+            Onetwentyeight_unaligned|Onetwentyeight_aligned),
+           _, _))
+    -> [||]
+  | Op (Static_cast
+          (Int_of_float _ | Float_of_int _
+          | Float_of_float32|Float32_of_float))
+    -> [||]
+  | Op (Static_cast
+          (V128_of_scalar _|Scalar_of_v128 _))
+  | Op (Specific _
+        | Move | Spill | Reload
+        | Floatop _
+        | Csel _
+        | Reinterpret_cast _ | Const_int _
+        | Const_float32 _ | Const_float _
+        | Const_symbol _ | Const_vec128 _
+        | Stackoffset _
+        | Intop _ | Intop_imm _ | Intop_atomic _
+        | Name_for_debugger _ | Probe_is_enabled _ | Opaque
+        | Begin_region | End_region | Dls_get)
+  | Poptrap | Prologue
+    -> [||]
   | Stack_check _ -> assert false (* not supported *)
 
 (* note: keep this function in sync with `is_destruction_point` below. *)
@@ -414,8 +485,8 @@ let is_destruction_point ~(more_destruction_points : bool) (terminator : Cfg_int
   | Tailcall_func _ | Prim {op = Probe _; _}
   | Specific_can_raise _ ->
     false
-  | Call_no_return { func_symbol = _; alloc; ty_res = _; ty_args = _; }
-  | Prim {op  = External { func_symbol = _; alloc; ty_res = _; ty_args = _; }; _} ->
+  | Call_no_return { func_symbol = _; alloc; ty_res = _; ty_args = _; stack_ofs = _}
+  | Prim {op  = External { func_symbol = _; alloc; ty_res = _; ty_args = _; stack_ofs = _}; _} ->
     if more_destruction_points then
       true
     else
