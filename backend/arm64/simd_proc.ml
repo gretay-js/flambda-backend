@@ -16,7 +16,7 @@
 
 (* SIMD register behavior for ARM64 *)
 
-open! Int_replace_polymorphic_compare
+open! Int_replace_polymorphic_compare [@@warning "-66"]
 
 (* [R] stands for register (not stack)
  *
