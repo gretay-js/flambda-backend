@@ -347,6 +347,7 @@ let destroyed_at_c_noalloc_call =
     Array.map (phys_reg Int) int_regs_destroyed_at_c_noalloc_call;
     Array.map (phys_reg Float) float_regs_destroyed_at_c_noalloc_call;
     Array.map (phys_reg Float32) float_regs_destroyed_at_c_noalloc_call;
+    Array.map (phys_reg Vec128) float_regs_destroyed_at_c_noalloc_call;
   ]
 
 (* CSE needs to know that all versions of neon are destroyed. *)
