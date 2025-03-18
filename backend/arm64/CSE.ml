@@ -18,6 +18,10 @@
 open Mach
 open CSE_utils
 
+let of_simd_class (cl : Simd.operation_class)  =
+  match cl with
+  | Pure -> Op_pure
+
 class cse = object
 
 inherit CSEgen.cse_generic as super
@@ -40,7 +44,7 @@ method! class_of_operation op =
      | Ibswap _
      | Imove32
      | Isignext _ -> Op_pure
-     | Isimd op -> Misc.fatal_error "SIMD not implemented")
+     | Isimd op -> of_simd_class (Simd.class_of_operation op))
   | Imove | Ispill | Ireload
   | Ifloatop _
   | Icsel _
@@ -98,7 +102,7 @@ class cfg_cse = object
        | Ibswap _
        | Imove32
        | Isignext _ -> Op_pure
-       | Isimd op -> Misc.fatal_error "SIMD not implemented")
+       | Isimd op -> of_simd_class (Simd.class_of_operation op))
     | Move | Spill | Reload
     | Floatop _
     | Csel _
