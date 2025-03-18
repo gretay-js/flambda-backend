@@ -147,8 +147,13 @@ class selector =
         | [Cop (Cmulf Float64, args, _); arg] ->
           Ispecific Inegmulsubf, arg :: args
         | _ -> super#select_operation op args dbg)
+      | Cpackf32 -> Ispecific (Isimd Zip1_f32), args
       (* Recognize floating-point square root *)
-      | Cextcall { func = "sqrt" } -> Ispecific Isqrtf, args
+      | Cextcall { func = "sqrt" | "sqrtf" } -> Ispecific Isqrtf, args
+      | Cextcall { func; builtin = true; _ } -> (
+        match Simd_selection.select_operation func args with
+        | Some (op, args) -> op, args
+        | None -> super#select_operation op args dbg)
       (* Recognize bswap instructions *)
       | Cbswap { bitwidth } ->
         let bitwidth = select_bitwidth bitwidth in
