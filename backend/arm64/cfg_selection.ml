@@ -64,13 +64,13 @@ class selector =
         when use_direct_addressing s ->
         Ibased (s.sym_name, n), Ctuple []
       | Cop ((Caddv | Cadda), [arg; Cconst_int (n, _)], _)
-        when is_offset chunk n ->
+        when Arch.is_offset chunk n ->
         Iindexed n, arg
       | Cop
           ( ((Caddv | Cadda) as op),
             [arg1; Cop (Caddi, [arg2; Cconst_int (n, _)], _)],
             dbg )
-        when is_offset chunk n ->
+        when Arch.is_offset chunk n ->
         Iindexed n, Cop (op, [arg1; arg2], dbg)
       | Cconst_symbol (s, _) when use_direct_addressing s ->
         Ibased (s.sym_name, 0), Ctuple []

@@ -89,7 +89,9 @@ val equal_addressing_mode : addressing_mode -> addressing_mode -> bool
 
 val identity_addressing : addressing_mode
 
-val offset_addressing : addressing_mode -> int -> addressing_mode
+val is_offset : Cmm.memory_chunk -> int -> bool
+
+val offset_addressing : Cmm.memory_chunk -> addressing_mode -> int -> addressing_mode
 
 val num_args_addressing : addressing_mode -> int
 

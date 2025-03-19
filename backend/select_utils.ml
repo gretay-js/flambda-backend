@@ -773,7 +773,9 @@ class virtual ['env, 'op, 'instr] common_selector =
 
     method emit_stores env dbg data regs_addr =
       let a =
-        ref (Arch.offset_addressing Arch.identity_addressing (-Arch.size_int))
+        ref
+          (Arch.offset_addressing Word_int Arch.identity_addressing
+             (-Arch.size_int))
       in
       List.iter
         (fun e ->
@@ -802,13 +804,13 @@ class virtual ['env, 'op, 'instr] common_selector =
                   dbg
                   (Array.append [| r |] regs_addr)
                   [||];
-                a := Arch.offset_addressing !a (size_component r.Reg.typ)
+                a := Arch.offset_addressing kind !a (size_component r.Reg.typ)
               done
             | false ->
               self#insert_debug env (self#lift_op op) dbg
                 (Array.append regs regs_addr)
                 [||];
-              a := Arch.offset_addressing !a (size_expr env e)))
+              a := Arch.offset_addressing Word_int !a (size_expr env e)))
         data
 
     (* Emit an expression.
