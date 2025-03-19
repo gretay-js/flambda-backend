@@ -42,7 +42,7 @@ module Neon_reg_name = struct
       | Q
 
     let to_string t =
-      match t with B -> "B" | H -> "H" | S -> "S" | D -> "D" | Q -> "Q"
+      match t with B -> "b" | H -> "h" | S -> "s" | D -> "d" | Q -> "q"
 
     let name t index = Printf.sprintf "%s%d" (to_string t) index
   end
@@ -82,12 +82,12 @@ module GP_reg_name = struct
 
   let name t index =
     match t with
-    | W -> Printf.sprintf "W%d" index
-    | X -> Printf.sprintf "X%d" index
-    | WZR -> "WZR"
-    | XZR -> "XZR"
-    | WSP -> "WSP"
-    | SP -> "SP"
+    | W -> Printf.sprintf "w%d" index
+    | X -> Printf.sprintf "x%d" index
+    | WZR -> "wzr"
+    | XZR -> "xzr"
+    | WSP -> "wsp"
+    | SP -> "sp"
 end
 
 (* Register representation *)
