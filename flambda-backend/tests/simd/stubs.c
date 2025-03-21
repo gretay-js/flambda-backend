@@ -1,4 +1,3 @@
-
 #include <assert.h>
 #include <caml/memory.h>
 #include <caml/simd.h>
@@ -20,46 +19,65 @@ value vec128_run_callback_stack_args(value i0, value i1, value i2, value i3, val
 #ifdef __ARM_NEON
 #include <arm_neon.h>
 
+typedef int32x4_t simd_int32x4_t;
+
 #define simd_add_int64x2 vaddq_s64
-#define simd_extract_float32x4 vget_lane_f32
+#define simd_extract_float32x4 vgetq_lane_f32
 #define simd_extract_int64x2 vgetq_lane_s64
-#define simd_extract_int32x4 _mm_extract_epi32
-#define simd_dup_float32x4  _mm_set1_ps?
-#define simd_dup_float64x2 _mm_set1_pd?
-#define simd_low_float64x2 _mm_cvtsd_f64?
-#define simd_float64x2_sqrt _mm_sqrt_pd ?
-#define simd_float64x2_min _mm_min_pd ?
-#define simd_float64x2_max _mm_max_pd ?
+#define simd_extract_int32x4 vgetq_lane_s32
+#define simd_dup_float32x4  vdupq_n_f32
+#define simd_dup_float64x2 vdupq_n_f64
+#define simd_float64x2_sqrt vsqrtq_f64
+#define simd_float64x2_min vminq_f64
+#define simd_float64x2_max vmaxq_f64
 
 #define simd_float32x4_add vaddq_f32
 #define simd_float32x4_sub vsubq_f32
 #define simd_float32x4_mul vmulq_f32
 #define simd_float32x4_div vdivq_f32
 #define simd_float32x4_min vminq_f32
-#define simd_float32x4_max vminq_f32
+#define simd_float32x4_max vmaxq_f32
 #define simd_float32x4_sqrt vsqrtq_f32
 #define simd_float32x4_rcp vrecpeq_f32
 #define simd_float32x4_rsqrt vrsqrteq_f32
-#define simd_float32x4_to_int32x4 vcvtq_s32_f32;
+#define simd_float32x4_to_int32x4 vcvtq_s32_f32
+#define simd_int32x4_to_float32x4 vcvtq_f32_s32
+
+static inline simd_int128_t vec128i_of_int64x2(simd_int64x2_t v)
+{
+  return vreinterpretq_p128_s64(v);
+}
+
+static inline simd_int64x2_t Int64x2_vali(value v)
+{
+  simd_int128_t t = Vec128_vali(v);
+  return vreinterpretq_s64_p128(t);
+}
+static inline float64_t simd_low_float64x2(simd_float64x2_t v)
+{
+  return vgetq_lane_f64(v, 0);
+}
 
 static inline simd_float64x2_t simd_float64x2_round_down(simd_float64x2_t v)
 {
-  return _mm_round_pd(v, 0x8); ?
+  return vrndmq_f64(v);
 }
 
 static inline simd_float32x4_t simd_float32x4_round_down(simd_float32x4_t v)
 {
-  return _mm_round_ps(v, 0x8);
+  return vrndmq_f32(v);
 }
 
 int64x2_t vec128_of_int64s(int64_t low, int64_t high)
 {
-    return vcombine_s64(vcreate_s64(high), vcreate_s64(low));
+  return vcombine_s64(vcreate_s64(low), vcreate_s64(high));
 }
 
 #else /* __ARM_NEON */
 #if defined(__SSE4_2__)
 #include <smmintrin.h>
+
+typedef __m128i simd_int32x4_t;
 
 #define simd_add_int64x2 _mm_add_epi64
 #define simd_extract_float32x4 _mm_extract_ps
@@ -83,6 +101,12 @@ int64x2_t vec128_of_int64s(int64_t low, int64_t high)
 #define simd_float32x4_rsqrt _mm_rsqrt_ps
 #define simd_float32x4_to_int32x4 _mm_cvtps_epi32
 
+#define Int64x2_vali Vec128_vali
+
+static inline simd_int128_t vec128i_of_int64x2(simd_int64_t v)
+{
+  return v;
+}
 
 static inline simd_float64x2_t simd_float64x2_round_down(simd_float64x2_t v)
 
@@ -120,11 +144,11 @@ value boxed_combine(value v0, value v1)
 {
   CAMLparam2(v0, v1);
 
-  simd_int64x2_t l = Vec128_vali(v0);
-  simd_int64x2_t r = Vec128_vali(v1);
+  simd_int64x2_t l = Int64x2_vali(v0);
+  simd_int64x2_t r = Int64x2_vali(v1);
   simd_int64x2_t result = simd_add_int64x2(l, r);
 
-  CAMLreturn(caml_copy_vec128i(result));
+  CAMLreturn(caml_copy_vec128i(vec128i_of_int64x2(result)));
 }
 
 simd_int64x2_t lots_of_vectors(
@@ -785,12 +809,6 @@ value float32_uord(int32_t l, int32_t r) { return Val_bool(isnan(float_of_int32(
     return simd_extract_float32x4(intrin(v), 0);       \
   }
 
-#define FLOAT32_UNOP_INT(name, intrin)         \
-  int32_t float32_##name(int32_t f) {          \
-    simd_float32x4_t v = simd_dup_float32x4(float_of_int32(f)); \
-    return simd_extract_int32x4(intrin(v), 0);    \
-  }
-
 FLOAT32_BINOP(add, simd_float32x4_add);
 FLOAT32_BINOP(sub, simd_float32x4_sub);
 FLOAT32_BINOP(mul, simd_float32x4_mul);
@@ -801,7 +819,13 @@ FLOAT32_BINOP(max, simd_float32x4_max);
 FLOAT32_UNOP(sqrt, simd_float32x4_sqrt);
 FLOAT32_UNOP(rcp, simd_float32x4_rcp);
 FLOAT32_UNOP(rsqrt, simd_float32x4_rsqrt);
-FLOAT32_UNOP_INT(cvt_i32, simd_float32x4_to_int32x4);
+
+int32_t float32_cvt_i32(int32_t i) {
+  float f = float_of_int32(i);
+  simd_float32x4_t v = simd_dup_float32x4(f);
+  simd_int32x4_t res = simd_float32x4_to_int32x4(v);
+  return simd_extract_int32x4(res, 0);
+}
 
 int32_t float32_round(int32_t f) {
   simd_float32x4_t v = simd_dup_float32x4(float_of_int32(f));
