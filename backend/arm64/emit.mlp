@@ -1359,10 +1359,10 @@ let emit_instr i =
            are supported in all ARMv8 CPUs. *)
         ` rbit {emit_reg i.res.(0)}, {emit_reg i.arg.(0)}\n`;
         ` clz  {emit_reg i.res.(0)}, {emit_reg i.res.(0)}\n`
-    | Lop(Intop (Iclz _ as op)) ->
+    | Lop(Intop ((Iclz _ | Ipopcnt) as op)) ->
         let instr = name_for_int_operation op in
         `	{emit_string instr}	{emit_reg i.res.(0)}, {emit_reg i.arg.(0)}\n`
-    | Lop(Intop ((Iadd|Isub|Imul|Idiv|Iand|Ior|Ixor|Ilsl|Ilsr|Iasr|Ipopcnt) as op)) ->
+    | Lop(Intop ((Iadd|Isub|Imul|Idiv|Iand|Ior|Ixor|Ilsl|Ilsr|Iasr) as op)) ->
         let instr = name_for_int_operation op in
         `	{emit_string instr}	{emit_reg i.res.(0)}, {emit_reg i.arg.(0)}, {emit_reg i.arg.(1)}\n`
     | Lop(Intop_imm(op, n)) ->
