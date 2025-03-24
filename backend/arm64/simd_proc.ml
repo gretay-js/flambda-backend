@@ -37,19 +37,23 @@ type register_behavior =
   | Rf32x2_Rf32x2_to_Rf32x2
   | Rf32x4_Rf32x4_to_Rf32x4
   | Rf64x2_Rf64x2_to_Rf64x2
+  | Ri64x2_Ri64x2_to_Ri64x2
   (* scalar *)
   | Rf32_Rf32_to_Rf32
+  | Rf64_Rf64_to_Rf64
   | Rf32_to_Rf32
+  | Rf64_to_Rf64
   | Rf32_to_Ri64
-  | Ri64x2_Ri64x2_to_Ri64x2
 
 let register_behavior (op : Simd.operation) =
   match op with
   (* unary *)
   | Round_f32_i64 -> Rf32_to_Ri64
   | Round_f32 _ -> Rf32_to_Rf32
+  | Round_f64 _ -> Rf64_to_Rf64
   (* binary *)
   | Fmin_f32 | Fmax_f32 | Min_scalar_f32 | Max_scalar_f32 -> Rf32_Rf32_to_Rf32
+  | Min_scalar_f64 | Max_scalar_f64 -> Rf64_Rf64_to_Rf64
   | Zip1_f32 -> Rf32x2_Rf32x2_to_Rf32x2
   | Zip1q_f32 -> Rf32x4_Rf32x4_to_Rf32x4
   | Zip1q_f64 | Zip2q_f64 -> Rf64x2_Rf64x2_to_Rf64x2

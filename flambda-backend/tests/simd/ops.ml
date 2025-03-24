@@ -649,7 +649,7 @@ module Float64 = struct
       check_floats (fun l r -> eqf' (max l r) (c_max l r));
       check_floats (fun l r -> eqf' (min l r) (c_min l r));
       check_floats (fun l _ -> eqf' (sqrt l) (c_sqrt l));
-      check_floats (fun l _ -> eqf' (round 0x8 l) (c_round l))
+      check_floats (fun l _ -> eqf' (round_nearest l) (c_round l))
   end
 end
 
