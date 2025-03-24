@@ -10,6 +10,15 @@
  (wrapped false)
  (modules builtins builtins_u))
 
+(rule
+ (targets builtins_u.ml)
+ (deps unboxed_types.ml builtins.ml)
+ (action
+   (with-stdout-to
+     builtins_u.ml
+    (cat "unboxed_types.ml" "builtins.ml")
+ )))
+
 (copy_files#
   (files "%{env:ARCH=amd64}/*.{ml,c}"))
 
