@@ -156,6 +156,7 @@ module Instruction_name : sig
     | FRSQRTE
     | FADDP
     | FCM of Float_cond.t
+    | CM of Cond.t
     | FCVTL
 end
 

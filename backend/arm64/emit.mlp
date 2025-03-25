@@ -641,7 +641,7 @@ end [@warning "-32"]  = struct
     | Zip1_f32 | Zip1q_f32 | Zip1q_f64 | Zip2q_f64
     | Addq_f32|Subq_f32|Mulq_f32|Divq_f32|Minq_f32|Maxq_f32|Recpeq_f32|Sqrtq_f32
     | Rsqrteq_f32| Cvtq_s32_of_f32|Cvtq_f32_of_s32|Cvt_f64_f32|Paddq_f32
-    | Fmin_f32 | Fmax_f32 | Addq_i64 | Subq_i64 | Cmp_f32 _ | Cmpz_s32 -> 1
+    | Fmin_f32 | Fmax_f32 | Addq_i64 | Subq_i64 | Cmp_f32 _ | Cmpz_s32 _ -> 1
 
   let emit_rounding_mode (rm : Simd.Rounding_mode.t) : I.Rounding_mode.t =
     match rm with
@@ -655,6 +655,14 @@ end [@warning "-32"]  = struct
     match cond with
     | EQ -> EQ
     | GT -> GT
+    | LE -> LE
+    | LT -> LT
+
+  let emit_cond (cond : Simd.Cond.t) : I.Cond.t =
+    match cond with
+    | EQ -> EQ
+    | GT -> GT
+    | GE -> GE
     | LE -> LE
     | LT -> LT
 
@@ -705,7 +713,7 @@ end [@warning "-32"]  = struct
     | Cvt_f64_f32 -> ins I.FCVTL operands
     | Paddq_f32 -> ins I.FADDP operands
     | Cmp_f32 c -> ins (I.FCM (emit_float_cond c)) operands
-    | Cmpz_s32 c -> ins (I.CM (emit_float_cond c)) (Array.apend[| operands; DSL.imm 0; |])
+    | Cmpz_s32 c -> ins (I.CM (emit_cond c)) (Array.append operands [| imm 0; |])
 end
 
 module BR = Branch_relaxation.Make (struct
