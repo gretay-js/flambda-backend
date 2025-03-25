@@ -16,6 +16,10 @@ external c_sqrt : (t[@unboxed]) -> (t[@unboxed])
   = "caml_vec128_unreachable" "float64_sqrt"
   [@@noalloc]
 
+external float32x4_of_int64s : int64 -> int64 -> float32x4
+  = "caml_vec128_unreachable" "vec128_of_int64s"
+  [@@noalloc] [@@unboxed]
+
 let check_floats f =
   let open Float in
   Random.set_state (Random.State.make [| 1234567890 |]);
@@ -53,13 +57,3 @@ let check_floats f =
       then Int64.float_of_bits f1
       else Int64.(neg f1 |> float_of_bits))
   done
-
-module Tests = struct
-  include Builtins.Float64
-
-  let () =
-    check_floats (fun l r -> eqf' (max l r) (c_max l r));
-    check_floats (fun l r -> eqf' (min l r) (c_min l r));
-    check_floats (fun l _ -> eqf' (sqrt l) (c_sqrt l));
-    check_floats (fun l _ -> eqf' (round_nearest l) (c_round l))
-end

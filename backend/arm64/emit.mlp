@@ -658,9 +658,8 @@ end [@warning "-32"]  = struct
     | Max_scalar_f64 ->
       ins I.FCMP (src_operands operands);
       ins_cond I.FCSEL I.Cond.GT operands;
-    | Round_f32 rm | Round_f64 rm ->
+    | Round_f32 rm | Round_f64 rm | Round_f32x4 rm ->
       ins (I.FRINT (emit_rounding_mode rm)) operands
-    | Round_f32x4 rm -> ins (I.FRINT (emit_rounding_mode rm)) operands
     | Round_f32_i64 ->
       ins I.FCVTNS operands
     | Fmin_f32 ->
