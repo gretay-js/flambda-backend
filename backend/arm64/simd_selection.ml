@@ -71,13 +71,19 @@ let select_simd_instr op args =
   | "caml_neon_float32x4_rsqrt" -> Some (Rsqrteq_f32, args)
   | "caml_neon_float32x4_round_current" -> Some (Round_f32x4 Current, args)
   | "caml_neon_float32x4_round_nearest" -> Some (Round_f32x4 Nearest, args)
-  | "caml_neon_cvt_float32x4_int32x4" -> Some (Cvtq_s32_of_f32, args)
-  | "caml_neon_cvt_float32x4_float64x2" -> Some (Cvtq_f32_of_s32, args)
+  | "caml_neon_float32x4_to_int32x4" -> Some (Cvtq_s32_of_f32, args)
+  | "caml_neon_int32x4_to_float64x2" -> Some (Cvtq_f32_of_s32, args)
+  | "caml_neon_float32x2_to_float64x2" -> Some (Cvt_f64_f32, args)
   | "caml_neon_float32x4_hadd" -> Some (Paddq_f32, args)
   | "caml_neon_float32x4_cmeq" -> Some (Cmp_f32 EQ, args)
   | "caml_neon_float32x4_cmgt" -> Some (Cmp_f32 GT, args)
   | "caml_neon_float32x4_cmle" -> Some (Cmp_f32 LE, args)
   | "caml_neon_float32x4_cmlt" -> Some (Cmp_f32 LT, args)
+  | "caml_neon_int32x4_cmpeqz" -> Some (Cmpz_s32 EQ, args)
+  | "caml_neon_int32x4_cmpgez" -> Some (Cmpz_s32 GE, args)
+  | "caml_neon_int32x4_cmpgtz" -> Some (Cmpz_s32 GT, args)
+  | "caml_neon_int32x4_cmplez" -> Some (Cmpz_s32 LE, args)
+  | "caml_neon_int32x4_cmpltz" -> Some (Cmpz_s32 LT, args)
   | _ -> None
 
 let select_operation_cfg op args =

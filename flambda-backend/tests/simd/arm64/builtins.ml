@@ -84,10 +84,6 @@ module Float32x4 = struct
     | UNORDf -> bitwise_or (is_nan t1) (is_nan t2)
     | ORDf -> bitwise_not (bitwise_or (is_nan t1) (is_nan t2))
 
-  external movemask_32 : (int32x4[@unboxed]) -> (int[@untagged])
-    = "caml_vec128_unreachable" "caml_neon_vec128_movemask_32"
-    [@@noalloc] [@@builtin]
-
   external add : t -> t -> t
     = "caml_vec128_unreachable" "caml_neon_float32x4_add"
     [@@noalloc] [@@unboxed] [@@builtin]
@@ -123,11 +119,11 @@ module Float32x4 = struct
     [@@noalloc] [@@unboxed] [@@builtin]
 
   external cvt_int32x4 : t -> int32x4
-    = "caml_vec128_unreachable" "caml_neon_cvt_float32x4_int32x4"
+    = "caml_vec128_unreachable" "caml_neon_float32x4_to_int32x4"
     [@@noalloc] [@@unboxed] [@@builtin]
 
   external cvt_float64x2 : t -> float64x2
-    = "caml_vec128_unreachable" "caml_neon_cvt_float32x4_float64x2"
+    = "caml_vec128_unreachable" "caml_neon_float32x2_to_float64x2"
     [@@noalloc] [@@unboxed] [@@builtin]
 
   external hadd : t -> t -> t
@@ -258,6 +254,29 @@ module Int32x4 = struct
     [@@noalloc] [@@unboxed] [@@builtin]
 
   external sub : t -> t -> t = "caml_vec128_unreachable" "caml_neon_int32x4_sub"
+    [@@noalloc] [@@unboxed] [@@builtin]
+
+  external cnt : t -> t = "caml_vec128_unreachable" "caml_neon_int32x4_cnt"
+    [@@noalloc] [@@unboxed] [@@builtin]
+
+  external cmpeqz : t -> t
+    = "caml_vec128_unreachable" "caml_neon_int32x4_cmpeqz"
+    [@@noalloc] [@@unboxed] [@@builtin]
+
+  external cmpgez : t -> t
+    = "caml_vec128_unreachable" "caml_neon_int32x4_cmpgez"
+    [@@noalloc] [@@unboxed] [@@builtin]
+
+  external cmpgtz : t -> t
+    = "caml_vec128_unreachable" "caml_neon_int32x4_cmpgtz"
+    [@@noalloc] [@@unboxed] [@@builtin]
+
+  external cmplez : t -> t
+    = "caml_vec128_unreachable" "caml_neon_int32x4_cmplez"
+    [@@noalloc] [@@unboxed] [@@builtin]
+
+  external cmpltz : t -> t
+    = "caml_vec128_unreachable" "caml_neon_int32x4_cmpltz"
     [@@noalloc] [@@unboxed] [@@builtin]
 
   external cmpeq : t -> t -> t
@@ -634,9 +653,13 @@ module SSE_Util = struct
     = "caml_vec128_unreachable" "caml_neon_vec128_shuffle_32"
     [@@noalloc] [@@builtin]
 
-  external movemask_32 : (t[@unboxed]) -> (int[@untagged])
-    = "caml_vec128_unreachable" "caml_neon_vec128_movemask_32"
-    [@@noalloc] [@@builtin]
+  (* CR gyorsh: [movemask_32] is not supported on arm64. This implementation
+     uses [t < zero]. The result is in a completely different format:
+     [movemask_32] creates a 4-bit mask with one bit of the mask set for each
+     negative element of the input, whereas [cmpltz] sets all bits in the
+     corresponding vector element of the result. It doesn't matter for the test,
+     because both expected and actual values are hit with the same function. *)
+  let movemask_32 t = Int32x4.cmpltz t
 end
 
 module SSE2_Util = struct

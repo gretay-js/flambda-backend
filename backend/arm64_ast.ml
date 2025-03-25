@@ -245,6 +245,8 @@ module Instruction_name = struct
     | FRSQRTE
     | FADDP
     | FCM of Float_cond.t
+    | CM of Cond.t
+    | FCVTL
 
   (* CR gyorsh: can some of this be automatically generated from the type? *)
   let to_string t =
@@ -309,6 +311,8 @@ module Instruction_name = struct
     | FRSQRTE -> "frsqrte"
     | FADDP -> "faddp"
     | FCM cond -> "fcm" ^ Float_cond.to_string cond
+    | CM cond -> "cm" ^ Cond.to_string cond
+    | FCVTL -> "fcvtl"
 end
 
 module Operand = struct

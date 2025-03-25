@@ -805,8 +805,8 @@ module Float32x4 = struct
     let v1 = Float32.to_float32x4 f0 f1 f0 f1 in
     let v2 = Float32.to_float32x4 f1 f0 f1 f0 in
     let result = vector v1 v2 in
-    let mask = movemask_32 result in
-    eqi mask mask expect_mask (movemask_32 expect);
+    let mask = Builtins.SSE_Util.movemask_32 result in
+    eqi mask mask expect_mask (Builtins.SSE_Util.movemask_32 expect);
     eq (int32x4_low_int64 result)
       (int32x4_high_int64 result)
       (int32x4_low_int64 expect)
@@ -2108,11 +2108,6 @@ module SSE_Util = struct
     eql (low _0101) (high _0101) (low _r0101) (high _r0101);
     eql (low _1010) (high _1010) (low _r1010) (high _r1010);
     eql (low _1111) (high _1111) (low _r1111) (high _r1111)
-
-  let () =
-    let v = Int32s.of_int32s 0xffffffffl 0x80000000l 0x7fffffffl 0x0l in
-    let i = movemask_32 v in
-    eqi i 0 0b0011 0
 end
 
 module SSE2_Util = struct

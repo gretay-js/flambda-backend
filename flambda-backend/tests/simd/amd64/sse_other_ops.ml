@@ -1,3 +1,8 @@
+let eqi lv hv l h =
+  if l <> lv then Printf.printf "%016x <> %016x\n" lv l;
+  if h <> hv then Printf.printf "%016x <> %016x\n" hv h;
+  if l <> lv || h <> hv then !failmsg ()
+
 module Float32 = Float32_reference
 
 module Float32x4 = struct
@@ -105,4 +110,26 @@ module Int64x2 = struct
     eq (int64x2_low_int64 c1) (int64x2_high_int64 c1) 20L 0L;
     eq (int64x2_low_int64 c2) (int64x2_high_int64 c2) 20L 0L;
     eq (int64x2_low_int64 c3) (int64x2_high_int64 c3) 48L 0L
+end
+
+module Int32s = struct
+  external int32x4_of_int64s : int64 -> int64 -> int32x4
+    = "caml_vec128_unreachable" "vec128_of_int64s"
+    [@@noalloc] [@@unboxed]
+
+  let of_int32s a b c d =
+    let a = Int64.of_int32 a |> Int64.logand 0xffffffffL in
+    let b = Int64.of_int32 b |> Int64.logand 0xffffffffL in
+    let c = Int64.of_int32 c |> Int64.logand 0xffffffffL in
+    let d = Int64.of_int32 d |> Int64.logand 0xffffffffL in
+    int32x4_of_int64s
+      Int64.(logor (shift_left b 32) a)
+      Int64.(logor (shift_left d 32) c)
+end
+
+module SSE_Util = struct
+  let () =
+    let v = Int32s.of_int32s 0xffffffffl 0x80000000l 0x7fffffffl 0x0l in
+    let i = Builtins.SSE_Utils.movemask_32 v in
+    eqi i 0 0b0011 0
 end
