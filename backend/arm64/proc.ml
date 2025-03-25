@@ -515,7 +515,7 @@ let init () = ()
 
 let operation_supported : Cmm.operation -> bool = function
   | Cprefetch _ | Catomic _ -> false
-  | Cpopcnt
+  | Cpopcnt -> !Arch.feat_cssc
   | Cnegf Float32 | Cabsf Float32 | Caddf Float32
   | Csubf Float32 | Cmulf Float32 | Cdivf Float32
   | Cpackf32

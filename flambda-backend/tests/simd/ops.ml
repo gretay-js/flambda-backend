@@ -906,7 +906,7 @@ module Float32x4 = struct
                 Printf.printf "roundf32 %f %f\n%!" (Int32.float_of_bits f0)
                   (Int32.float_of_bits f1));
         let fv = Float32.to_float32x4 f0 f1 f0 f1 in
-        let result = round_near fv in
+        let result = round_nearest fv in
         let expect =
           Float32.to_float32x4 (Float32.round f0) (Float32.round f1)
             (Float32.round f0) (Float32.round f1)

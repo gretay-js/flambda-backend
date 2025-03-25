@@ -9,9 +9,13 @@ BUILTIN(caml_neon_float64_div);
 BUILTIN(caml_neon_float64_max);
 BUILTIN(caml_neon_float64_min);
 BUILTIN(caml_neon_float64_sqrt);
-BUILTIN(caml_sse41_float64_round);
+BUILTIN(caml_neon_float64_round_nearest);
 
-BUILTIN(caml_neon_float32x4_cmp);
+BUILTIN(caml_neon_float32x4_cmeq);
+BUILTIN(caml_neon_float32x4_cmgt);
+BUILTIN(caml_neon_float32x4_cmle);
+BUILTIN(caml_neon_float32x4_cmlt);
+
 BUILTIN(caml_neon_float32x4_add);
 BUILTIN(caml_neon_float32x4_sub);
 BUILTIN(caml_neon_float32x4_mul);
@@ -169,7 +173,7 @@ BUILTIN(caml_neon_int8x16_insert);
 BUILTIN(caml_neon_int16x8_insert);
 BUILTIN(caml_neon_int32x4_insert);
 BUILTIN(caml_neon_int64x2_insert);
-BUILTIN(caml_neon_float32x4_round);
+BUILTIN(caml_neon_float32x4_round_nearest);
 BUILTIN(caml_neon_float64x2_round);
 BUILTIN(caml_neon_int8x16_max);
 BUILTIN(caml_neon_int32x4_max);

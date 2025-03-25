@@ -255,6 +255,7 @@ BUILTIN(caml_int8x16_const16);
 
 BUILTIN(caml_simd_vec128_interleave_low_32);
 BUILTIN(caml_simd_vec128_interleave_low_64);
+BUILTIN(caml_simd_float32x4_add);
 
 BUILTIN(caml_int64_ctz_nonzero_unboxed_to_untagged);
 BUILTIN(caml_int64_ctz_unboxed_to_untagged);
