@@ -41,7 +41,7 @@ module Float_cond_x86 = struct
     | 5 -> NLTf
     | 6 -> NLEf
     | 7 -> ORDf
-    | n -> failwithf "Invalid float rounding immediate: %d" n
+    | n -> failwith (Printf.sprintf "Invalid float rounding immediate: %d" n)
 end
 
 module Float32x4 = struct
@@ -70,7 +70,7 @@ module Float32x4 = struct
   external bitwise_or : int32x4 -> int32x4 -> int32x4
     = "" "caml_neon_int32x4_bitwise_or"
 
-  let is_nan t1 = bitwise_not (cmpeq t1 t1)
+  let is_nan t1 = bitwise_not (cmeq t1 t1)
 
   let cmp n t1 t2 =
     match Float_cond_x86.float_condition_of_int n with

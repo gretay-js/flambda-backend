@@ -23,7 +23,7 @@ external low_to : float32x4 -> float32
   [@@noalloc] [@@unboxed] [@@builtin]
 
 external add : float32x4 -> float32x4 -> float32x4
-  = "caml_vec128_unreachable" "caml_sse_float32x4_add"
+  = "caml_vec128_unreachable" "caml_simd_float32x4_add"
   [@@noalloc] [@@unboxed] [@@builtin]
 
 let callback () =

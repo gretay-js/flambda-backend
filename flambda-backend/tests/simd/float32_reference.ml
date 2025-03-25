@@ -54,15 +54,6 @@ let maxv = maxv ()
 
 let minv = minv ()
 
-let to_float32x4 t0 t1 t2 t3 =
-  let i0 = Int64.of_int32 t0 |> Int64.logand 0xffffffffL in
-  let i1 = Int64.of_int32 t1 |> Int64.logand 0xffffffffL in
-  let i2 = Int64.of_int32 t2 |> Int64.logand 0xffffffffL in
-  let i3 = Int64.of_int32 t3 |> Int64.logand 0xffffffffL in
-  let i0 = Int64.logor (Int64.shift_left i1 32) i0 in
-  let i1 = Int64.logor (Int64.shift_left i3 32) i2 in
-  float32x4_of_int64s i0 i1
-
 external cvt_i32 : (t[@unboxed]) -> (t[@unboxed])
   = "caml_vec128_unreachable" "float32_cvt_i32"
   [@@noalloc]

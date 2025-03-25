@@ -60,7 +60,8 @@ let select_simd_instr op args =
     Some (Zip2q_f64, args)
   | "caml_simd_int64x2_add" | "caml_neon_int64x2_add" -> Some (Addq_i64, args)
   | "caml_simd_int64x2_sub" | "caml_neon_int64x2_sub" -> Some (Subq_i64, args)
-  | "caml_neon_float32x4_add" -> Some (Addq_f32, args)
+  | "caml_simd_float32x4_add" | "caml_neon_float32x4_add" ->
+    Some (Addq_f32, args)
   | "caml_neon_float32x4_sub" -> Some (Subq_f32, args)
   | "caml_neon_float32x4_mul" -> Some (Mulq_f32, args)
   | "caml_neon_float32x4_div" -> Some (Divq_f32, args)
