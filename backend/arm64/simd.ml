@@ -43,6 +43,7 @@ end
 type operation =
   | Round_f32 of Rounding_mode.t
   | Round_f64 of Rounding_mode.t
+  | Round_f32x4 of Rounding_mode.t
   | Round_f32_i64
   (* [Min_scalar_f32/Max_scalar_f32] are emitted as a sequence of instructions
      that matches amd64 semantics of the same intrinsic
@@ -60,11 +61,24 @@ type operation =
   | Zip2q_f64
   | Addq_i64
   | Subq_i64
+  | Addq_f32
+  | Subq_f32
+  | Mulq_f32
+  | Divq_f32
+  | Minq_f32
+  | Maxq_f32
+  | Recpeq_f32
+  | Sqrtq_f32
+  | Rsqrteq_f32
+  | Cvtq_s32_of_f32
+  | Cvtq_f32_of_s32
+  | Paddq_f32
 
 let print_name op =
   match op with
   | Round_f32 rm -> "Round_f32_" ^ Rounding_mode.instruction_suffix rm
   | Round_f64 rm -> "Round_f64_" ^ Rounding_mode.instruction_suffix rm
+  | Round_f32x4 rm -> "Round_f32x4_" ^ Rounding_mode.instruction_suffix rm
   | Round_f32_i64 -> "Round_f32_i"
   | Zip1_f32 -> "Zip1_f32"
   | Zip1q_f32 -> "Zip1q_f32"
@@ -78,6 +92,18 @@ let print_name op =
   | Max_scalar_f64 -> "Max_scalar_f64"
   | Addq_i64 -> "Addq_i64"
   | Subq_i64 -> "Subq_i64"
+  | Addq_f32 -> "Addq_f32"
+  | Subq_f32 -> "Subq_f32"
+  | Mulq_f32 -> "Mulq_f64"
+  | Divq_f32 -> "Divq_f64"
+  | Minq_f32 -> "Minq_f64"
+  | Maxq_f32 -> "Maxq_f64"
+  | Recpeq_f32 -> "Recpeq_f64"
+  | Sqrtq_f32 -> "Sqrtq_f64"
+  | Rsqrteq_f32 -> "Rsqrtq_f64"
+  | Cvtq_s32_of_f32 -> "Cvtq_s32_of_f32"
+  | Cvtq_f32_of_s32 -> "Cvtq_f32_of_s32"
+  | Paddq_f32 -> "Paddq_f64"
 
 let print_operation printreg op ppf arg =
   (* CR gyorsh: does not support memory operands (except stack operands). *)
@@ -87,7 +113,9 @@ let print_operation printreg op ppf arg =
 
 let equal_operation op1 op2 =
   match op1, op2 with
-  | Round_f32 mode, Round_f32 mode' | Round_f64 mode, Round_f64 mode' ->
+  | Round_f32 mode, Round_f32 mode'
+  | Round_f64 mode, Round_f64 mode'
+  | Round_f32x4 mode, Round_f32x4 mode' ->
     Rounding_mode.equal mode mode'
   | Round_f32_i64, Round_f32_i64 -> true
   | Min_scalar_f32, Min_scalar_f32
@@ -103,17 +131,35 @@ let equal_operation op1 op2 =
   | Zip2q_f64, Zip2q_f64 -> true
   | Addq_i64, Addq_i64 -> true
   | Subq_i64, Subq_i64 -> true
-  | ( ( Round_f32 _ | Round_f64 _ | Round_f32_i64 | Min_scalar_f32
-      | Max_scalar_f32 | Min_scalar_f64 | Max_scalar_f64 | Fmin_f32 | Fmax_f32
-      | Zip1_f32 | Zip1q_f32 | Zip1q_f64 | Zip2q_f64 | Addq_i64 | Subq_i64 ),
+  | Addq_f32, Addq_f32
+  | Subq_f32, Subq_f32
+  | Mulq_f32, Mulq_f32
+  | Divq_f32, Divq_f32
+  | Minq_f32, Minq_f32
+  | Maxq_f32, Maxq_f32
+  | Recpeq_f32, Recpeq_f32
+  | Sqrtq_f32, Sqrtq_f32
+  | Rsqrteq_f32, Rsqrteq_f32
+  | Cvtq_s32_of_f32, Cvtq_s32_of_f32
+  | Cvtq_f32_of_s32, Cvtq_f32_of_s32
+  | Paddq_f32, Paddq_f32 ->
+    true
+  | ( ( Round_f32 _ | Round_f64 _ | Round_f32x4 _ | Round_f32_i64
+      | Min_scalar_f32 | Max_scalar_f32 | Min_scalar_f64 | Max_scalar_f64
+      | Fmin_f32 | Fmax_f32 | Zip1_f32 | Zip1q_f32 | Zip1q_f64 | Zip2q_f64
+      | Addq_i64 | Subq_i64 | Addq_f32 | Subq_f32 | Mulq_f32 | Divq_f32
+      | Minq_f32 | Maxq_f32 | Recpeq_f32 | Sqrtq_f32 | Rsqrteq_f32
+      | Cvtq_s32_of_f32 | Cvtq_f32_of_s32 | Paddq_f32 ),
       _ ) ->
     false
 
 let class_of_operation op =
   match op with
-  | Round_f32 _ | Round_f64 _ | Round_f32_i64 | Min_scalar_f32 | Max_scalar_f32
-  | Min_scalar_f64 | Max_scalar_f64 | Fmin_f32 | Fmax_f32 | Zip1_f32 | Zip1q_f32
-  | Zip1q_f64 | Zip2q_f64 | Addq_i64 | Subq_i64 ->
+  | Round_f32 _ | Round_f64 _ | Round_f32x4 _ | Round_f32_i64 | Min_scalar_f32
+  | Max_scalar_f32 | Min_scalar_f64 | Max_scalar_f64 | Fmin_f32 | Fmax_f32
+  | Zip1_f32 | Zip1q_f32 | Zip1q_f64 | Zip2q_f64 | Addq_i64 | Subq_i64
+  | Addq_f32 | Subq_f32 | Mulq_f32 | Divq_f32 | Minq_f32 | Maxq_f32 | Recpeq_f32
+  | Sqrtq_f32 | Rsqrteq_f32 | Cvtq_s32_of_f32 | Cvtq_f32_of_s32 | Paddq_f32 ->
     Pure
 
 let operation_is_pure op = match class_of_operation op with Pure -> true

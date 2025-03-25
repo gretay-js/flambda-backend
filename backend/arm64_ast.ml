@@ -230,6 +230,9 @@ module Instruction_name = struct
     | ZIP2
     | FCMP
     | FCSEL
+    | FRECPE
+    | FRSQRTE
+    | FADDP
 
   (* CR gyorsh: can some of this be automatically generated from the type? *)
   let to_string t =
@@ -290,6 +293,9 @@ module Instruction_name = struct
     | ZIP2 -> "zip2"
     | FCMP -> "fcmp"
     | FCSEL -> "fcsel"
+    | FRECPE -> "frecpe"
+    | FRSQRTE -> "frsqrte"
+    | FADDP -> "faddp"
 end
 
 module Operand = struct

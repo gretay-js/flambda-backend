@@ -144,6 +144,9 @@ module Instruction_name : sig
     | ZIP2
     | FCMP
     | FCSEL
+    | FRECPE
+    | FRSQRTE
+    | FADDP
 end
 
 module Operand : sig

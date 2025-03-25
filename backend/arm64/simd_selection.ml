@@ -58,6 +58,19 @@ let select_simd_instr op args =
     Some (Zip2q_f64, args)
   | "caml_simd_int64x2_add" | "caml_neon_int64x2_add" -> Some (Addq_i64, args)
   | "caml_simd_int64x2_sub" | "caml_neon_int64x2_sub" -> Some (Subq_i64, args)
+  | "caml_neon_float32x4_add" -> Some (Addq_f32, args)
+  | "caml_neon_float32x4_sub" -> Some (Subq_f32, args)
+  | "caml_neon_float32x4_mul" -> Some (Mulq_f32, args)
+  | "caml_neon_float32x4_div" -> Some (Divq_f32, args)
+  | "caml_neon_float32x4_min" -> Some (Minq_f32, args)
+  | "caml_neon_float32x4_max" -> Some (Maxq_f32, args)
+  | "caml_neon_float32x4_rcp" -> Some (Recpeq_f32, args)
+  | "caml_neon_float32x4_sqrt" -> Some (Sqrtq_f32, args)
+  | "caml_neon_float32x4_rsqrt" -> Some (Rsqrteq_f32, args)
+  | "caml_neon_float32x4_round_current" -> Some (Round_f32x4 Current, args)
+  | "caml_neon_cvt_float32x4_int32x4" -> Some (Cvtq_s32_of_f32, args)
+  | "caml_neon_cvt_float32x4_float64x2" -> Some (Cvtq_f32_of_s32, args)
+  | "caml_neon_float32x4_hadd" -> Some (Paddq_f32, args)
   | _ -> None
 
 let select_operation_cfg op args =

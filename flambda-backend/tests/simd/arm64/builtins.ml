@@ -1,3 +1,9 @@
+(* CR gyorsh: all instructions in this file can be renamed from "caml_neon" to
+   "caml_simd" because they have the corresponding implementation on amd64. If
+   we do it, [builtins.ml] in target specific folders will be identical, and we
+   can move them up into the parent folder. If we keep support for both
+   "caml_neon" and "caml_simd" in the compiler, we should add some tests for
+   both versions. *)
 module Float64 = struct
   type t = float
 
