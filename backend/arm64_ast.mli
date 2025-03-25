@@ -158,6 +158,7 @@ module Instruction_name : sig
     | FCM of Float_cond.t
     | CM of Cond.t
     | FCVTL
+    | ADDV
 end
 
 module Operand : sig

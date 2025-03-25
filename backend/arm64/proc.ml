@@ -393,6 +393,11 @@ let destroyed_at_basic (basic : Cfg_intf.S.basic) =
     -> [||]
   | Op (Static_cast
           (V128_of_scalar _|Scalar_of_v128 _))
+  | Op (Intop (Ipopcnt | Iclz _ )) ->
+      if !Arch.feat_cssc then
+        [||]
+      else
+        destroy_neon_reg7
   | Op (Specific _
         | Move | Spill | Reload
         | Floatop _
@@ -515,7 +520,7 @@ let init () = ()
 
 let operation_supported : Cmm.operation -> bool = function
   | Cprefetch _ | Catomic _ -> false
-  | Cpopcnt -> !Arch.feat_cssc
+  | Cpopcnt
   | Cnegf Float32 | Cabsf Float32 | Caddf Float32
   | Csubf Float32 | Cmulf Float32 | Cdivf Float32
   | Cpackf32
