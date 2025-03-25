@@ -102,21 +102,6 @@ end
 module Int64 = struct
   type t = int64
 
-  external bit_deposit : t -> t -> t
-    = "caml_vec128_unreachable" "caml_bmi2_int64_deposit_bits"
-    [@@noalloc] [@@unboxed] [@@builtin]
-
-  external bit_extract : t -> t -> t
-    = "caml_vec128_unreachable" "caml_bmi2_int64_extract_bits"
-    [@@noalloc] [@@unboxed] [@@builtin]
-
-  let () =
-    Test_helpers.run_if_not_under_rosetta2 ~f:(fun () ->
-        eq' (bit_deposit 3L 4L) 0x4L;
-        eq' (bit_deposit 235L 522L) 0xAL;
-        eq' (bit_extract 3L 4L) 0x0L;
-        eq' (bit_extract 235L 522L) 0x3L)
-
   external count_leading_zeros : (int64[@unboxed]) -> (int[@untagged])
     = "caml_vec128_unreachable" "caml_int64_clz_unboxed_to_untagged"
     [@@noalloc] [@@builtin] [@@no_effects] [@@no_coeffects]

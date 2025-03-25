@@ -12,3 +12,15 @@ module Float32x4 = struct
     = "caml_vec128_unreachable" "caml_sse3_float32x4_hsub"
     [@@noalloc] [@@unboxed] [@@builtin]
 end
+
+module Int64 = struct
+  type t = int64
+
+  external bit_deposit : t -> t -> t
+    = "caml_vec128_unreachable" "caml_bmi2_int64_deposit_bits"
+    [@@noalloc] [@@unboxed] [@@builtin]
+
+  external bit_extract : t -> t -> t
+    = "caml_vec128_unreachable" "caml_bmi2_int64_extract_bits"
+    [@@noalloc] [@@unboxed] [@@builtin]
+end

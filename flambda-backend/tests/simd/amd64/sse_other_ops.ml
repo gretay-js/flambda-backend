@@ -56,3 +56,16 @@ module Float32x4 = struct
             in
             eq_float32x4 ~result ~expect))
 end
+
+module Int64 = struct
+  include Sse_other_builtins.Int64
+
+  let eq' x y = if x <> y then Printf.printf "%016Lx <> %016Lx\n" x y
+
+  let () =
+    Test_helpers.run_if_not_under_rosetta2 ~f:(fun () ->
+        eq' (bit_deposit 3L 4L) 0x4L;
+        eq' (bit_deposit 235L 522L) 0xAL;
+        eq' (bit_extract 3L 4L) 0x0L;
+        eq' (bit_extract 235L 522L) 0x3L)
+end
