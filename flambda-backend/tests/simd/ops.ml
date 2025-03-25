@@ -408,239 +408,11 @@ end
 
 (* For testing *)
 module Float32 = struct
-  type t = int32
-
-  let of_float f = Int32.bits_of_float f
-
-  let to_float i = Int32.float_of_bits i
-
-  external zero : unit -> (t[@unboxed])
-    = "caml_vec128_unreachable" "float32_zero"
-    [@@noalloc]
-
-  external neg_zero : unit -> (t[@unboxed])
-    = "caml_vec128_unreachable" "float32_neg_zero"
-    [@@noalloc]
-
-  external one : unit -> (t[@unboxed]) = "caml_vec128_unreachable" "float32_one"
-    [@@noalloc]
-
-  external neg_one : unit -> (t[@unboxed])
-    = "caml_vec128_unreachable" "float32_neg_one"
-    [@@noalloc]
-
-  external nan : unit -> (t[@unboxed]) = "caml_vec128_unreachable" "float32_nan"
-    [@@noalloc]
-
-  external neg_infinity : unit -> (t[@unboxed])
-    = "caml_vec128_unreachable" "float32_neg_infinity"
-    [@@noalloc]
-
-  external infinity : unit -> (t[@unboxed])
-    = "caml_vec128_unreachable" "float32_infinity"
-    [@@noalloc]
-
-  external maxv : unit -> (t[@unboxed])
-    = "caml_vec128_unreachable" "float32_maxv"
-    [@@noalloc]
-
-  external minv : unit -> (t[@unboxed])
-    = "caml_vec128_unreachable" "float32_minv"
-    [@@noalloc]
-
-  let zero = zero ()
-
-  let neg_zero = neg_zero ()
-
-  let one = one ()
-
-  let nan = nan ()
-
-  let neg_infinity = neg_infinity ()
-
-  let infinity = infinity ()
-
-  let neg_one = neg_one ()
-
-  let maxv = maxv ()
-
-  let minv = minv ()
-
-  let to_float32x4 t0 t1 t2 t3 =
-    let i0 = Int64.of_int32 t0 |> Int64.logand 0xffffffffL in
-    let i1 = Int64.of_int32 t1 |> Int64.logand 0xffffffffL in
-    let i2 = Int64.of_int32 t2 |> Int64.logand 0xffffffffL in
-    let i3 = Int64.of_int32 t3 |> Int64.logand 0xffffffffL in
-    let i0 = Int64.logor (Int64.shift_left i1 32) i0 in
-    let i1 = Int64.logor (Int64.shift_left i3 32) i2 in
-    float32x4_of_int64s i0 i1
-
-  external cvt_i32 : (t[@unboxed]) -> (t[@unboxed])
-    = "caml_vec128_unreachable" "float32_cvt_i32"
-    [@@noalloc]
-
-  external round : (t[@unboxed]) -> (t[@unboxed])
-    = "caml_vec128_unreachable" "float32_round"
-    [@@noalloc]
-
-  external eq : (t[@unboxed]) -> (t[@unboxed]) -> bool
-    = "caml_vec128_unreachable" "float32_eq"
-    [@@noalloc]
-
-  external lt : (t[@unboxed]) -> (t[@unboxed]) -> bool
-    = "caml_vec128_unreachable" "float32_lt"
-    [@@noalloc]
-
-  external le : (t[@unboxed]) -> (t[@unboxed]) -> bool
-    = "caml_vec128_unreachable" "float32_le"
-    [@@noalloc]
-
-  external neq : (t[@unboxed]) -> (t[@unboxed]) -> bool
-    = "caml_vec128_unreachable" "float32_ne"
-    [@@noalloc]
-
-  external nle : (t[@unboxed]) -> (t[@unboxed]) -> bool
-    = "caml_vec128_unreachable" "float32_nle"
-    [@@noalloc]
-
-  external nlt : (t[@unboxed]) -> (t[@unboxed]) -> bool
-    = "caml_vec128_unreachable" "float32_nlt"
-    [@@noalloc]
-
-  external ord : (t[@unboxed]) -> (t[@unboxed]) -> bool
-    = "caml_vec128_unreachable" "float32_ord"
-    [@@noalloc]
-
-  external uord : (t[@unboxed]) -> (t[@unboxed]) -> bool
-    = "caml_vec128_unreachable" "float32_uord"
-    [@@noalloc]
-
-  external add : (t[@unboxed]) -> (t[@unboxed]) -> (t[@unboxed])
-    = "caml_vec128_unreachable" "float32_add"
-    [@@noalloc]
-
-  external sub : (t[@unboxed]) -> (t[@unboxed]) -> (t[@unboxed])
-    = "caml_vec128_unreachable" "float32_sub"
-    [@@noalloc]
-
-  external mul : (t[@unboxed]) -> (t[@unboxed]) -> (t[@unboxed])
-    = "caml_vec128_unreachable" "float32_mul"
-    [@@noalloc]
-
-  external div : (t[@unboxed]) -> (t[@unboxed]) -> (t[@unboxed])
-    = "caml_vec128_unreachable" "float32_div"
-    [@@noalloc]
-
-  external min : (t[@unboxed]) -> (t[@unboxed]) -> (t[@unboxed])
-    = "caml_vec128_unreachable" "float32_min"
-    [@@noalloc]
-
-  external max : (t[@unboxed]) -> (t[@unboxed]) -> (t[@unboxed])
-    = "caml_vec128_unreachable" "float32_max"
-    [@@noalloc]
-
-  external rcp : (t[@unboxed]) -> (t[@unboxed])
-    = "caml_vec128_unreachable" "float32_rcp"
-    [@@noalloc]
-
-  external sqrt : (t[@unboxed]) -> (t[@unboxed])
-    = "caml_vec128_unreachable" "float32_sqrt"
-    [@@noalloc]
-
-  external rsqrt : (t[@unboxed]) -> (t[@unboxed])
-    = "caml_vec128_unreachable" "float32_rsqrt"
-    [@@noalloc]
-
-  let check_floats f =
-    Random.set_state (Random.State.make [| 1234567890 |]);
-    f zero zero;
-    f zero one;
-    f one one;
-    f zero neg_one;
-    f neg_one neg_one;
-    f one neg_one;
-    f zero neg_zero;
-    f nan zero;
-    f infinity zero;
-    f neg_infinity zero;
-    f nan nan;
-    f infinity infinity;
-    f neg_infinity neg_infinity;
-    f neg_infinity infinity;
-    f infinity nan;
-    f neg_infinity nan;
-    f maxv infinity;
-    f maxv neg_infinity;
-    f minv infinity;
-    f minv neg_infinity;
-    f maxv maxv;
-    f minv minv;
-    f maxv minv;
-    for _ = 0 to 100_000 do
-      let f0 = Random.int32 Int32.max_int in
-      let f1 = Random.int32 Int32.max_int in
-      f
-        (if Random.bool () then f0 else Int32.neg f0)
-        (if Random.bool () then f1 else Int32.neg f1)
-    done
+  include Float32_reference
 end
 
 module Float64 = struct
-  type t = float
-
-  external c_round : (t[@unboxed]) -> (t[@unboxed])
-    = "caml_vec128_unreachable" "float64_round"
-    [@@noalloc]
-
-  external c_min : (t[@unboxed]) -> (t[@unboxed]) -> (t[@unboxed])
-    = "caml_vec128_unreachable" "float64_min"
-    [@@noalloc]
-
-  external c_max : (t[@unboxed]) -> (t[@unboxed]) -> (t[@unboxed])
-    = "caml_vec128_unreachable" "float64_max"
-    [@@noalloc]
-
-  external c_sqrt : (t[@unboxed]) -> (t[@unboxed])
-    = "caml_vec128_unreachable" "float64_sqrt"
-    [@@noalloc]
-
-  let check_floats f =
-    let open Float in
-    Random.set_state (Random.State.make [| 1234567890 |]);
-    f zero zero;
-    f zero one;
-    f one one;
-    f zero minus_one;
-    f minus_one minus_one;
-    f one minus_one;
-    f zero (-0.0);
-    f nan zero;
-    f infinity zero;
-    f neg_infinity zero;
-    f nan nan;
-    f infinity infinity;
-    f neg_infinity neg_infinity;
-    f neg_infinity infinity;
-    f infinity nan;
-    f neg_infinity nan;
-    f max_float infinity;
-    f max_float neg_infinity;
-    f min_float infinity;
-    f min_float neg_infinity;
-    f max_float max_float;
-    f min_float min_float;
-    f max_float min_float;
-    for _ = 0 to 100_000 do
-      let f0 = Random.int64 Int64.max_int in
-      let f1 = Random.int64 Int64.max_int in
-      f
-        (if Random.bool ()
-        then Int64.float_of_bits f0
-        else Int64.(neg f0 |> float_of_bits))
-        (if Random.bool ()
-        then Int64.float_of_bits f1
-        else Int64.(neg f1 |> float_of_bits))
-    done
+  include Float64_reference
 
   module Tests = struct
     include Builtins.Float64
@@ -1111,36 +883,10 @@ module Float32x4 = struct
                       (Int32.float_of_bits f1));
             let fv0 = Float32.to_float32x4 f0 f0 f1 f1 in
             let fv1 = Float32.to_float32x4 f1 f1 f0 f0 in
-            let result = addsub fv0 fv1 in
-            let expect =
-              Float32.to_float32x4 (Float32.sub f0 f1) (Float32.add f0 f1)
-                (Float32.sub f1 f0) (Float32.add f1 f0)
-            in
-            eq_float32x4 ~result ~expect);
-        Float32.check_floats (fun f0 f1 ->
-            (failmsg
-               := fun () ->
-                    Printf.printf "%f | %f\n%!" (Int32.float_of_bits f0)
-                      (Int32.float_of_bits f1));
-            let fv0 = Float32.to_float32x4 f0 f0 f1 f1 in
-            let fv1 = Float32.to_float32x4 f1 f1 f0 f0 in
             let result = hadd fv0 fv1 in
             let expect =
               Float32.to_float32x4 (Float32.add f0 f0) (Float32.add f1 f1)
                 (Float32.add f1 f1) (Float32.add f0 f0)
-            in
-            eq_float32x4 ~result ~expect);
-        Float32.check_floats (fun f0 f1 ->
-            (failmsg
-               := fun () ->
-                    Printf.printf "%f | %f\n%!" (Int32.float_of_bits f0)
-                      (Int32.float_of_bits f1));
-            let fv0 = Float32.to_float32x4 f0 f1 f0 f1 in
-            let fv1 = Float32.to_float32x4 f1 f0 f1 f0 in
-            let result = hsub fv0 fv1 in
-            let expect =
-              Float32.to_float32x4 (Float32.sub f0 f1) (Float32.sub f0 f1)
-                (Float32.sub f1 f0) (Float32.sub f1 f0)
             in
             eq_float32x4 ~result ~expect))
 
@@ -1148,31 +894,10 @@ module Float32x4 = struct
     Float32.check_floats (fun f0 f1 ->
         (failmsg
            := fun () ->
-                Printf.printf "dpf32 %f %f\n%!" (Int32.float_of_bits f0)
-                  (Int32.float_of_bits f1));
-        let fv0 = Float32.to_float32x4 f0 f1 f0 f1 in
-        let fv1 = Float32.to_float32x4 f1 f0 f1 f0 in
-        let result = dp 0b1111_0001 fv0 fv1 in
-        let expect =
-          Float32.to_float32x4
-            (Float32.add
-               (Float32.add (Float32.mul f0 f1) (Float32.mul f1 f0))
-               (Float32.add (Float32.mul f0 f1) (Float32.mul f1 f0)))
-            0l 0l 0l
-        in
-        (* When both are NaN, AMD returns the first argument and Intel returns
-           the second argument. Hence we do not test this case. *)
-        if f0 |> Int32.float_of_bits |> Float.is_nan
-           && f1 |> Int32.float_of_bits |> Float.is_nan
-        then ()
-        else eq_float32x4 ~result ~expect);
-    Float32.check_floats (fun f0 f1 ->
-        (failmsg
-           := fun () ->
                 Printf.printf "roundf32 %f %f\n%!" (Int32.float_of_bits f0)
                   (Int32.float_of_bits f1));
         let fv = Float32.to_float32x4 f0 f1 f0 f1 in
-        let result = round 0x8 fv in
+        let result = round_near fv in
         let expect =
           Float32.to_float32x4 (Float32.round f0) (Float32.round f1)
             (Float32.round f0) (Float32.round f1)

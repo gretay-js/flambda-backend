@@ -58,14 +58,14 @@ static inline float64_t simd_low_float64x2(simd_float64x2_t v)
   return vgetq_lane_f64(v, 0);
 }
 
-static inline simd_float64x2_t simd_float64x2_round_down(simd_float64x2_t v)
+static inline simd_float64x2_t simd_float64x2_round_near(simd_float64x2_t v)
 {
-  return vrndmq_f64(v);
+  return vrndnq_f64(v);
 }
 
-static inline simd_float32x4_t simd_float32x4_round_down(simd_float32x4_t v)
+static inline simd_float32x4_t simd_float32x4_round_near(simd_float32x4_t v)
 {
-  return vrndmq_f32(v);
+  return vrndnq_f32(v);
 }
 
 int64x2_t vec128_of_int64s(int64_t low, int64_t high)
@@ -108,14 +108,14 @@ static inline simd_int128_t vec128i_of_int64x2(simd_int64_t v)
   return v;
 }
 
-static inline simd_float64x2_t simd_float64x2_round_down(simd_float64x2_t v)
+static inline simd_float64x2_t simd_float64x2_round_near(simd_float64x2_t v)
 
 {
   return _mm_round_pd(v, 0x8);
 }
 
 
-static inline simd_float32x4_t simd_float32x4_round_down(simd_float32x4_t v)
+static inline simd_float32x4_t simd_float32x4_round_near(simd_float32x4_t v)
 {
   return _mm_round_ps(v, 0x8);
 }
@@ -540,7 +540,7 @@ int64_t int8_mulu_i16(int64_t l, int64_t r) {
 
 double float64_round(double f) {
   simd_float64x2_t v = simd_dup_float64x2(f);
-  return simd_low_float64x2(simd_float64x2_round_down(v));
+  return simd_low_float64x2(simd_float64x2_round_near(v));
 }
 double float64_sqrt(double f) {
   simd_float64x2_t v = simd_dup_float64x2(f);
@@ -629,5 +629,5 @@ int32_t float32_cvt_i32(int32_t i) {
 
 int32_t float32_round(int32_t f) {
   simd_float32x4_t v = simd_dup_float32x4(float_of_int32(f));
-  return simd_extract_float32x4(simd_float32x4_round_down(v), 0);
+  return simd_extract_float32x4(simd_float32x4_round_near(v), 0);
 }
