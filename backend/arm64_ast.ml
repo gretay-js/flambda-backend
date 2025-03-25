@@ -121,6 +121,17 @@ module Reg = struct
 end
 
 module Instruction_name = struct
+  module Float_cond = struct
+    type t =
+      | EQ
+      | GT
+      | LE
+      | LT
+
+    let to_string t =
+      match t with EQ -> "eq" | GT -> "gt" | LE -> "le" | LT -> "lt"
+  end
+
   module Cond = struct
     type t =
       | EQ
@@ -233,6 +244,7 @@ module Instruction_name = struct
     | FRECPE
     | FRSQRTE
     | FADDP
+    | FCM of Float_cond.t
 
   (* CR gyorsh: can some of this be automatically generated from the type? *)
   let to_string t =
@@ -296,6 +308,7 @@ module Instruction_name = struct
     | FRECPE -> "frecpe"
     | FRSQRTE -> "frsqrte"
     | FADDP -> "faddp"
+    | FCM cond -> "fcm" ^ Float_cond.to_string cond
 end
 
 module Operand = struct

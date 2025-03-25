@@ -22,22 +22,39 @@ type operation_class = Pure
 
 module Rounding_mode = struct
   type t =
-    | Current
+    | Current (* Default is Nearest *)
     | Neg_inf
     | Pos_inf
     | Zero
+    | Nearest
 
   let instruction_suffix = function
     | Neg_inf -> "Neg_inf"
     | Pos_inf -> "Pos_inf"
     | Zero -> "Zero"
     | Current -> "Current"
+    | Nearest -> "Nearest"
 
   let equal t1 t2 =
     match t1, t2 with
-    | Current, Current | Neg_inf, Neg_inf | Pos_inf, Pos_inf | Zero, Zero ->
+    | Current, Current
+    | Neg_inf, Neg_inf
+    | Pos_inf, Pos_inf
+    | Zero, Zero
+    | Nearest, Nearest ->
       true
-    | (Current | Neg_inf | Pos_inf | Zero), _ -> false
+    | (Current | Neg_inf | Pos_inf | Zero | Nearest), _ -> false
+end
+
+module Float_cond = struct
+  type t = Arm64_ast.Instruction_name.Float_cond.t =
+    | EQ
+    | GT
+    | LE
+    | LT
+
+  let to_string t =
+    match t with EQ -> "eq" | GT -> "ne" | LE -> "le" | LT -> "lt"
 end
 
 type operation =
@@ -73,6 +90,7 @@ type operation =
   | Cvtq_s32_of_f32
   | Cvtq_f32_of_s32
   | Paddq_f32
+  | Cmp_f32 of Float_cond.t
 
 let print_name op =
   match op with
@@ -104,6 +122,7 @@ let print_name op =
   | Cvtq_s32_of_f32 -> "Cvtq_s32_of_f32"
   | Cvtq_f32_of_s32 -> "Cvtq_f32_of_s32"
   | Paddq_f32 -> "Paddq_f64"
+  | Cmp_f32 cond -> "Cmp_f32_" ^ Float_cond.to_string cond
 
 let print_operation printreg op ppf arg =
   (* CR gyorsh: does not support memory operands (except stack operands). *)
@@ -144,12 +163,13 @@ let equal_operation op1 op2 =
   | Cvtq_f32_of_s32, Cvtq_f32_of_s32
   | Paddq_f32, Paddq_f32 ->
     true
+  | Cmp_f32 _, Cmp_f32 _ -> true
   | ( ( Round_f32 _ | Round_f64 _ | Round_f32x4 _ | Round_f32_i64
       | Min_scalar_f32 | Max_scalar_f32 | Min_scalar_f64 | Max_scalar_f64
       | Fmin_f32 | Fmax_f32 | Zip1_f32 | Zip1q_f32 | Zip1q_f64 | Zip2q_f64
       | Addq_i64 | Subq_i64 | Addq_f32 | Subq_f32 | Mulq_f32 | Divq_f32
       | Minq_f32 | Maxq_f32 | Recpeq_f32 | Sqrtq_f32 | Rsqrteq_f32
-      | Cvtq_s32_of_f32 | Cvtq_f32_of_s32 | Paddq_f32 ),
+      | Cvtq_s32_of_f32 | Cvtq_f32_of_s32 | Paddq_f32 | Cmp_f32 _ ),
       _ ) ->
     false
 
@@ -159,7 +179,8 @@ let class_of_operation op =
   | Max_scalar_f32 | Min_scalar_f64 | Max_scalar_f64 | Fmin_f32 | Fmax_f32
   | Zip1_f32 | Zip1q_f32 | Zip1q_f64 | Zip2q_f64 | Addq_i64 | Subq_i64
   | Addq_f32 | Subq_f32 | Mulq_f32 | Divq_f32 | Minq_f32 | Maxq_f32 | Recpeq_f32
-  | Sqrtq_f32 | Rsqrteq_f32 | Cvtq_s32_of_f32 | Cvtq_f32_of_s32 | Paddq_f32 ->
+  | Sqrtq_f32 | Rsqrteq_f32 | Cvtq_s32_of_f32 | Cvtq_f32_of_s32 | Paddq_f32
+  | Cmp_f32 _ ->
     Pure
 
 let operation_is_pure op = match class_of_operation op with Pure -> true

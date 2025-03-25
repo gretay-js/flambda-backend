@@ -38,6 +38,7 @@ type register_behavior =
   | Rf32x4_Rf32x4_to_Rf32x4
   | Rf64x2_Rf64x2_to_Rf64x2
   | Ri64x2_Ri64x2_to_Ri64x2
+  | Rf32x4_Rf32x4_to_Ri32x4
   | Ri32x4_to_Rf32x4
   | Rf32x4_to_Rf32x4
   | Rf32x4_to_Ri32x4
@@ -66,3 +67,4 @@ let register_behavior (op : Simd.operation) =
   | Addq_i64 | Subq_i64 -> Ri64x2_Ri64x2_to_Ri64x2
   | Cvtq_s32_of_f32 -> Rf32x4_to_Ri32x4
   | Cvtq_f32_of_s32 -> Ri32x4_to_Rf32x4
+  | Cmp_f32 _ -> Rf32x4_Rf32x4_to_Ri32x4

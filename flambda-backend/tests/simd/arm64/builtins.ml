@@ -21,13 +21,68 @@ module Float64 = struct
     [@@noalloc] [@@builtin]
 end
 
+module Float_cond_x86 = struct
+  type t =
+    | EQf
+    | LTf
+    | LEf
+    | UNORDf
+    | NEQf
+    | NLTf
+    | NLEf
+    | ORDf
+
+  let float_condition_of_int = function
+    | 0 -> EQf
+    | 1 -> LTf
+    | 2 -> LEf
+    | 3 -> UNORDf
+    | 4 -> NEQf
+    | 5 -> NLTf
+    | 6 -> NLEf
+    | 7 -> ORDf
+    | n -> failwithf "Invalid float rounding immediate: %d" n
+end
+
 module Float32x4 = struct
   type t = float32x4
 
-  external cmp :
-    (int[@untagged]) -> (t[@unboxed]) -> (t[@unboxed]) -> (int32x4[@unboxed])
-    = "caml_vec128_unreachable" "caml_neon_float32x4_cmp"
+  external cmeq : (t[@unboxed]) -> (t[@unboxed]) -> (int32x4[@unboxed])
+    = "caml_vec128_unreachable" "caml_neon_float32x4_cmeq"
     [@@noalloc] [@@builtin]
+
+  external cmgt : (t[@unboxed]) -> (t[@unboxed]) -> (int32x4[@unboxed])
+    = "caml_vec128_unreachable" "caml_neon_float32x4_cmgt"
+    [@@noalloc] [@@builtin]
+
+  external cmle : (t[@unboxed]) -> (t[@unboxed]) -> (int32x4[@unboxed])
+    = "caml_vec128_unreachable" "caml_neon_float32x4_cmle"
+    [@@noalloc] [@@builtin]
+
+  external cmlt : (t[@unboxed]) -> (t[@unboxed]) -> (int32x4[@unboxed])
+    = "caml_vec128_unreachable" "caml_neon_float32x4_cmlt"
+    [@@noalloc] [@@builtin]
+
+  (* CR gyorsh: move to int32x4 module, there should already be a function like
+     this. Implemented using [mvnq_s32] *)
+  external bitwise_not : int32x4 -> int32x4 = "" "caml_neon_int32x4_bitwise_not"
+
+  external bitwise_or : int32x4 -> int32x4 -> int32x4
+    = "" "caml_neon_int32x4_bitwise_or"
+
+  let is_nan t1 = bitwise_not (cmpeq t1 t1)
+
+  let cmp n t1 t2 =
+    match Float_cond_x86.float_condition_of_int n with
+    | EQf -> cmeq t1 t2
+    | LTf -> cmlt t1 t2
+    | LEf -> cmle t1 t2
+    | NEQf -> bitwise_not (cmeq t1 t2)
+    | NLTf -> bitwise_not (cmlt t1 t2)
+    | NLEf -> bitwise_not (cmle t1 t2)
+    (* CR gyorsh: this not efficient but gives us more testing. *)
+    | UNORDf -> bitwise_or (is_nan t1) (is_nan t2)
+    | ORDf -> bitwise_not (bitwise_or (is_nan t1) (is_nan t2))
 
   external movemask_32 : (int32x4[@unboxed]) -> (int[@untagged])
     = "caml_vec128_unreachable" "caml_neon_vec128_movemask_32"
@@ -80,7 +135,7 @@ module Float32x4 = struct
     [@@noalloc] [@@unboxed] [@@builtin]
 
   external round_near : (t[@unboxed]) -> (t[@unboxed])
-    = "caml_vec128_unreachable" "caml_neon_float32x4_round_near"
+    = "caml_vec128_unreachable" "caml_neon_float32x4_round_nearest"
     [@@noalloc] [@@builtin]
 end
 

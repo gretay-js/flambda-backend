@@ -57,6 +57,14 @@ module Reg : sig
 end
 
 module Instruction_name : sig
+  module Float_cond : sig
+    type t =
+      | EQ
+      | GT
+      | LE
+      | LT
+  end
+
   module Cond : sig
     type t =
       | EQ
@@ -147,6 +155,7 @@ module Instruction_name : sig
     | FRECPE
     | FRSQRTE
     | FADDP
+    | FCM of Float_cond.t
 end
 
 module Operand : sig
