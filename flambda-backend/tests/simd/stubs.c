@@ -1,4 +1,3 @@
-
 #include <caml/memory.h>
 #include <caml/simd.h>
 #include <caml/callback.h>
@@ -37,25 +36,41 @@ typedef int32x4_t simd_int32x4_t;
 #define simd_float32x4_mul vmulq_f32
 #define simd_float32x4_div vdivq_f32
 #define simd_float32x4_min vminq_f32
-#define simd_float32x4_max vminq_f32
+#define simd_float32x4_max vmaxq_f32
 #define simd_float32x4_sqrt vsqrtq_f32
 #define simd_float32x4_rcp vrecpeq_f32
 #define simd_float32x4_rsqrt vrsqrteq_f32
-#define simd_float32x4_to_int32x4 vcvtq_s32_f32;
+#define simd_float32x4_to_int32x4 vcvtq_s32_f32
+#define simd_int32x4_to_float32x4 vcvtq_f32_s32
 
-static inline simd_float64x2_t simd_float64x2_round_down(simd_float64x2_t v)
+static inline simd_int128_t vec128i_of_int64x2(simd_int64x2_t v)
 {
-  return _mm_round_pd(v, 0x8); ?
+  return vreinterpretq_p128_s64(v);
 }
 
-static inline simd_float32x4_t simd_float32x4_round_down(simd_float32x4_t v)
+static inline simd_int64x2_t Int64x2_vali(value v)
 {
-  return _mm_round_ps(v, 0x8);
+  simd_int128_t t = Vec128_vali(v);
+  return vreinterpretq_s64_p128(t);
+}
+static inline float64_t simd_low_float64x2(simd_float64x2_t v)
+{
+  return vgetq_lane_f64(v, 0);
+}
+
+static inline simd_float64x2_t simd_float64x2_round_near(simd_float64x2_t v)
+{
+  return vrndnq_f64(v);
+}
+
+static inline simd_float32x4_t simd_float32x4_round_near(simd_float32x4_t v)
+{
+  return vrndnq_f32(v);
 }
 
 int64x2_t vec128_of_int64s(int64_t low, int64_t high)
 {
-    return vcombine_s64(vcreate_s64(high), vcreate_s64(low));
+  return vcombine_s64(vcreate_s64(low), vcreate_s64(high));
 }
 
 #else /* __ARM_NEON */
@@ -257,6 +272,9 @@ BUILTIN(caml_int_clz_tagged_to_untagged);
 
 BUILTIN(caml_simd_vec128_interleave_low_32)
 BUILTIN(caml_simd_vec128_interleave_low_64)
+BUILTIN(caml_simd_float64_max);
+BUILTIN(caml_simd_float64_min);
+
 
 #include <float.h>
 #include <math.h>

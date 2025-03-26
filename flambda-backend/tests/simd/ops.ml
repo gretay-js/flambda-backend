@@ -382,25 +382,25 @@ module Vector_casts = struct
     [@@noalloc] [@@unboxed] [@@builtin]
 
   let () =
-    let _0 = int64x2_of_int64s 1L 2L in
-    let _1 = int32x4_of_int64s 3L 4L in
-    let _2 = int16x8_of_int64s 5L 6L in
-    let _3 = int8x16_of_int64s 7L 8L in
-    let _4 = float32x4_of_int64s 9L 10L in
-    let _0 = float64x2_of_int64x2 (Sys.opaque_identity _0) in
-    let _1 = float64x2_of_int32x4 (Sys.opaque_identity _1) in
-    let _2 = float64x2_of_int16x8 (Sys.opaque_identity _2) in
-    let _3 = float64x2_of_int8x16 (Sys.opaque_identity _3) in
-    let _4 = float64x2_of_float32x4 (Sys.opaque_identity _4) in
-    let a, b = float64x2_low_int64 _0, float64x2_high_int64 _0 in
+    let v_0 = int64x2_of_int64s 1L 2L in
+    let v_1 = int32x4_of_int64s 3L 4L in
+    let v_2 = int16x8_of_int64s 5L 6L in
+    let v_3 = int8x16_of_int64s 7L 8L in
+    let v_4 = float32x4_of_int64s 9L 10L in
+    let v_0 = float64x2_of_int64x2 (Sys.opaque_identity v_0) in
+    let v_1 = float64x2_of_int32x4 (Sys.opaque_identity v_1) in
+    let v_2 = float64x2_of_int16x8 (Sys.opaque_identity v_2) in
+    let v_3 = float64x2_of_int8x16 (Sys.opaque_identity v_3) in
+    let v_4 = float64x2_of_float32x4 (Sys.opaque_identity v_4) in
+    let a, b = float64x2_low_int64 v_0, float64x2_high_int64 v_0 in
     eq a b 1L 2L;
-    let a, b = float64x2_low_int64 _1, float64x2_high_int64 _1 in
+    let a, b = float64x2_low_int64 v_1, float64x2_high_int64 v_1 in
     eq a b 3L 4L;
-    let a, b = float64x2_low_int64 _2, float64x2_high_int64 _2 in
+    let a, b = float64x2_low_int64 v_2, float64x2_high_int64 v_2 in
     eq a b 5L 6L;
-    let a, b = float64x2_low_int64 _3, float64x2_high_int64 _3 in
+    let a, b = float64x2_low_int64 v_3, float64x2_high_int64 v_3 in
     eq a b 7L 8L;
-    let a, b = float64x2_low_int64 _4, float64x2_high_int64 _4 in
+    let a, b = float64x2_low_int64 v_4, float64x2_high_int64 v_4 in
     eq a b 9L 10L
 end
 
@@ -880,6 +880,22 @@ module Float32x4 = struct
         let fv = Float32.to_float32x4 f0 f1 0l 0l in
         let res = cvt_float64x2 fv in
         eq_float64x2 ~result:res ~expect:iv)
+
+  let () =
+    Test_helpers.run_if_not_under_rosetta2 ~f:(fun () ->
+        Float32.check_floats (fun f0 f1 ->
+            (failmsg
+               := fun () ->
+                    Printf.printf "%f | %f\n%!" (Int32.float_of_bits f0)
+                      (Int32.float_of_bits f1));
+            let fv0 = Float32.to_float32x4 f0 f0 f1 f1 in
+            let fv1 = Float32.to_float32x4 f1 f1 f0 f0 in
+            let result = hadd fv0 fv1 in
+            let expect =
+              Float32.to_float32x4 (Float32.add f0 f0) (Float32.add f1 f1)
+                (Float32.add f1 f1) (Float32.add f0 f0)
+            in
+            eq_float32x4 ~result ~expect))
 
   let () =
     Float32.check_floats (fun f0 f1 ->

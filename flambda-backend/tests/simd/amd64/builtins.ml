@@ -123,11 +123,11 @@ module Float64x2 = struct
     [@@noalloc] [@@unboxed] [@@builtin]
 
   external cvt_int32x4 : t -> int32x4
-    = "caml_vec128_unreachable" "caml_sse2_cvt_float64x2_int32x4"
+    = "caml_vec128_unreachable" "caml_sse2_cvt_float64x2_int32x2"
     [@@noalloc] [@@unboxed] [@@builtin]
 
   external cvt_float32x4 : t -> float32x4
-    = "caml_vec128_unreachable" "caml_sse2_cvt_float64x2_float32x4"
+    = "caml_vec128_unreachable" "caml_sse2_cvt_float64x2_float32x2"
     [@@noalloc] [@@unboxed] [@@builtin]
 
   external addsub : t -> t -> t

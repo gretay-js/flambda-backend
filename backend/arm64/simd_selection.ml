@@ -19,6 +19,26 @@ open Simd
 
 open! Int_replace_polymorphic_compare [@@ocaml.warning "-66"]
 
+(* CR-soon gyorsh: duplication of amd64 simd_selection check and erro
+   reporting. *)
+type error = Bad_immediate of string
+
+exception Error of error
+
+let bad_immediate fmt =
+  Format.kasprintf (fun msg -> raise (Error (Bad_immediate msg))) fmt
+
+(* Assumes untagged int *)
+let[@ocaml.warning "-4"] extract_constant args name ~max =
+  match args with
+  | Cmm.Cconst_int (i, _) :: args ->
+    if i < 0 || i > max
+    then
+      bad_immediate "Immediate for %s must be in range [0,%d] (got %d)" name max
+        i;
+    i, args
+  | _ -> bad_immediate "Did not get integer immediate for %s" name
+
 (* Intrinsics naming conventions:
 
    "caml_simd_*" for intrinsics used in the compiler distribution libraries, for
@@ -84,6 +104,14 @@ let select_simd_instr op args =
   | "caml_neon_int32x4_cmpgtz" -> Some (Cmpz_s32 GT, args)
   | "caml_neon_int32x4_cmplez" -> Some (Cmpz_s32 LE, args)
   | "caml_neon_int32x4_cmpltz" -> Some (Cmpz_s32 LT, args)
+  | "caml_neon_int32x4_bitwise_not" -> Some (Mvnq_s32, args)
+  | "caml_neon_int32x4_bitwise_or" -> Some (Orrq_s32, args)
+  | "caml_neon_int32x4_bitwise_and" -> Some (Andq_s32, args)
+  | "caml_neon_int32x4_bitwise_xor" -> Some (Eorq_s32, args)
+  | "caml_neon_int32x4_neg" -> Some (Negq_s32, args)
+  | "caml_neon_int32x4_extract" ->
+    let lane, args = extract_constant args ~max:3 op in
+    Some (Getq_lane_s32 { lane }, args)
   | _ -> None
 
 let select_operation_cfg op args =
@@ -100,3 +128,13 @@ let vectorize_operation _ ~arg_count:_ ~res_count:_ ~alignment_in_bytes:_
     (_ : Operation.t list) :
     Vectorize_utils.Vectorized_instruction.t list option =
   None
+
+(* Error report *)
+
+let report_error ppf = function
+  | Bad_immediate msg -> Format.pp_print_string ppf msg
+
+let () =
+  Location.register_error_of_exn (function
+    | Error err -> Some (Location.error_of_printer_file report_error err)
+    | _ -> None)

@@ -27,9 +27,7 @@ module Neon_reg_name : sig
       | Q
   end
 
-  type t =
-    | Vector of Vector.t
-    | Scalar of Scalar.t
+  type t
 end
 
 (* General-purpose register description *)
@@ -183,8 +181,8 @@ module Instruction_name : sig
     | MUL
     | DIV
     | AND
-    | OR
-    | XOR
+    | ORR
+    | EOR
     | LSL
     | LSR
     | ASR
@@ -194,8 +192,6 @@ module Instruction_name : sig
     | CNT
     | SMULH
     | UMULH
-    | ORR
-    | EOR
     | B
     | BR
     | B_cond of Cond.t
@@ -279,6 +275,9 @@ module Instruction_name : sig
     | CM of Cond.t
     | FCVTL
     | ADDV
+    | MVN
+    | NEG
+    | SMOV
 end
 
 module DSL : sig
@@ -341,6 +340,10 @@ module DSL : sig
   val xzr : Operand.t
 
   val wzr : Operand.t
+
+  val reglane_v4s : int -> lane:int -> Operand.t
+
+  val reglane_s : int -> lane:int -> Operand.t
 
   (* CR gyorsh: [print_*] functions below are exposed temporarily to use DSL for
      some but not all instructions in [emit.ml]. They can eventually*)
