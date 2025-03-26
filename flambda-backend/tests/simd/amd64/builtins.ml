@@ -78,7 +78,7 @@ module Float32x4 = struct
     = "caml_vec128_unreachable" "caml_sse41_float32x4_round"
     [@@noalloc] [@@builtin]
 
-  let[@inline always] round_near t = round 0x8 t
+  let[@inline always] round_nearest t = round 0x8 t
 end
 
 module Float64x2 = struct

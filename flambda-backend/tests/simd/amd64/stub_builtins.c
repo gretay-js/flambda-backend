@@ -24,7 +24,6 @@ BUILTIN(caml_sse_vec128_high_64_to_low_64);
 BUILTIN(caml_sse_vec128_low_64_to_high_64);
 BUILTIN(caml_sse_vec128_interleave_high_32);
 BUILTIN(caml_sse_vec128_interleave_low_32);
-BUILTIN(caml_simd_vec128_interleave_low_32);
 BUILTIN(caml_sse_vec128_shuffle_32);
 BUILTIN(caml_sse_vec128_movemask_32);
 
@@ -101,7 +100,6 @@ BUILTIN(caml_sse2_vec128_interleave_high_16);
 BUILTIN(caml_sse2_vec128_interleave_low_16);
 BUILTIN(caml_sse2_vec128_interleave_high_64);
 BUILTIN(caml_sse2_vec128_interleave_low_64);
-BUILTIN(caml_simd_vec128_interleave_low_64);
 BUILTIN(caml_sse2_int8x16_avg_unsigned);
 BUILTIN(caml_sse2_int16x8_avg_unsigned);
 BUILTIN(caml_sse2_int8x16_sad_unsigned);

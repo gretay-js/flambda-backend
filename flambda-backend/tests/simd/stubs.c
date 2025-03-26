@@ -103,7 +103,7 @@ typedef __m128i simd_int32x4_t;
 
 #define Int64x2_vali Vec128_vali
 
-static inline simd_int128_t vec128i_of_int64x2(simd_int64_t v)
+static inline simd_int128_t vec128i_of_int64x2(simd_int64x2_t v)
 {
   return v;
 }
