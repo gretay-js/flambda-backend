@@ -25,6 +25,9 @@ let macosx = String.equal Config.system "macosx"
 
 let is_asan_enabled = ref false
 
+(* CR gyorsh: refactor to use [Arch.Extension] like amd64 *)
+let feat_cssc = ref false
+
 (* Machine-specific command-line options *)
 
 let command_line_options = [
