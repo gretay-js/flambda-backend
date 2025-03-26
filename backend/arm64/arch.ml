@@ -32,6 +32,11 @@ let command_line_options = [
     Arg.Clear is_asan_enabled,
     " Disable AddressSanitizer. This is only meaningful if the compiler was \
      built with AddressSanitizer support enabled."
+  ;
+
+  "-fcssc",
+    Arg.Set feat_cssc,
+    " Enable the Common Short Sequence Compression (CSSC) instructions."
 ]
 
 (* Addressing modes *)
