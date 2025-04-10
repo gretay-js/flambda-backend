@@ -621,6 +621,12 @@ let output_cds_file outfile =
        Bytesections.write_toc_and_trailer toc_writer;
     )
 
+    (* The symbol for "-ocamlrunparams" flag. *)
+let output_ocamlrunparam outchan =
+  output_string outchan "\nchar caml_ocamlrunparam[] = ";
+  output_string outchan !Clflags.ocamlrunparam;
+  output_string outchan ";\n";
+
 (* Output a bytecode executable as a C file *)
 
 (* Primitives declared in the included headers but re-declared in the
@@ -680,6 +686,7 @@ let link_bytecode_as_c tolink outfile with_main =
        output_data_string outchan
          (Marshal.to_string sections []);
        output_string outchan "\n};\n\n";
+       output_ocamlrunparam outchan;
        (* The table of primitives *)
        Symtable.output_primitive_table outchan;
        (* The entry point *)
@@ -847,6 +854,7 @@ let link objfiles output_name =
          #ifdef __cplusplus\n\
          }\n\
          #endif\n";
+         output_ocamlrunparam poc;
          close_out poc;
          let exec_name = fix_exec_name output_name in
          if not (build_custom_runtime prim_name exec_name)
