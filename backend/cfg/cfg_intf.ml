@@ -155,6 +155,7 @@ module S = struct
        avoid the hack in [can_raise_terminator] *)
     | Call of func_call_operation with_label_after
     | Prim of prim_call_operation with_label_after
+    | Call_flambda2_invalid
 
   type basic_or_terminator =
     | Basic of basic

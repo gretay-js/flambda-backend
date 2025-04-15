@@ -616,6 +616,8 @@ let destroyed_at_terminator (terminator : Cfg_intf.S.terminator) =
   | Prim {op = External { func_symbol = _; alloc; ty_res = _; ty_args = _; stack_ofs; effects = _; }; _} ->
     assert (stack_ofs >= 0);
     if alloc || stack_ofs > 0 then all_phys_regs else destroyed_at_c_call
+  | Call_flambda2_invalid ->
+      destroyed_at_c_call
   | Call {op = Indirect | Direct _; _} -> all_phys_regs
 
 (* CR-soon xclerc for xclerc: consider having more destruction points.
@@ -632,7 +634,8 @@ let is_destruction_point ~(more_destruction_points : bool) (terminator : Cfg_int
   | Prim {op = Probe _; _} ->
     false
   | Switch _ ->
-    false
+      false
+  | Call_flambda2_invalid
   | Call_no_return { func_symbol = _; alloc; ty_res = _; ty_args = _; _ }
   | Prim {op = External { func_symbol = _; alloc; ty_res = _; ty_args = _; _ }; _} ->
     if more_destruction_points then
