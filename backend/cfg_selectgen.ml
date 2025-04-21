@@ -1651,7 +1651,7 @@ module Make (Target : Cfg_selectgen_target_intf.S) = struct
     (* note: `Cfgize.Stack_offset_and_exn.update_cfg` may add edges to the
        graph, and should hence be executed before
        `Cfg.register_predecessors_for_all_blocks`. *)
-    SU.Stack_offset_and_exn.update_cfg cfg;
+    Cfg_stack_offset_and_exn.compute cfg;
     Cfg.register_predecessors_for_all_blocks cfg;
     let fun_contains_calls =
       Sub_cfg.exists_basic_blocks body ~f:Cfg.basic_block_contains_calls

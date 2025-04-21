@@ -192,10 +192,6 @@ val int_test_of_integer_comparison :
 val terminator_of_test :
   Operation.test -> label_false:Label.t -> label_true:Label.t -> Cfg.terminator
 
-module Stack_offset_and_exn : sig
-  val update_cfg : Cfg.t -> unit
-end
-
 val make_stack_offset : int -> Cfg.basic
 
 val make_name_for_debugger :

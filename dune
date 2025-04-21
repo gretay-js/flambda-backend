@@ -465,6 +465,7 @@
   simd_reload
   simd_proc
   stack_check
+  cfg_stack_offset_and_exn
   sub_cfg
   reg
   relocation_entry
