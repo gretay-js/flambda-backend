@@ -561,6 +561,8 @@ let reset_instr_id () = InstructionId.reset instr_id
 
 let next_instr_id () = InstructionId.get_next instr_id
 
+let invalid_stack_offset = -1
+
 let make_instr desc arg res dbg =
   { desc;
     arg;
@@ -568,7 +570,7 @@ let make_instr desc arg res dbg =
     dbg;
     fdo = Fdo_info.none;
     live = Reg.Set.empty;
-    stack_offset = -1;
+    stack_offset = invalid_stack_offset;
     id = next_instr_id ();
     irc_work_list = Unknown_list;
     ls_order = 0;
@@ -586,7 +588,7 @@ let make_empty_block ?label terminator : basic_block =
     body = DLL.make_empty ();
     terminator;
     predecessors = Label.Set.empty;
-    stack_offset = -1;
+    stack_offset = invalid_stack_offset;
     exn = None;
     can_raise = false;
     is_trap_handler = false;
