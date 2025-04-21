@@ -2104,7 +2104,7 @@ let emit_instr ~first ~fallthrough i =
     cfi_adjust_cfa_offset 8;
     I.mov rsp (domain_field Domainstate.Domain_exn_handler);
     stack_offset := !stack_offset + 16
-  | Lpoptrap ->
+  | Lpoptrap _ ->
     emit_pop_trap_label ();
     I.pop (domain_field Domainstate.Domain_exn_handler);
     cfi_adjust_cfa_offset (-8);
