@@ -42,7 +42,7 @@ module Neon_reg_name = struct
       | Q
 
     let to_string t =
-      match t with B -> "B" | H -> "H" | S -> "S" | D -> "D" | Q -> "Q"
+      match t with B -> "b" | H -> "h" | S -> "s" | D -> "d" | Q -> "q"
 
     let name t index = Printf.sprintf "%s%d" (to_string t) index
   end
@@ -82,12 +82,12 @@ module GP_reg_name = struct
 
   let name t index =
     match t with
-    | W -> Printf.sprintf "W%d" index
-    | X -> Printf.sprintf "X%d" index
-    | WZR -> "WZR"
-    | XZR -> "XZR"
-    | WSP -> "WSP"
-    | SP -> "SP"
+    | W -> Printf.sprintf "w%d" index
+    | X -> Printf.sprintf "x%d" index
+    | WZR -> "wzr"
+    | XZR -> "xzr"
+    | WSP -> "wsp"
+    | SP -> "sp"
 end
 
 (* Register representation *)
@@ -121,6 +121,17 @@ module Reg = struct
 end
 
 module Instruction_name = struct
+  module Float_cond = struct
+    type t =
+      | EQ
+      | GT
+      | LE
+      | LT
+
+    let to_string t =
+      match t with EQ -> "eq" | GT -> "gt" | LE -> "le" | LT -> "lt"
+  end
+
   module Cond = struct
     type t =
       | EQ
@@ -230,6 +241,13 @@ module Instruction_name = struct
     | ZIP2
     | FCMP
     | FCSEL
+    | FRECPE
+    | FRSQRTE
+    | FADDP
+    | FCM of Float_cond.t
+    | CM of Cond.t
+    | FCVTL
+    | ADDV
 
   (* CR gyorsh: can some of this be automatically generated from the type? *)
   let to_string t =
@@ -290,6 +308,13 @@ module Instruction_name = struct
     | ZIP2 -> "zip2"
     | FCMP -> "fcmp"
     | FCSEL -> "fcsel"
+    | FRECPE -> "frecpe"
+    | FRSQRTE -> "frsqrte"
+    | FADDP -> "faddp"
+    | FCM cond -> "fcm" ^ Float_cond.to_string cond
+    | CM cond -> "cm" ^ Cond.to_string cond
+    | FCVTL -> "fcvtl"
+    | ADDV -> "addv"
 end
 
 module Operand = struct
@@ -547,6 +572,11 @@ module DSL = struct
 
   let reg_v4s index =
     Operand.Reg (Reg.create (Reg_name.Neon (Vector V4S)) index)
+
+  let reg_v8b index =
+    Operand.Reg (Reg.create (Reg_name.Neon (Vector V8B)) index)
+
+  let reg_b index = Operand.Reg (Reg.create (Reg_name.Neon (Scalar B)) index)
 
   let reg_v2d index = reg_v2d_operands.(index)
 

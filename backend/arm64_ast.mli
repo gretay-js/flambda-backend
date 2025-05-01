@@ -57,6 +57,14 @@ module Reg : sig
 end
 
 module Instruction_name : sig
+  module Float_cond : sig
+    type t =
+      | EQ
+      | GT
+      | LE
+      | LT
+  end
+
   module Cond : sig
     type t =
       | EQ
@@ -144,6 +152,13 @@ module Instruction_name : sig
     | ZIP2
     | FCMP
     | FCSEL
+    | FRECPE
+    | FRSQRTE
+    | FADDP
+    | FCM of Float_cond.t
+    | CM of Cond.t
+    | FCVTL
+    | ADDV
 end
 
 module Operand : sig
@@ -156,6 +171,10 @@ module DSL : sig
   val reg_v2s : int -> Operand.t
 
   val reg_v4s : int -> Operand.t
+
+  val reg_v8b : int -> Operand.t
+
+  val reg_b : int -> Operand.t
 
   val reg_s : int -> Operand.t
 
