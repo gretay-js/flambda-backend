@@ -4,7 +4,7 @@ on:
     branches:
       - main
       - '*microbranch'
-      - 'arm64*'
+      # - 'arm64*'
     tags:
       - '*'
   pull_request:
