@@ -25,11 +25,3 @@
   (with-stdout-to
    amd64_simd_instrs.ml
    (run ./simdgen.exe amd64))))
-
-(rule
- (enabled_if
-  (and
-   (= %{env:ARCH=amd64} "amd64")))
- (target simd_proc.ml)
- (action
-  (system "touch simd_proc.ml")))
