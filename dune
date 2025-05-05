@@ -47,6 +47,8 @@
 
 (copy_files# backend/amd64_simdgen/amd64_*.ml{,i})
 
+(copy_files# backend/arm64_simdgen/arm64_*.ml{,i})
+
 (copy_files# backend/cfg/*.ml{,i})
 
 (copy_files# backend/debug/*.ml{,i})
