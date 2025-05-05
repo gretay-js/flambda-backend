@@ -15,13 +15,13 @@
 (executable
  (name simdgen)
  (modes native)
- (modules simdgen amd64_simd_defs))
+ (modules simdgen arm64_simd_defs))
 
 (rule
- (target amd64_simd_instrs.ml)
- (deps simdgen.exe amd64/amd64.csv)
+ (target arm64_simd_instrs.ml)
+ (deps simdgen.exe arm64/advsimd.csv)
  (mode promote)
  (action
   (with-stdout-to
-   amd64_simd_instrs.ml
-   (run ./simdgen.exe amd64))))
+   arm64_simd_instrs.ml
+   (run ./simdgen.exe arm64/advsimd.csv))))
