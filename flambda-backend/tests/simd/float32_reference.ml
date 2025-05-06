@@ -110,12 +110,20 @@ external div : (t[@unboxed]) -> (t[@unboxed]) -> (t[@unboxed])
   = "caml_vec128_unreachable" "float32_div"
   [@@noalloc]
 
-external min : (t[@unboxed]) -> (t[@unboxed]) -> (t[@unboxed])
+external c_min : (t[@unboxed]) -> (t[@unboxed]) -> (t[@unboxed])
   = "caml_vec128_unreachable" "float32_min"
   [@@noalloc]
 
-external max : (t[@unboxed]) -> (t[@unboxed]) -> (t[@unboxed])
+external c_max : (t[@unboxed]) -> (t[@unboxed]) -> (t[@unboxed])
   = "caml_vec128_unreachable" "float32_max"
+  [@@noalloc]
+
+external min_match_sse : (t[@unboxed]) -> (t[@unboxed]) -> (t[@unboxed])
+  = "caml_vec128_unreachable" "float32_min_match_sse"
+  [@@noalloc]
+
+external max_match_sse : (t[@unboxed]) -> (t[@unboxed]) -> (t[@unboxed])
+  = "caml_vec128_unreachable" "float32_max_match_sse"
   [@@noalloc]
 
 external rcp : (t[@unboxed]) -> (t[@unboxed])

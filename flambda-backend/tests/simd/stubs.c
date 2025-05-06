@@ -1,8 +1,8 @@
-
 #include <caml/memory.h>
 #include <caml/simd.h>
 #include <caml/callback.h>
 #include <assert.h>
+#include <stdbool.h>
 
 value vec128_run_callback(value f)
 {
@@ -23,7 +23,6 @@ value vec128_run_callback_stack_args(value i0, value i1, value i2, value i3, val
 typedef int32x4_t simd_int32x4_t;
 
 #define simd_add_int64x2 vaddq_s64
-#define simd_extract_float32x4 vgetq_lane_f32
 #define simd_extract_int64x2 vgetq_lane_s64
 #define simd_extract_int32x4 vgetq_lane_s32
 #define simd_dup_float32x4  vdupq_n_f32
@@ -37,25 +36,61 @@ typedef int32x4_t simd_int32x4_t;
 #define simd_float32x4_mul vmulq_f32
 #define simd_float32x4_div vdivq_f32
 #define simd_float32x4_min vminq_f32
-#define simd_float32x4_max vminq_f32
+#define simd_float32x4_max vmaxq_f32
 #define simd_float32x4_sqrt vsqrtq_f32
 #define simd_float32x4_rcp vrecpeq_f32
 #define simd_float32x4_rsqrt vrsqrteq_f32
-#define simd_float32x4_to_int32x4 vcvtq_s32_f32;
+#define simd_float32x4_to_int32x4 vcvtnq_s32_f32
+#define simd_int32x4_to_float32x4 vcvtq_f32_s32
 
-static inline simd_float64x2_t simd_float64x2_round_down(simd_float64x2_t v)
-{
-  return _mm_round_pd(v, 0x8); ?
+/* [caml_float32_to_bits] is defined in runtime/float32.c */
+int32_t caml_float32_to_bits(float f);
+
+static inline int32_t simd_extract_float32x4(simd_float32x4_t a, intnat i) {
+  float32_t e = 0;
+  switch (i % 4) {
+  case 0: e = vgetq_lane_f32(a, 0); break;
+  case 1: e = vgetq_lane_f32(a, 1); break;
+  case 2: e = vgetq_lane_f32(a, 2); break;
+  case 3: e = vgetq_lane_f32(a, 3); break;
+  default: assert(0);
+  }
+  int32_t res = caml_float32_to_bits(e);
+  return res;
 }
 
-static inline simd_float32x4_t simd_float32x4_round_down(simd_float32x4_t v)
+int32_t test_simd_vec128_extract_ps(simd_float32x4_t a, intnat i) {
+  return (simd_extract_float32x4(a, i));
+}
+
+static inline simd_int128_t vec128i_of_int64x2(simd_int64x2_t v)
 {
-  return _mm_round_ps(v, 0x8);
+  return vreinterpretq_p128_s64(v);
+}
+
+static inline simd_int64x2_t Int64x2_vali(value v)
+{
+  simd_int128_t t = Vec128_vali(v);
+  return vreinterpretq_s64_p128(t);
+}
+static inline float64_t simd_low_float64x2(simd_float64x2_t v)
+{
+  return vgetq_lane_f64(v, 0);
+}
+
+static inline simd_float64x2_t simd_float64x2_round_near(simd_float64x2_t v)
+{
+  return vrndnq_f64(v);
+}
+
+static inline simd_float32x4_t simd_float32x4_round_near(simd_float32x4_t v)
+{
+  return vrndnq_f32(v);
 }
 
 int64x2_t vec128_of_int64s(int64_t low, int64_t high)
 {
-    return vcombine_s64(vcreate_s64(high), vcreate_s64(low));
+  return vcombine_s64(vcreate_s64(low), vcreate_s64(high));
 }
 
 #else /* __ARM_NEON */
@@ -107,6 +142,16 @@ static inline simd_float32x4_t simd_float32x4_round_near(simd_float32x4_t v)
 simd_int64x2_t vec128_of_int64s(int64_t low, int64_t high)
 {
   return _mm_set_epi64x(high, low);
+}
+
+int32_t test_simd_vec128_extract_ps(simd_float32x4_t a, intnat i) {
+  switch (i % 4) {
+    case 0: return (simd_extract_float32x4(a, 0));
+    case 1: return (simd_extract_float32x4(a, 1));
+    case 2: return (simd_extract_float32x4(a, 2));
+    case 3: return (simd_extract_float32x4(a, 3));
+    default: assert(0);
+  }
 }
 
 #else /* __SSE4_2__ */
@@ -257,6 +302,9 @@ BUILTIN(caml_int_clz_tagged_to_untagged);
 
 BUILTIN(caml_simd_vec128_interleave_low_32)
 BUILTIN(caml_simd_vec128_interleave_low_64)
+BUILTIN(caml_simd_float64_max);
+BUILTIN(caml_simd_float64_min);
+
 
 #include <float.h>
 #include <math.h>
@@ -531,6 +579,47 @@ double float64_sqrt(double f) {
   simd_float64x2_t v = simd_dup_float64x2(f);
   return simd_low_float64x2(simd_float64x2_sqrt(v));
 }
+
+static inline bool iszero_f64(double a) {
+  return ((a == 0.0) || (a == -0.0));
+}
+
+static inline bool iszero_f32(float a) {
+  return ((a == 0.0f) || (a == -0.0f));
+}
+
+static inline bool isnan_f32(float a) {
+  return (a != a);
+}
+
+double float64_min_match_sse(double l, double r) {
+  if (iszero_f64(l) && iszero_f64(r)) return r;
+  if (isnan(l) || isnan(r)) return r;
+  if (l < r) return l;
+  return r;
+}
+
+double float64_max_match_sse(double l, double r) {
+  if (iszero_f64(l) && iszero_f64(r)) return r;
+  if (isnan(l) || isnan(r)) return r;
+  if (l > r) return l;
+  return r;
+}
+
+float float32_min_match_sse(float l, float r) {
+  if (iszero_f32(l) && iszero_f32(r)) return r;
+  if (isnan_f32(l) || isnan_f32(r)) return r;
+  if (l < r) return l;
+  return r;
+}
+
+float float32_max_match_sse(float l, float r) {
+  if (iszero_f32(l) && iszero_f32(r)) return r;
+  if (isnan_f32(l) || isnan_f32(r)) return r;
+  if (l > r) return l;
+  return r;
+}
+
 double float64_min(double l, double r) {
   simd_float64x2_t lv = simd_dup_float64x2(l);
   simd_float64x2_t rv = simd_dup_float64x2(r);
@@ -542,7 +631,6 @@ double float64_max(double l, double r) {
   return simd_low_float64x2(simd_float64x2_max(lv, rv));
 }
 
-
 // Float32
 
 int32_t int32_of_float(float f) {
@@ -550,17 +638,6 @@ int32_t int32_of_float(float f) {
 }
 float float_of_int32(int32_t i) {
   return *(float*)&i;
-}
-
-int32_t test_simd_vec128_extract_ps(simd_float32x4_t a, intnat i) {
-  int32_t bits;
-  switch (i % 4) {
-    case 0: return (simd_extract_float32x4(a, 0));
-    case 1: return (simd_extract_float32x4(a, 1));
-    case 2: return (simd_extract_float32x4(a, 2));
-    case 3: return (simd_extract_float32x4(a, 3));
-    default: assert(0);
-  }
 }
 
 int32_t float32_zero(value unit) { return int32_of_float(0.0f); }
@@ -615,4 +692,9 @@ int32_t float32_cvt_i32(int32_t i) {
 int32_t float32_round(int32_t f) {
   simd_float32x4_t v = simd_dup_float32x4(float_of_int32(f));
   return simd_extract_float32x4(simd_float32x4_round_near(v), 0);
+}
+
+
+value caml_test_abort(value unused) {
+  abort ();
 }

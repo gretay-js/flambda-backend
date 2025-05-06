@@ -19,6 +19,26 @@ open Simd
 
 open! Int_replace_polymorphic_compare [@@ocaml.warning "-66"]
 
+(* CR-soon gyorsh: duplication of amd64 simd_selection check and erro
+   reporting. *)
+type error = Bad_immediate of string
+
+exception Error of error
+
+let bad_immediate fmt =
+  Format.kasprintf (fun msg -> raise (Error (Bad_immediate msg))) fmt
+
+(* Assumes untagged int *)
+let[@ocaml.warning "-4"] extract_constant args name ~max =
+  match args with
+  | Cmm.Cconst_int (i, _) :: args ->
+    if i < 0 || i > max
+    then
+      bad_immediate "Immediate for %s must be in range [0,%d] (got %d)" name max
+        i;
+    i, args
+  | _ -> bad_immediate "Did not get integer immediate for %s" name
+
 (* Intrinsics naming conventions:
 
    "caml_simd_*" for intrinsics used in the compiler distribution libraries, for
@@ -42,15 +62,21 @@ let select_simd_instr op args =
   | "caml_simd_float32_round_towards_zero" -> Some (Round_f32 Zero, args)
   | "caml_simd_float32_round_current" -> Some (Round_f32 Current, args)
   | "caml_neon_float64_round_current" -> Some (Round_f64 Current, args)
-  | "caml_simd_float32_round_nearest" -> Some (Round_f32 Nearest, args)
-  | "caml_neon_float64_round_nearest" -> Some (Round_f64 Nearest, args)
+  | "caml_simd_float32_round_near" -> Some (Round_f32 Nearest, args)
+  | "caml_neon_float64_round_near" -> Some (Round_f64 Nearest, args)
   | "caml_simd_cast_float32_int64" -> Some (Round_f32_i64, args)
+  (* min/max that match amd64 behavior, regardless of the value of FPCR.AH.
+     implemented as a sequence of instructions *)
   | "caml_simd_float32_min" -> Some (Min_scalar_f32, args)
   | "caml_simd_float32_max" -> Some (Max_scalar_f32, args)
   | "caml_simd_float64_min" -> Some (Min_scalar_f64, args)
   | "caml_simd_float64_max" -> Some (Max_scalar_f64, args)
-  | "caml_neon_float32_fmin" -> Some (Fmin_f32, args)
-  | "caml_neon_float32_fmax" -> Some (Fmax_f32, args)
+  (* min/max implemented as a single instruction. If FPCR.AH=1, matches amd64
+     behavior. *)
+  | "caml_neon_float32_min" -> Some (Fmin_f32, args)
+  | "caml_neon_float32_max" -> Some (Fmax_f32, args)
+  | "caml_neon_float64_min" -> Some (Fmin_f64, args)
+  | "caml_neon_float64_max" -> Some (Fmax_f64, args)
   | "caml_neon_float32x2_zip1" -> Some (Zip1_f32, args)
   | "caml_simd_vec128_interleave_low_32" | "caml_neon_float32x4_zip1" ->
     Some (Zip1q_f32, args)
@@ -66,16 +92,22 @@ let select_simd_instr op args =
   | "caml_neon_float32x4_div" -> Some (Divq_f32, args)
   | "caml_neon_float32x4_min" -> Some (Minq_f32, args)
   | "caml_neon_float32x4_max" -> Some (Maxq_f32, args)
+  | "caml_neon_float64x2_min" -> Some (Minq_f64, args)
+  | "caml_neon_float64x2_max" -> Some (Maxq_f64, args)
   | "caml_neon_float32x4_rcp" -> Some (Recpeq_f32, args)
   | "caml_neon_float32x4_sqrt" -> Some (Sqrtq_f32, args)
   | "caml_neon_float32x4_rsqrt" -> Some (Rsqrteq_f32, args)
   | "caml_neon_float32x4_round_current" -> Some (Round_f32x4 Current, args)
-  | "caml_neon_float32x4_round_nearest" -> Some (Round_f32x4 Nearest, args)
-  | "caml_neon_float32x4_to_int32x4" -> Some (Cvtq_s32_of_f32, args)
-  | "caml_neon_int32x4_to_float64x2" -> Some (Cvtq_f32_of_s32, args)
-  | "caml_neon_float32x2_to_float64x2" -> Some (Cvt_f64_f32, args)
+  | "caml_neon_float32x4_round_near" -> Some (Round_f32x4 Nearest, args)
+  | "caml_neon_cvt_int32x4_to_float32x4" -> Some (Cvtq_f32_s32, args)
+  | "caml_neon_cvt_float32x4_to_int32x4" -> Some (Cvtq_s32_f32, args)
+  | "caml_neon_cvt_float32x2_to_float64x2" -> Some (Cvt_f64_f32, args)
+  | "caml_neon_cvt_float64x2_to_float32x2" -> Some (Cvt_f32_f64, args)
+  | "caml_neon_cvt_int32x2_to_float64x2" -> Some (Cvt_f64_s32, args)
+  | "caml_neon_cvt_float64x2_to_int32x2" -> Some (Cvt_s32_f64, args)
   | "caml_neon_float32x4_hadd" -> Some (Paddq_f32, args)
   | "caml_neon_float32x4_cmeq" -> Some (Cmp_f32 EQ, args)
+  | "caml_neon_float32x4_cmge" -> Some (Cmp_f32 GE, args)
   | "caml_neon_float32x4_cmgt" -> Some (Cmp_f32 GT, args)
   | "caml_neon_float32x4_cmle" -> Some (Cmp_f32 LE, args)
   | "caml_neon_float32x4_cmlt" -> Some (Cmp_f32 LT, args)
@@ -84,6 +116,14 @@ let select_simd_instr op args =
   | "caml_neon_int32x4_cmpgtz" -> Some (Cmpz_s32 GT, args)
   | "caml_neon_int32x4_cmplez" -> Some (Cmpz_s32 LE, args)
   | "caml_neon_int32x4_cmpltz" -> Some (Cmpz_s32 LT, args)
+  | "caml_neon_int32x4_bitwise_not" -> Some (Mvnq_s32, args)
+  | "caml_neon_int32x4_bitwise_or" -> Some (Orrq_s32, args)
+  | "caml_neon_int32x4_bitwise_and" -> Some (Andq_s32, args)
+  | "caml_neon_int32x4_bitwise_xor" -> Some (Eorq_s32, args)
+  | "caml_neon_int32x4_neg" -> Some (Negq_s32, args)
+  | "caml_neon_int32x4_extract" ->
+    let lane, args = extract_constant args ~max:3 op in
+    Some (Getq_lane_s32 { lane }, args)
   | _ -> None
 
 let select_operation_cfg op args =
@@ -100,3 +140,13 @@ let vectorize_operation _ ~arg_count:_ ~res_count:_ ~alignment_in_bytes:_
     (_ : Operation.t list) :
     Vectorize_utils.Vectorized_instruction.t list option =
   None
+
+(* Error report *)
+
+let report_error ppf = function
+  | Bad_immediate msg -> Format.pp_print_string ppf msg
+
+let () =
+  Location.register_error_of_exn (function
+    | Error err -> Some (Location.error_of_printer_file report_error err)
+    | _ -> None)

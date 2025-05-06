@@ -121,6 +121,11 @@ module DSL : sig
 
   val emit_reg_v2d : Reg.t -> Arm64_ast.Operand.t
 
+  val emit_reg_v16b : Reg.t -> Arm64_ast.Operand.t
+
+  val emit_struct_reglane_d : Reg.t -> lane:int -> Arm64_ast.Operand.t
+    [@@warning "-32"]
+
   val imm : int -> Arm64_ast.Operand.t
 
   val imm_float : float -> Arm64_ast.Operand.t
@@ -184,12 +189,6 @@ module DSL : sig
     S.t ->
     Arm64_ast.Operand.t
 
-  val emit_immediate_symbol :
-    ?offset:int ->
-    ?reloc:Arm64_ast.Symbol.reloc_directive ->
-    S.t ->
-    Arm64_ast.Operand.t
-
   val ins : I.t -> Arm64_ast.Operand.t array -> unit
 
   val labeled_ins : L.t -> I.t -> Arm64_ast.Operand.t array -> unit
@@ -238,11 +237,21 @@ end = struct
     | Float32 -> Arm64_ast.Reg.reg_s index
     | Vec128 | Valx2 -> Arm64_ast.Reg.reg_q index
 
+  let emit_reglane_s reg ~lane =
+    (* Clang 17 assembler does not accept optional number of lanes notation of
+       the form Vn.4S[lane], even though it is required to do so in ARMARM. Emit
+       Vn.S[lane]. *)
+    reglane_s (reg_index reg) ~lane
+
+  let emit_struct_reglane_d reg ~lane = struct_reglane_d (reg_index reg) ~lane
+
   let emit_reg_v2s reg = reg_v2s (reg_index reg)
 
   let emit_reg_v4s reg = reg_v4s (reg_index reg)
 
   let emit_reg_v2d reg = reg_v2d (reg_index reg)
+
+  let emit_reg_v16b reg = reg_v16b (reg_index reg)
 
   let emit_reg_w reg = reg_w (reg_index reg)
 
@@ -270,10 +279,6 @@ end = struct
     symbol (Arm64_ast.Symbol.create ?offset ?reloc sym)
 
   let emit_symbol ?offset ?reloc s =
-    let sym = S.encode s in
-    symbol (Arm64_ast.Symbol.create ?offset ?reloc sym)
-
-  let emit_immediate_symbol ?offset ?reloc s =
     let sym = S.encode s in
     symbol (Arm64_ast.Symbol.create ?offset ?reloc sym)
 
@@ -331,13 +336,15 @@ end = struct
       check_reg Float i.arg.(0);
       check_reg Float i.arg.(1);
       check_reg Float i.res.(0)
-    | Rf32x4_Rf32x4_to_Ri32x4 | Rf32x4_Rf32x4_to_Rf32x4
-    | Rf64x2_Rf64x2_to_Rf64x2 | Ri64x2_Ri64x2_to_Ri64x2 ->
+    | Ri8x16_Ri8x16_to_Ri8x16 | Rf32x4_Rf32x4_to_Ri32x4
+    | Rf32x4_Rf32x4_to_Rf32x4 | Rf64x2_Rf64x2_to_Rf64x2
+    | Ri64x2_Ri64x2_to_Ri64x2 ->
       check_reg Vec128 i.arg.(0);
       check_reg Vec128 i.arg.(1);
       check_reg Vec128 i.res.(0)
     | Ri32x4_to_Ri32x4 | Rf32x2_to_Rf64x2 | Rf32x4_to_Rf32x4 | Rf32x4_to_Ri32x4
-    | Ri32x4_to_Rf32x4 ->
+    | Ri32x4_to_Rf32x4 | Rf64x2_to_f32x2 | Ri32x2_to_Rf64x2 | Rf64x2_to_Ri32x2
+    | Ri8x16_to_Ri8x16 ->
       check_reg Vec128 i.arg.(0);
       check_reg Vec128 i.res.(0)
     | Rf32_Rf32_to_Rf32 ->
@@ -357,6 +364,7 @@ end = struct
     | Rf32_to_Ri64 ->
       check_reg Float32 i.arg.(0);
       check_reg Int i.res.(0)
+    | Ri32x4_to_Ri32 _ -> check_reg Vec128 i.arg.(0)
 
   let src_operands ops =
     (* returns a copy of [ops] without the first operand, which is assumed to be
@@ -405,9 +413,20 @@ end = struct
     | Ri32x4_to_Ri32x4 | Rf32x4_to_Rf32x4 | Rf32x4_to_Ri32x4 | Ri32x4_to_Rf32x4
       ->
       [| emit_reg_v4s i.res.(0); emit_reg_v4s i.arg.(0) |]
-    | Rf32x2_to_Rf64x2 -> [| emit_reg_v2d i.res.(0); emit_reg_v2s i.arg.(0) |]
+    | Rf32x2_to_Rf64x2 | Ri32x2_to_Rf64x2 ->
+      [| emit_reg_v2d i.res.(0); emit_reg_v2s i.arg.(0) |]
+    | Rf64x2_to_Ri32x2 | Rf64x2_to_f32x2 ->
+      [| emit_reg_v2s i.res.(0); emit_reg_v2d i.arg.(0) |]
+    | Ri8x16_to_Ri8x16 -> [| emit_reg_v16b i.res.(0); emit_reg_v16b i.arg.(0) |]
+    | Ri8x16_Ri8x16_to_Ri8x16 ->
+      [| emit_reg_v16b i.res.(0);
+         emit_reg_v16b i.arg.(0);
+         emit_reg_v16b i.arg.(1)
+      |]
     | Rf32_Rf32_to_Rf32 | Rf64_Rf64_to_Rf64 -> emit_regs_binary i
     | Rf64_to_Rf64 | Rf32_to_Rf32 | Rf32_to_Ri64 -> emit_regs_unary i
+    | Ri32x4_to_Ri32 { lane : int } ->
+      [| emit_reg i.res.(0); emit_reglane_s i.arg.(0) ~lane |]
 
   let simd_instr_size (op : Simd.operation) =
     match op with
@@ -415,9 +434,12 @@ end = struct
     | Min_scalar_f32 | Max_scalar_f32 -> 2
     | Round_f32 _ | Round_f64 _ | Round_f32x4 _ | Round_f32_i64 | Zip1_f32
     | Zip1q_f32 | Zip1q_f64 | Zip2q_f64 | Addq_f32 | Subq_f32 | Mulq_f32
-    | Divq_f32 | Minq_f32 | Maxq_f32 | Recpeq_f32 | Sqrtq_f32 | Rsqrteq_f32
-    | Cvtq_s32_of_f32 | Cvtq_f32_of_s32 | Cvt_f64_f32 | Paddq_f32 | Fmin_f32
-    | Fmax_f32 | Addq_i64 | Subq_i64 | Cmp_f32 _ | Cmpz_s32 _ ->
+    | Divq_f32 | Minq_f32 | Maxq_f32 | Minq_f64 | Maxq_f64 | Recpeq_f32
+    | Sqrtq_f32 | Rsqrteq_f32 | Cvtq_s32_f32 | Cvtq_f32_s32 | Cvt_f64_f32
+    | Cvt_f32_f64 | Cvt_f64_s32 | Cvt_s32_f64 | Paddq_f32 | Fmin_f32 | Fmax_f32
+    | Fmin_f64 | Fmax_f64 | Addq_i64 | Subq_i64 | Cmp_f32 _ | Cmpz_f32 _
+    | Cmpz_s32 _ | Mvnq_s32 | Orrq_s32 | Andq_s32 | Eorq_s32 | Negq_s32
+    | Getq_lane_s32 _ ->
       1
 
   let emit_rounding_mode (rm : Simd.Rounding_mode.t) : I.Rounding_mode.t =
@@ -441,6 +463,12 @@ end = struct
     | LS -> LS
     | HI -> HI
 
+  let swap_args operands =
+    let tmp = operands.(1) in
+    operands.(1) <- operands.(2);
+    operands.(2) <- tmp;
+    operands
+
   let emit_cond (cond : Simd.Cond.t) : I.Cond.t =
     match cond with EQ -> EQ | GT -> GT | GE -> GE | LE -> LE | LT -> LT
 
@@ -463,6 +491,8 @@ end = struct
     | Round_f32_i64 -> ins I.FCVTNS operands
     | Fmin_f32 -> ins I.FMIN operands
     | Fmax_f32 -> ins I.FMAX operands
+    | Fmin_f64 -> ins I.FMIN operands
+    | Fmax_f64 -> ins I.FMAX operands
     | Zip1_f32 | Zip1q_f32 | Zip1q_f64 -> ins I.ZIP1 operands
     | Zip2q_f64 -> ins I.ZIP2 operands
     | Addq_i64 -> ins I.ADD operands
@@ -473,15 +503,41 @@ end = struct
     | Divq_f32 -> ins I.FDIV operands
     | Minq_f32 -> ins I.FMIN operands
     | Maxq_f32 -> ins I.FMAX operands
+    | Minq_f64 -> ins I.FMIN operands
+    | Maxq_f64 -> ins I.FMAX operands
     | Recpeq_f32 -> ins I.FRECPE operands
     | Sqrtq_f32 -> ins I.FSQRT operands
     | Rsqrteq_f32 -> ins I.FRSQRTE operands
-    | Cvtq_s32_of_f32 -> ins I.FCVT operands
-    | Cvtq_f32_of_s32 -> ins I.FCVT operands
+    | Cvtq_s32_f32 -> ins I.FCVTNS operands
+    | Cvtq_f32_s32 -> ins I.SCVTF operands
     | Cvt_f64_f32 -> ins I.FCVTL operands
+    | Cvt_f32_f64 -> ins I.FCVTN operands
+    | Cvt_f64_s32 -> ins I.SCVTF operands
+    | Cvt_s32_f64 -> ins I.FCVTNS operands
     | Paddq_f32 -> ins I.FADDP operands
-    | Cmp_f32 c -> ins (I.FCM (emit_float_cond c)) operands
+    | Cmp_f32 LT ->
+      (* FCMLT is only supported with ZERO. *)
+      (* CR gyorsh: [LT] and [GT] have different behavior w.r.t NaN arguments:
+         [LT] holds for unordered, [GT] does not, according to floating-point
+         column in Table C1-1 (Condition codes) in ARMARM. It doesn't seem to
+         apply to FCMLT/FCMGT according to a note in section C3.7.14 (SIMD
+         compare). *)
+      ins (I.FCM I.Float_cond.GT) (swap_args operands)
+    | Cmp_f32 LE ->
+      (* FCMLE is only supported with ZERO *)
+      (* CR gyorsh: same as LT/GT above. *)
+      ins (I.FCM I.Float_cond.GE) (swap_args operands)
+    | Cmp_f32 ((EQ | GT | GE | NE | CC | CS | LS | HI) as c) ->
+      ins (I.FCM (emit_float_cond c)) operands
+    | Cmpz_f32 c ->
+      ins (I.FCM (emit_float_cond c)) (Array.append operands [| imm_float 0. |])
     | Cmpz_s32 c -> ins (I.CM (emit_cond c)) (Array.append operands [| imm 0 |])
+    | Mvnq_s32 -> ins I.MVN operands
+    | Orrq_s32 -> ins I.ORR operands
+    | Andq_s32 -> ins I.AND operands
+    | Eorq_s32 -> ins I.EOR operands
+    | Negq_s32 -> ins I.NEG operands
+    | Getq_lane_s32 _ -> ins I.SMOV operands
 end
 
 (* Record live pointers at call points *)
@@ -613,7 +669,7 @@ let instr_for_int_operation = function
   | Ilsl -> I.LSL
   | Ilsr -> I.LSR
   | Iasr -> I.ASR
-  | Iclz _ | Ictz _ | Ipopcnt _ | Icomp _ | Imod | Imulh _ -> assert false
+  | Iclz _ | Ictz _ | Ipopcnt | Icomp _ | Imod | Imulh _ -> assert false
 
 (* Decompose an integer constant into four 16-bit shifted fragments. Omit the
    fragments that are equal to "default" (16 zeros or 16 ones). *)
@@ -742,6 +798,8 @@ let function_name = ref ""
 let tailrec_entry_point = ref None
 
 (* Pending floating-point literals *)
+let float32_literals = ref ([] : (int32 * L.t) list)
+
 let float_literals = ref ([] : (int64 * L.t) list)
 
 let vec128_literals = ref ([] : (Cmm.vec128_bits * L.t) list)
@@ -759,6 +817,8 @@ let add_literal p f =
     p := (f, lbl) :: !p;
     lbl
 
+let float32_literal f = add_literal float32_literals f
+
 let float_literal f = add_literal float_literals f
 
 let vec128_literal f = add_literal vec128_literals f
@@ -768,17 +828,37 @@ let emit_literals p align emit_literal =
   if not (Misc.Stdlib.List.is_empty !p)
   then (
     if macosx
-    then (
+    then
       D.switch_to_section_raw
-        ~names:["__TEXT,__literal" ^ Int.to_string align]
+        ~names:["__TEXT"; "__literal" ^ Int.to_string align]
         ~flags:None
-        ~args:[Int.to_string align ^ "byte_literals"];
-      (* CR sspies: The following section is incorrect. We are in a data section
-         here. Fix this when cleaning up the section mechanism. *)
-      D.unsafe_set_internal_section_ref Text);
+        ~args:[Int.to_string align ^ "byte_literals"]
+    else
+      D.switch_to_section_raw
+        ~names:[".rodata.cst" ^ Int.to_string align]
+        ~flags:(Some "aM")
+        ~args:["@progbits"; Int.to_string align];
+    (* CR sspies: We set the internal section ref to Text here, because section
+       ref does not support named text sections yet. Fix this when cleaning up
+       the section mechanism. *)
+    D.unsafe_set_internal_section_ref Text;
     D.align ~bytes:align;
     List.iter emit_literal !p;
     p := [])
+
+let emit_float32_literal (f, lbl) =
+  D.define_label lbl;
+  let comment =
+    if !Clflags.keep_asm_file
+    then Some (Printf.sprintf "%.12f" (Int32.float_of_bits f))
+    else None
+  in
+  (* Do not use [D.float32] to aviod conversion [Int32.float_of_bits f] that
+     does not preserve single precision. *)
+  D.int32 ?comment f;
+  (* padding to 8 bytes *)
+  D.int32 0xDEAD_BEEFl;
+  ()
 
 let emit_float_literal (f, lbl) =
   D.define_label lbl;
@@ -790,6 +870,8 @@ let emit_vec128_literal (({ high; low } : Cmm.vec128_bits), lbl) =
   D.float64_from_bits high
 
 let emit_literals () =
+  (* Align float32 literals to [size_float]=8 bytes, not 4. *)
+  emit_literals float32_literals size_float emit_float32_literal;
   emit_literals float_literals size_float emit_float_literal;
   emit_literals vec128_literals size_vec128 emit_vec128_literal
 
@@ -807,7 +889,7 @@ let emit_load_symbol_addr dst s =
     DSL.ins I.ADD
       [| DSL.emit_reg dst;
          DSL.emit_reg dst;
-         DSL.emit_immediate_symbol ~reloc:LOWER_TWELVE s
+         DSL.emit_symbol ~reloc:LOWER_TWELVE s
       |])
   else (
     DSL.ins I.ADRP [| DSL.emit_reg dst; DSL.emit_symbol ~reloc:GOT s |];
@@ -997,7 +1079,7 @@ module BR = Branch_relaxation.Make (struct
     | Lop (Intop (Imulh _)) -> 1
     | Lop (Intop (Iclz _)) -> 1
     | Lop (Intop (Ictz _)) -> if !Arch.feat_cssc then 1 else 2
-    | Lop (Intop (Ipopcnt _)) -> if !Arch.feat_cssc then 1 else 4
+    | Lop (Intop Ipopcnt) -> if !Arch.feat_cssc then 1 else 4
     | Lop
         (Intop
           (Iadd | Isub | Imul | Idiv | Iand | Ior | Ixor | Ilsl | Ilsr | Iasr))
@@ -1263,7 +1345,7 @@ let move (src : Reg.t) (dst : Reg.t) =
     | Float, Reg _, Float, Reg _ | Float32, Reg _, Float32, Reg _ ->
       DSL.ins I.FMOV [| DSL.emit_reg dst; DSL.emit_reg src |]
     | (Vec128 | Valx2), Reg _, (Vec128 | Valx2), Reg _ ->
-      DSL.ins I.MOV [| DSL.emit_reg_v2d dst; DSL.emit_reg_v2d src |]
+      DSL.ins I.MOV [| DSL.emit_reg_v16b dst; DSL.emit_reg_v16b src |]
     | (Int | Val | Addr), Reg _, (Int | Val | Addr), Reg _ ->
       DSL.ins I.MOV [| DSL.emit_reg dst; DSL.emit_reg src |]
     | _, Reg _, _, Stack _ ->
@@ -1317,7 +1399,7 @@ let emit_reinterpret_cast (cast : Cmm.reinterpret_cast) i =
     then (
       DSL.check_reg Vec128 src;
       DSL.check_reg Vec128 dst;
-      DSL.ins I.FMOV [| DSL.emit_reg dst; DSL.emit_reg src |])
+      DSL.ins I.MOV [| DSL.emit_reg_v16b dst; DSL.emit_reg_v16b src |])
   | Int_of_value | Value_of_int -> move src dst
 
 let emit_static_cast (cast : Cmm.static_cast) i =
@@ -1372,7 +1454,7 @@ let emit_static_cast (cast : Cmm.static_cast) i =
     | Int8x16 -> DSL.ins I.FMOV [| DSL.emit_reg_s dst; DSL.emit_reg_w src |]
     | Int16x8 -> DSL.ins I.FMOV [| DSL.emit_reg_s dst; DSL.emit_reg_w src |]
     | Int32x4 -> DSL.ins I.FMOV [| DSL.emit_reg_s dst; DSL.emit_reg_w src |]
-    | Int64x2 -> DSL.ins I.FMOV [| DSL.emit_reg_d dst; DSL.emit_reg src |]
+    | Int64x2 -> DSL.ins I.FMOV [| DSL.emit_reg_v2d dst; DSL.emit_reg src |]
     | Float32x4 ->
       if distinct
       then (
@@ -1430,7 +1512,7 @@ let emit_instr i =
          [float_literal] (see the conversion from int32 to int64 below). Thus,
          we load the lower half. Note that this is different from Cmm 32-bit
          floats ([Csingle]), which are emitted as 4-byte constants. *)
-      let lbl = float_literal (Int64.of_int32 f) in
+      let lbl = float32_literal f in
       emit_load_literal i.res.(0) lbl
   | Lop (Const_float f) ->
     if Int64.equal f 0L
@@ -1565,11 +1647,27 @@ let emit_instr i =
       DSL.check_reg Float32 dst;
       DSL.ins I.LDR
         [| DSL.emit_reg dst; DSL.emit_addressing addressing_mode base |]
-    | Onetwentyeight_aligned | Onetwentyeight_unaligned ->
-      (* CR gyorsh: check alignment *)
+    | Onetwentyeight_aligned ->
       DSL.check_reg Vec128 dst;
       DSL.ins I.LDR
-        [| DSL.emit_reg dst; DSL.emit_addressing addressing_mode base |])
+        [| DSL.emit_reg dst; DSL.emit_addressing addressing_mode base |]
+    | Onetwentyeight_unaligned ->
+      DSL.check_reg Vec128 dst;
+      (match addressing_mode with
+      | Iindexed n ->
+        DSL.ins I.ADD
+          [| DSL.emit_reg reg_tmp1; DSL.emit_reg i.arg.(0); DSL.imm n |]
+      | Ibased (s, offset) ->
+        assert (not !Clflags.dlcode);
+        (* see selection_utils.ml *)
+        let s = S.create s in
+        DSL.ins I.ADRP [| DSL.emit_reg reg_tmp1; DSL.emit_symbol ~offset s |];
+        DSL.ins I.ADD
+          [| DSL.emit_reg reg_tmp1;
+             DSL.emit_reg reg_tmp1;
+             DSL.emit_symbol ~reloc:LOWER_TWELVE ~offset s
+          |]);
+      DSL.ins I.LDR [| DSL.emit_reg dst; DSL.emit_mem reg_tmp1 |])
   | Lop (Store (size, addr, assignment)) -> (
     (* NB: assignments other than Word_int and Word_val do not follow the
        Multicore OCaml memory model and so do not emit a barrier *)
@@ -1603,10 +1701,26 @@ let emit_instr i =
     | Single { reg = Float32 } ->
       DSL.check_reg Float32 src;
       DSL.ins I.STR [| DSL.emit_reg src; DSL.emit_addressing addr base |]
-    | Onetwentyeight_aligned | Onetwentyeight_unaligned ->
-      (* CR gyorsh: check alignment *)
+    | Onetwentyeight_aligned ->
       DSL.check_reg Vec128 src;
-      DSL.ins I.STR [| DSL.emit_reg src; DSL.emit_addressing addr base |])
+      DSL.ins I.STR [| DSL.emit_reg src; DSL.emit_mem base |]
+    | Onetwentyeight_unaligned ->
+      DSL.check_reg Vec128 src;
+      (match addr with
+      | Iindexed n ->
+        DSL.ins I.ADD
+          [| DSL.emit_reg reg_tmp1; DSL.emit_reg i.arg.(1); DSL.imm n |]
+      | Ibased (s, offset) ->
+        assert (not !Clflags.dlcode);
+        (* see selection_utils.ml *)
+        let s = S.create s in
+        DSL.ins I.ADRP [| DSL.emit_reg reg_tmp1; DSL.emit_symbol ~offset s |];
+        DSL.ins I.ADD
+          [| DSL.emit_reg reg_tmp1;
+             DSL.emit_reg reg_tmp1;
+             DSL.emit_symbol ~reloc:LOWER_TWELVE ~offset s
+          |]);
+      DSL.ins I.STR [| DSL.emit_reg src; DSL.emit_mem reg_tmp1 |])
   | Lop (Alloc { bytes = n; dbginfo; mode = Heap }) ->
     assembly_code_for_allocation i ~n ~local:false ~far:false ~dbginfo
   | Lop (Specific (Ifar_alloc { bytes = n; dbginfo })) ->
@@ -1674,38 +1788,31 @@ let emit_instr i =
          DSL.emit_reg i.arg.(0);
          DSL.emit_reg i.arg.(1)
       |]
-  | Lop (Intop (Iclz _)) ->
-    DSL.ins I.CLZ [| DSL.emit_reg i.res.(0); DSL.emit_reg i.arg.(0) |]
+  | Lop (Intop Ipopcnt) ->
+    if !Arch.feat_cssc
+    then DSL.ins I.CNT [| DSL.emit_reg i.res.(0); DSL.emit_reg i.arg.(0) |]
+    else
+      let tmp = 7 in
+      let tmp_d = Arm64_ast.DSL.reg_d tmp in
+      let tmp_v8b = Arm64_ast.DSL.reg_v8b tmp in
+      DSL.ins I.FMOV [| tmp_d; DSL.emit_reg i.arg.(0) |];
+      DSL.ins I.CNT [| tmp_v8b; tmp_v8b |];
+      DSL.ins I.ADDV [| Arm64_ast.DSL.reg_b tmp; tmp_v8b |];
+      DSL.ins I.FMOV [| DSL.emit_reg i.res.(0); tmp_d |]
   | Lop (Intop (Ictz _)) ->
-    (* `ctz Rd, Rn` is optionally supported from Armv8.7, but rbit and clz are
+    (* [ctz Rd, Rn] is optionally supported from Armv8.7, but rbit and clz are
        supported in all ARMv8 CPUs. *)
     if !Arch.feat_cssc
     then DSL.ins I.CTZ [| DSL.emit_reg i.res.(0); DSL.emit_reg i.arg.(0) |]
     else (
       DSL.ins I.RBIT [| DSL.emit_reg i.res.(0); DSL.emit_reg i.arg.(0) |];
       DSL.ins I.CLZ [| DSL.emit_reg i.res.(0); DSL.emit_reg i.res.(0) |])
-  | Lop (Intop Ipopcnt) ->
-    if !Arch.feat_cssc
-    then DSL.ins I.CNT [| DSL.emit_reg i.res.(0); DSL.emit_reg i.arg.(0) |]
-    else
-      let tmp = 7 in
-      let tmp_v8b = Arm64_ast.DSL.reg_v8b tmp in
-      DSL.ins I.FMOV [| Arm64_ast.DSL.reg_d tmp; DSL.emit_reg i.arg.(0) |];
-      DSL.ins I.CNT [| tmp_v8b; tmp_v8b |];
-      DSL.ins I.ADDV [| Arm64_ast.DSL.reg_b tmp; tmp_v8b |];
-      DSL.ins I.FMOV [| DSL.emit_reg i.res.(0); Arm64_ast.DSL.reg_s tmp |]
-  | Lop (Intop (Ictz _)) ->
-    (* emit_printf "ctz Rd, Rn" is optionally supported from Armv8.7, but rbit
-       and clz are supported in all ARMv8 CPUs. *)
-    DSL.ins I.RBIT [| DSL.emit_reg i.res.(0); DSL.emit_reg i.arg.(0) |];
-    DSL.ins I.CLZ [| DSL.emit_reg i.res.(0); DSL.emit_reg i.res.(0) |]
-  | Lop (Intop (Iclz _ as op)) ->
-    let instr = instr_for_int_operation op in
-    DSL.ins instr [| DSL.emit_reg i.res.(0); DSL.emit_reg i.arg.(0) |]
+  | Lop (Intop (Iclz _)) ->
+    DSL.ins I.CLZ [| DSL.emit_reg i.res.(0); DSL.emit_reg i.arg.(0) |]
   | Lop
       (Intop
-        (( Iadd | Isub | Imul | Idiv | Iand | Ior | Ixor | Ilsl | Ilsr | Iasr
-         | Ipopcnt ) as op)) ->
+        ((Iadd | Isub | Imul | Idiv | Iand | Ior | Ixor | Ilsl | Ilsr | Iasr) as
+        op)) ->
     let instr = instr_for_int_operation op in
     DSL.ins instr
       [| DSL.emit_reg i.res.(0);
@@ -2136,7 +2243,7 @@ let emit_item (d : Cmm.data_item) =
   | Cint32 n -> D.int32 (Numbers.Int64.to_int32_exn (Int64.of_nativeint n))
   (* CR mshinwell: Add [Targetint.of_nativeint] *)
   | Cint n -> D.targetint (Targetint.of_int64 (Int64.of_nativeint n))
-  | Csingle f -> D.float32 f
+  | Csingle f -> D.float32_boo f
   | Cdouble f -> D.float64 f
   | Cvec128 { high; low } ->
     D.float64_from_bits low;

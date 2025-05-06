@@ -7,8 +7,11 @@ let enabled_if_main_amd64_not_macos =
            (<> %{system} macosx)))|}
 
 let impl name = name ^ ".ml"
+
 let output name = name ^ ".out"
+
 let runner name = name ^ ".exe"
+
 let expected _name = "empty.expected"
 
 let buf = Buffer.create 1000
@@ -89,11 +92,7 @@ let copy_file ~enabled_if name new_name =
 
 let mangle flag =
   (* convert dashes to underscores *)
-  let dash_to_underscore c =
-    match c with
-    | '-' -> '_'
-    | c -> c
-  in
+  let dash_to_underscore c = match c with '-' -> '_' | c -> c in
   String.map dash_to_underscore flag
 
 let print_test ?extra_flag (name, enabled_if) =
@@ -101,9 +100,9 @@ let print_test ?extra_flag (name, enabled_if) =
     match extra_flag with
     | None -> name, ""
     | Some flag ->
-        let new_name = name^(mangle flag) in
-        copy_file ~enabled_if name new_name;
-        new_name, flag
+      let new_name = name ^ mangle flag in
+      copy_file ~enabled_if name new_name;
+      new_name, flag
   in
   compile ~enabled_if ~extra_flags name;
   run ~enabled_if name;
@@ -114,6 +113,10 @@ let () =
   let tests =
     [ "basic", enabled_if_main;
       "basic_u", enabled_if_main;
+      "ops_float32x4", enabled_if_main;
+      "ops_float32x4_u", enabled_if_main;
+      "ops_float64x2", enabled_if_main_amd64_not_macos;
+      "ops_float64x2_u", enabled_if_main_amd64_not_macos;
       "ops", enabled_if_main_amd64_not_macos;
       "ops_u", enabled_if_main_amd64_not_macos;
       "arrays", enabled_if_main;
@@ -128,7 +131,7 @@ let () =
   List.iter (print_test ~extra_flag:"-nodynlink") tests;
   let tests =
     (* disable on macos and arm64 *)
-    List.map (fun (name, _) -> (name, enabled_if_main_amd64_not_macos)) tests
+    List.map (fun (name, _) -> name, enabled_if_main_amd64_not_macos) tests
   in
   List.iter (print_test ~extra_flag:"-internal-assembler") tests;
   ()

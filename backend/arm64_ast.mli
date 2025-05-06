@@ -27,9 +27,7 @@ module Neon_reg_name : sig
       | Q
   end
 
-  type t =
-    | Vector of Vector.t
-    | Scalar of Scalar.t
+  type t
 end
 
 (* General-purpose register description *)
@@ -183,18 +181,17 @@ module Instruction_name : sig
     | MUL
     | DIV
     | AND
-    | OR
-    | XOR
+    | ORR
+    | EOR
     | LSL
     | LSR
     | ASR
     | CLZ
+    | CTZ
     | RBIT
     | CNT
     | SMULH
     | UMULH
-    | ORR
-    | EOR
     | B
     | BR
     | B_cond of Cond.t
@@ -263,6 +260,8 @@ module Instruction_name : sig
     | FCVTZS
     | FCVTNS
     | SCVTF
+    | FCVTL
+    | FCVTN
     | FRINT of Rounding_mode.t
     | FRINT64 of Rounding_mode.t
     | FMIN
@@ -276,8 +275,11 @@ module Instruction_name : sig
     | FADDP
     | FCM of Float_cond.t
     | CM of Cond.t
-    | FCVTL
     | ADDV
+    | MVN
+    | NEG
+    | SMOV
+    | LD1
 end
 
 module DSL : sig
@@ -323,6 +325,8 @@ module DSL : sig
 
   val reg_v8b : int -> Operand.t
 
+  val reg_v16b : int -> Operand.t
+
   val reg_b : int -> Operand.t
 
   val reg_s : int -> Operand.t
@@ -340,6 +344,16 @@ module DSL : sig
   val xzr : Operand.t
 
   val wzr : Operand.t
+
+  val reglane_v4s : int -> lane:int -> Operand.t
+
+  val reglane_v2d : int -> lane:int -> Operand.t
+
+  val reglane_s : int -> lane:int -> Operand.t
+
+  val reglane_d : int -> lane:int -> Operand.t
+
+  val struct_reglane_d : int -> lane:int -> Operand.t
 
   (* CR gyorsh: [print_*] functions below are exposed temporarily to use DSL for
      some but not all instructions in [emit.ml]. They can eventually*)

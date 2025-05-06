@@ -128,8 +128,8 @@ let select_operation_sse op args =
 let select_operation_sse2 op args =
   match op with
   | "caml_sse2_float64_sqrt" | "sqrt" -> instr sqrtsd args
-  | "caml_sse2_float64_max" -> instr maxsd args
-  | "caml_sse2_float64_min" -> instr minsd args
+  | "caml_simd_float64_max" | "caml_sse2_float64_max" -> instr maxsd args
+  | "caml_simd_float64_min" | "caml_sse2_float64_min" -> instr minsd args
   | "caml_sse2_cast_float64_int64" -> instr cvtsd2si_r64_Xm64 args
   | "caml_sse2_float64x2_sqrt" -> instr sqrtpd args
   | "caml_sse2_int8x16_add" -> instr paddb args
@@ -182,8 +182,8 @@ let select_operation_sse2 op args =
     instr cmppd ~i args
   | "caml_sse2_cvt_int32x4_float64x2" -> instr cvtdq2pd args
   | "caml_sse2_cvt_int32x4_float32x4" -> instr cvtdq2ps args
-  | "caml_sse2_cvt_float64x2_int32x4" -> instr cvtpd2dq args
-  | "caml_sse2_cvt_float64x2_float32x4" -> instr cvtpd2ps args
+  | "caml_sse2_cvt_float64x2_int32x2" -> instr cvtpd2dq args
+  | "caml_sse2_cvt_float64x2_float32x2" -> instr cvtpd2ps args
   | "caml_sse2_cvt_float32x4_int32x4" -> instr cvtps2dq args
   | "caml_sse2_cvt_float32x4_float64x2" -> instr cvtps2pd args
   | "caml_sse2_cvt_int16x8_int8x16_saturating" -> instr packsswb args

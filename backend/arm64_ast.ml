@@ -30,6 +30,17 @@ module Neon_reg_name = struct
       | V1D -> "1D"
       | V2D -> "2D"
 
+    let num_lanes t =
+      match t with
+      | V8B -> 8
+      | V16B -> 16
+      | V4H -> 4
+      | V8H -> 8
+      | V2S -> 2
+      | V4S -> 4
+      | V1D -> 1
+      | V2D -> 2
+
     let name t index = Printf.sprintf "V%d.%s" index (to_string t)
   end
 
@@ -41,24 +52,75 @@ module Neon_reg_name = struct
       | D
       | Q
 
+    let num_lanes t = match t with B -> 16 | H -> 8 | S -> 4 | D -> 2 | Q -> 1
+
     let to_string t =
       match t with B -> "b" | H -> "h" | S -> "s" | D -> "d" | Q -> "q"
 
     let name t index = Printf.sprintf "%s%d" (to_string t) index
   end
 
+  module Lane = struct
+    (** Support representation with and without the optional number of lanes, for
+        example Vn.4S[1] and Vn.S[1]. *)
+    type r =
+      | V of Vector.t
+      | S of Scalar.t
+
+    type t =
+      { r : r;
+        lane : int
+      }
+
+    let num_lanes r =
+      match r with V v -> Vector.num_lanes v | S s -> Scalar.num_lanes s
+
+    let check_index t =
+      let last = num_lanes t.r - 1 in
+      check_index 0 last t.lane
+
+    let name t index =
+      let suffix =
+        match t.r with V v -> Vector.to_string v | S s -> Scalar.to_string s
+      in
+      Printf.sprintf "V%d.%s[%d]" index suffix t.lane
+  end
+
+  module Struct_lane = struct
+    type t =
+      { r : Scalar.t;
+        lane : int
+      }
+
+    let check_index t =
+      let last = Scalar.num_lanes t.r - 1 in
+      check_index 0 last t.lane
+
+    let name t index =
+      Printf.sprintf "{V%d.%s}[%d]" index (Scalar.to_string t.r) t.lane
+  end
+
   type t =
     | Vector of Vector.t
     | Scalar of Scalar.t
+    | Lane of Lane.t
+    | Struct_lane of Struct_lane.t
 
   let last = 31
 
-  let check_index _t index = check_index 0 last index
+  let check_index t index =
+    check_index 0 last index;
+    match t with
+    | Vector _ | Scalar _ -> ()
+    | Lane l -> Lane.check_index l
+    | Struct_lane l -> Struct_lane.check_index l
 
   let name t index =
     match t with
     | Vector v -> Vector.name v index
     | Scalar s -> Scalar.name s index
+    | Lane l -> Lane.name l index
+    | Struct_lane l -> Struct_lane.name l index
 end
 
 (* General-purpose register description *)
@@ -140,6 +202,14 @@ module Reg = struct
   let reg_q_array =
     reg_array ~last:Neon_reg_name.last (Reg_name.Neon (Neon_reg_name.Scalar Q))
 
+  let reg_v2s_array =
+    reg_array ~last:Neon_reg_name.last
+      (Reg_name.Neon (Neon_reg_name.Vector V2S))
+
+  let reg_v4s_array =
+    reg_array ~last:Neon_reg_name.last
+      (Reg_name.Neon (Neon_reg_name.Vector V4S))
+
   let reg_v2d_array =
     reg_array ~last:Neon_reg_name.last
       (Reg_name.Neon (Neon_reg_name.Vector V2D))
@@ -147,6 +217,10 @@ module Reg = struct
   let reg_v8b_array =
     reg_array ~last:Neon_reg_name.last
       (Reg_name.Neon (Neon_reg_name.Vector V8B))
+
+  let reg_v16b_array =
+    reg_array ~last:Neon_reg_name.last
+      (Reg_name.Neon (Neon_reg_name.Vector V16B))
 
   (* for special GP registers we use the last index *)
   let sp = create (GP SP) GP_reg_name.last
@@ -288,18 +362,17 @@ module Instruction_name = struct
     | MUL
     | DIV
     | AND
-    | OR
-    | XOR
+    | ORR
+    | EOR
     | LSL
     | LSR
     | ASR
     | CLZ
+    | CTZ
     | RBIT
     | CNT
     | SMULH
     | UMULH
-    | ORR
-    | EOR
     | B
     | BR
     | B_cond of Cond.t
@@ -368,6 +441,8 @@ module Instruction_name = struct
     | FCVTZS
     | FCVTNS
     | SCVTF
+    | FCVTL
+    | FCVTN
     | FRINT of Rounding_mode.t
     | FRINT64 of Rounding_mode.t
     | FMIN
@@ -381,8 +456,11 @@ module Instruction_name = struct
     | FADDP
     | FCM of Float_cond.t
     | CM of Cond.t
-    | FCVTL
     | ADDV
+    | MVN
+    | NEG
+    | SMOV
+    | LD1
 
   (* CR gyorsh: can some of this be automatically generated from the type? *)
   let to_string t =
@@ -393,18 +471,17 @@ module Instruction_name = struct
     | MUL -> "mul"
     | DIV -> "div"
     | AND -> "and"
-    | OR -> "or"
-    | XOR -> "xor"
+    | ORR -> "orr"
+    | EOR -> "eor"
     | LSL -> "lsl"
     | LSR -> "lsr"
     | ASR -> "asr"
     | CLZ -> "clz"
+    | CTZ -> "ctz"
     | RBIT -> "rbit"
     | CNT -> "cnt"
     | SMULH -> "smulh"
     | UMULH -> "umulh"
-    | ORR -> "orr"
-    | EOR -> "eor"
     | B -> "b"
     | BR -> "br"
     | B_cond c -> "b." ^ Cond.to_string c
@@ -473,6 +550,7 @@ module Instruction_name = struct
     | FCVTZS -> "fcvtzs"
     | FCVTNS -> "fcvtns"
     | SCVTF -> "scvtf"
+    | FCVTN -> "fcvtn"
     | FRINT rm -> "frint" ^ Rounding_mode.to_string rm
     | FRINT64 rm -> "frint64" ^ Rounding_mode.to_string rm
     | FMIN -> "fmin"
@@ -488,6 +566,10 @@ module Instruction_name = struct
     | CM cond -> "cm" ^ Cond.to_string cond
     | FCVTL -> "fcvtl"
     | ADDV -> "addv"
+    | MVN -> "mvn"
+    | NEG -> "neg"
+    | SMOV -> "smov"
+    | LD1 -> "ld1"
 end
 
 module Symbol = struct
@@ -666,9 +748,15 @@ module Operand = struct
 
   let reg_q = Array.map (fun x -> Reg x) Reg.reg_q_array
 
+  let reg_v2s = Array.map (fun x -> Reg x) Reg.reg_v2s_array
+
+  let reg_v4s = Array.map (fun x -> Reg x) Reg.reg_v4s_array
+
   let reg_v2d = Array.map (fun x -> Reg x) Reg.reg_v2d_array
 
   let reg_v8b = Array.map (fun x -> Reg x) Reg.reg_v8b_array
+
+  let reg_v16b = Array.map (fun x -> Reg x) Reg.reg_v16b_array
 end
 
 module Instruction = struct
@@ -793,15 +881,40 @@ module DSL = struct
 
   let shift ~kind ~amount = Operand.Shift { kind; amount }
 
-  let reg_v2s index =
-    Operand.Reg (Reg.create (Reg_name.Neon (Vector V2S)) index)
+  let reglane index ~lane r =
+    let reg_name = Reg_name.(Neon Neon_reg_name.(Lane { r; lane })) in
+    Operand.Reg (Reg.create reg_name index)
 
-  let reg_v4s index =
-    Operand.Reg (Reg.create (Reg_name.Neon (Vector V4S)) index)
+  let reglane_v4s index ~lane =
+    let r = Neon_reg_name.(Lane.V Vector.V4S) in
+    reglane index ~lane r
+
+  let reglane_v2d index ~lane =
+    let r = Neon_reg_name.(Lane.V Vector.V2D) in
+    reglane index ~lane r
+
+  let reglane_s index ~lane =
+    let r = Neon_reg_name.(Lane.S Scalar.S) in
+    reglane index ~lane r
+
+  let reglane_d index ~lane =
+    let r = Neon_reg_name.(Lane.S Scalar.D) in
+    reglane index ~lane r
+
+  let struct_reglane_d index ~lane =
+    let r = Neon_reg_name.Scalar.D in
+    let reg_name = Reg_name.(Neon Neon_reg_name.(Struct_lane { r; lane })) in
+    Operand.Reg (Reg.create reg_name index)
+
+  let reg_v2s index = Operand.reg_v2s.(index)
+
+  let reg_v4s index = Operand.reg_v4s.(index)
 
   let reg_v2d index = Operand.reg_v2d.(index)
 
   let reg_v8b index = Operand.reg_v8b.(index)
+
+  let reg_v16b index = Operand.reg_v16b.(index)
 
   let reg_b index = Operand.reg_b.(index)
 

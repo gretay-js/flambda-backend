@@ -85,7 +85,7 @@ val uleb128 : ?comment:string -> Numbers.Uint64.t -> unit
 val sleb128 : ?comment:string -> Int64.t -> unit
 
 (** Emit a 32-bit-wide floating point number. *)
-val float32 : float -> unit
+val float32_boo : float -> unit
 
 (** Emit a 64-bit-wide floating point number. *)
 val float64 : float -> unit

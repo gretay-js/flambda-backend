@@ -12,6 +12,14 @@ external c_max : (t[@unboxed]) -> (t[@unboxed]) -> (t[@unboxed])
   = "caml_vec128_unreachable" "float64_max"
   [@@noalloc]
 
+external c_min_match_sse : (t[@unboxed]) -> (t[@unboxed]) -> (t[@unboxed])
+  = "caml_vec128_unreachable" "float64_min_match_sse"
+  [@@noalloc]
+
+external c_max_match_sse : (t[@unboxed]) -> (t[@unboxed]) -> (t[@unboxed])
+  = "caml_vec128_unreachable" "float64_max_match_sse"
+  [@@noalloc]
+
 external c_sqrt : (t[@unboxed]) -> (t[@unboxed])
   = "caml_vec128_unreachable" "float64_sqrt"
   [@@noalloc]
@@ -30,7 +38,9 @@ let check_floats f =
   f minus_one minus_one;
   f one minus_one;
   f zero (-0.0);
+  f (-0.0) zero;
   f nan zero;
+  f zero nan;
   f infinity zero;
   f neg_infinity zero;
   f nan nan;

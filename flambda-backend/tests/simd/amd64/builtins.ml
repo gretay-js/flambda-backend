@@ -7,6 +7,14 @@ module Float64 = struct
   external min : t -> t -> t = "" "caml_sse2_float64_min"
     [@@noalloc] [@@builtin] [@@unboxed]
 
+  external max_match_sse : t -> t -> t
+    = "caml_vec128_unreachable" "caml_simd_float64_max"
+    [@@noalloc] [@@builtin] [@@unboxed]
+
+  external min_match_sse : t -> t -> t
+    = "caml_vec128_unreachable" "caml_simd_float64_min"
+    [@@noalloc] [@@builtin] [@@unboxed]
+
   external sqrt : t -> t = "" "caml_sse2_float64_sqrt"
     [@@noalloc] [@@builtin] [@@unboxed]
 
@@ -123,11 +131,11 @@ module Float64x2 = struct
     [@@noalloc] [@@unboxed] [@@builtin]
 
   external cvt_int32x4 : t -> int32x4
-    = "caml_vec128_unreachable" "caml_sse2_cvt_float64x2_int32x4"
+    = "caml_vec128_unreachable" "caml_sse2_cvt_float64x2_int32x2"
     [@@noalloc] [@@unboxed] [@@builtin]
 
   external cvt_float32x4 : t -> float32x4
-    = "caml_vec128_unreachable" "caml_sse2_cvt_float64x2_float32x4"
+    = "caml_vec128_unreachable" "caml_sse2_cvt_float64x2_float32x2"
     [@@noalloc] [@@unboxed] [@@builtin]
 
   external addsub : t -> t -> t
