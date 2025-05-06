@@ -294,6 +294,7 @@ module Instruction_name = struct
     | LSR
     | ASR
     | CLZ
+    | CTZ
     | RBIT
     | CNT
     | SMULH
