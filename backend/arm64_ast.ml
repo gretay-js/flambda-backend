@@ -128,6 +128,9 @@ module Reg = struct
   let reg_w_array =
     reg_array ~last:GP_reg_name.last_numbered (Reg_name.GP GP_reg_name.W)
 
+  let reg_b_array =
+    reg_array ~last:Neon_reg_name.last (Reg_name.Neon (Neon_reg_name.Scalar B))
+
   let reg_s_array =
     reg_array ~last:Neon_reg_name.last (Reg_name.Neon (Neon_reg_name.Scalar S))
 
@@ -140,6 +143,10 @@ module Reg = struct
   let reg_v2d_array =
     reg_array ~last:Neon_reg_name.last
       (Reg_name.Neon (Neon_reg_name.Vector V2D))
+
+  let reg_v8b_array =
+    reg_array ~last:Neon_reg_name.last
+      (Reg_name.Neon (Neon_reg_name.Vector V8B))
 
   (* for special GP registers we use the last index *)
   let sp = create (GP SP) GP_reg_name.last
@@ -651,6 +658,8 @@ module Operand = struct
 
   let reg_w = Array.map (fun x -> Reg x) Reg.reg_w_array
 
+  let reg_b = Array.map (fun x -> Reg x) Reg.reg_b_array
+
   let reg_s = Array.map (fun x -> Reg x) Reg.reg_s_array
 
   let reg_d = Array.map (fun x -> Reg x) Reg.reg_d_array
@@ -658,6 +667,8 @@ module Operand = struct
   let reg_q = Array.map (fun x -> Reg x) Reg.reg_q_array
 
   let reg_v2d = Array.map (fun x -> Reg x) Reg.reg_v2d_array
+
+  let reg_v8b = Array.map (fun x -> Reg x) Reg.reg_v8b_array
 end
 
 module Instruction = struct
@@ -789,6 +800,10 @@ module DSL = struct
     Operand.Reg (Reg.create (Reg_name.Neon (Vector V4S)) index)
 
   let reg_v2d index = Operand.reg_v2d.(index)
+
+  let reg_v8b index = Operand.reg_v8b.(index)
+
+  let reg_b index = Operand.reg_b.(index)
 
   let reg_s index = Operand.reg_s.(index)
 
