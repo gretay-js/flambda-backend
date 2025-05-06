@@ -400,6 +400,7 @@ module Instruction_name = struct
     | LSR -> "lsr"
     | ASR -> "asr"
     | CLZ -> "clz"
+    | CTZ -> "ctz"
     | RBIT -> "rbit"
     | CNT -> "cnt"
     | SMULH -> "smulh"

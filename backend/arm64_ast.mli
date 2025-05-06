@@ -189,6 +189,7 @@ module Instruction_name : sig
     | LSR
     | ASR
     | CLZ
+    | CTZ
     | RBIT
     | CNT
     | SMULH
