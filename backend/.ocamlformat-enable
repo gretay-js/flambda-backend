@@ -10,6 +10,8 @@ amd64/stack_check.ml
 amd64/stack_class.ml
 amd64/vectorize_specific.ml
 amd64/regalloc_stack_operands.ml
+amd64_simdgen/**/*.ml
+amd64_simdgen/**/*.mli
 arm64/cfg_selection.ml
 arm64/emit.ml
 arm64/reg_class.ml
@@ -23,6 +25,8 @@ arm64/vectorize_specific.ml
 arm64/regalloc_stack_operands.ml
 arm64_ast.ml
 arm64_ast.mli
+arm64_simdgen/**/*.ml
+arm64_simdgen/**/*.mli
 asm_targets/**/*.ml
 asm_targets/**/*.mli
 branch_relaxation.ml

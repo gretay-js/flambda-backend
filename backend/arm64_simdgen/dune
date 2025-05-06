@@ -15,7 +15,7 @@
 (executable
  (name simdgen)
  (modes native)
- (modules simdgen arm64_simd_defs))
+ (modules simdgen arm64_regs arm64_simd_defs))
 
 (rule
  (target arm64_simd_instrs.ml)
