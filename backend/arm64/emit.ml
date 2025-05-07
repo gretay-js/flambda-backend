@@ -497,11 +497,17 @@ end = struct
     | Cvt_f64_f32 -> ins I.FCVTL operands
     | Paddq_f32 -> ins I.FADDP operands
     | Cmp_f32 LT ->
-      (* FCMLT is only supported with ZERO *)
-      ins (I.FCM I.Float_cond.HI) (swap_args operands)
+      (* FCMLT is only supported with ZERO. *)
+      (* CR gyorsh: [LT] and [GT] have different behavior w.r.t NaN arguments:
+         [LT] holds for unordered, [GT] does not, according to floating-point
+         column in Table C1-1 (Condition codes) in ARMARM. It doesn't seem to
+         apply to FCMLT/FCMGT according to a note in section C3.7.14 (SIMD
+         compare). *)
+      ins (I.FCM I.Float_cond.GT) (swap_args operands)
     | Cmp_f32 LE ->
       (* FCMLE is only supported with ZERO *)
-      ins (I.FCM I.Float_cond.CS) (swap_args operands)
+      (* CR gyorsh: same as LT/GT above. *)
+      ins (I.FCM I.Float_cond.GE) (swap_args operands)
     | Cmp_f32 ((EQ | GT | GE | NE | CC | CS | LS | HI) as c) ->
       ins (I.FCM (emit_float_cond c)) operands
     | Cmpz_f32 c ->
