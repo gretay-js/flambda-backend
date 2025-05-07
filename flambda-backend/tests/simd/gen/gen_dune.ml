@@ -113,6 +113,8 @@ let () =
   let tests =
     [ "basic", enabled_if_main;
       "basic_u", enabled_if_main;
+      "ops_float32x4", enabled_if_main;
+      "ops_float32x4_u", enabled_if_main;
       "ops", enabled_if_main_amd64_not_macos;
       "ops_u", enabled_if_main_amd64_not_macos;
       "arrays", enabled_if_main;

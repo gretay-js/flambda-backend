@@ -29,7 +29,7 @@
 
 (rule
  (targets ops_u.ml)
- (deps unbox_types.ml ops.ml)
+ (deps ops.ml)
  (action
   (with-stdout-to
    ops_u.ml
@@ -37,6 +37,17 @@
    (echo "module Builtins = Builtins_u\n\n")
    (echo "module Utils = Utils_u\n\n")
    (cat "ops.ml")))))
+
+(rule
+ (targets ops_float32x4_u.ml)
+ (deps ops_float32x4.ml)
+ (action
+  (with-stdout-to
+   ops_float32x4_u.ml
+   (progn
+   (echo "module Builtins = Builtins_u\n\n")
+   (echo "module Utils = Utils_u\n\n")
+   (cat "ops_float32x4.ml")))))
 
 (library
  (name simd_test_builtins)
