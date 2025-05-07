@@ -426,8 +426,8 @@ end = struct
     | Zip1q_f32 | Zip1q_f64 | Zip2q_f64 | Addq_f32 | Subq_f32 | Mulq_f32
     | Divq_f32 | Minq_f32 | Maxq_f32 | Recpeq_f32 | Sqrtq_f32 | Rsqrteq_f32
     | Cvtq_s32_of_f32 | Cvtq_f32_of_s32 | Cvt_f64_f32 | Paddq_f32 | Fmin_f32
-    | Fmax_f32 | Addq_i64 | Subq_i64 | Cmp_f32 _ | Cmpz_s32 _ | Mvnq_s32
-    | Orrq_s32 | Andq_s32 | Eorq_s32 | Negq_s32 | Getq_lane_s32 _ ->
+    | Fmax_f32 | Addq_i64 | Subq_i64 | Cmp_f32 _ | Cmpz_f32 _ | Cmpz_s32 _
+    | Mvnq_s32 | Orrq_s32 | Andq_s32 | Eorq_s32 | Negq_s32 | Getq_lane_s32 _ ->
       1
 
   let emit_rounding_mode (rm : Simd.Rounding_mode.t) : I.Rounding_mode.t =
@@ -450,6 +450,12 @@ end = struct
     | CS -> CS
     | LS -> LS
     | HI -> HI
+
+  let swap_args operands =
+    let tmp = operands.(1) in
+    operands.(1) <- operands.(2);
+    operands.(2) <- tmp;
+    operands
 
   let emit_cond (cond : Simd.Cond.t) : I.Cond.t =
     match cond with EQ -> EQ | GT -> GT | GE -> GE | LE -> LE | LT -> LT
@@ -490,7 +496,16 @@ end = struct
     | Cvtq_f32_of_s32 -> ins I.FCVT operands
     | Cvt_f64_f32 -> ins I.FCVTL operands
     | Paddq_f32 -> ins I.FADDP operands
-    | Cmp_f32 c -> ins (I.FCM (emit_float_cond c)) operands
+    | Cmp_f32 LT ->
+      (* FCMLT is only supported with ZERO *)
+      ins (I.FCM I.Float_cond.HI) (swap_args operands)
+    | Cmp_f32 LE ->
+      (* FCMLE is only supported with ZERO *)
+      ins (I.FCM I.Float_cond.CS) (swap_args operands)
+    | Cmp_f32 ((EQ | GT | GE | NE | CC | CS | LS | HI) as c) ->
+      ins (I.FCM (emit_float_cond c)) operands
+    | Cmpz_f32 c ->
+      ins (I.FCM (emit_float_cond c)) (Array.append operands [| imm_float 0. |])
     | Cmpz_s32 c -> ins (I.CM (emit_cond c)) (Array.append operands [| imm 0 |])
     | Mvnq_s32 -> ins I.MVN operands
     | Orrq_s32 -> ins I.ORR operands

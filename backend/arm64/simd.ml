@@ -145,6 +145,7 @@ type operation =
   | Cvt_f64_f32
   | Paddq_f32
   | Cmp_f32 of Float_cond.t
+  | Cmpz_f32 of Float_cond.t
   | Cmpz_s32 of Cond.t
   | Mvnq_s32
   | Orrq_s32
@@ -185,6 +186,7 @@ let print_name op =
   | Cvt_f64_f32 -> "Cvt_f64_f32"
   | Paddq_f32 -> "Paddq_f64"
   | Cmp_f32 cond -> "Cmp_f32_" ^ Float_cond.to_string cond
+  | Cmpz_f32 cond -> "Cmp_f32_" ^ Float_cond.to_string cond
   | Cmpz_s32 cond -> "Cmpz_s32_" ^ Cond.to_string cond
   | Mvnq_s32 -> "Mvnq_s32"
   | Orrq_s32 -> "Orrq_s32"
@@ -239,6 +241,7 @@ let equal_operation op1 op2 =
     true
   | Getq_lane_s32 { lane = l }, Getq_lane_s32 { lane = l' } -> Int.equal l l'
   | Cmp_f32 c, Cmp_f32 c' -> Float_cond.equal c c'
+  | Cmpz_f32 c, Cmpz_f32 c' -> Float_cond.equal c c'
   | Cmpz_s32 c, Cmpz_s32 c' -> Cond.equal c c'
   | ( ( Round_f32 _ | Round_f64 _ | Round_f32x4 _ | Round_f32_i64
       | Min_scalar_f32 | Max_scalar_f32 | Min_scalar_f64 | Max_scalar_f64
@@ -246,8 +249,8 @@ let equal_operation op1 op2 =
       | Addq_i64 | Subq_i64 | Addq_f32 | Subq_f32 | Mulq_f32 | Divq_f32
       | Minq_f32 | Maxq_f32 | Recpeq_f32 | Sqrtq_f32 | Rsqrteq_f32
       | Cvtq_s32_of_f32 | Cvtq_f32_of_s32 | Cvt_f64_f32 | Paddq_f32 | Cmp_f32 _
-      | Cmpz_s32 _ | Mvnq_s32 | Orrq_s32 | Andq_s32 | Eorq_s32 | Negq_s32
-      | Getq_lane_s32 _ ),
+      | Cmpz_f32 _ | Cmpz_s32 _ | Mvnq_s32 | Orrq_s32 | Andq_s32 | Eorq_s32
+      | Negq_s32 | Getq_lane_s32 _ ),
       _ ) ->
     false
 
@@ -258,8 +261,8 @@ let class_of_operation op =
   | Zip1_f32 | Zip1q_f32 | Zip1q_f64 | Zip2q_f64 | Addq_i64 | Subq_i64
   | Addq_f32 | Subq_f32 | Mulq_f32 | Divq_f32 | Minq_f32 | Maxq_f32 | Recpeq_f32
   | Sqrtq_f32 | Rsqrteq_f32 | Cvtq_s32_of_f32 | Cvtq_f32_of_s32 | Cvt_f64_f32
-  | Paddq_f32 | Cmp_f32 _ | Cmpz_s32 _ | Mvnq_s32 | Orrq_s32 | Andq_s32
-  | Eorq_s32 | Negq_s32 | Getq_lane_s32 _ ->
+  | Paddq_f32 | Cmp_f32 _ | Cmpz_f32 _ | Cmpz_s32 _ | Mvnq_s32 | Orrq_s32
+  | Andq_s32 | Eorq_s32 | Negq_s32 | Getq_lane_s32 _ ->
     Pure
 
 let operation_is_pure op = match class_of_operation op with Pure -> true

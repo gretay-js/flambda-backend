@@ -76,6 +76,7 @@ let register_behavior (op : Simd.operation) =
        this instruction. *)
     Rf32x2_to_Rf64x2
   | Cmp_f32 _ -> Rf32x4_Rf32x4_to_Ri32x4
+  | Cmpz_f32 _ -> Rf32x4_to_Ri32x4
   | Mvnq_s32 | Orrq_s32 | Andq_s32 | Eorq_s32 | Negq_s32 | Cmpz_s32 _ ->
     Ri32x4_to_Ri32x4
   | Getq_lane_s32 { lane } -> Ri32x4_to_Ri32 { lane }
