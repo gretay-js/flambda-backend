@@ -8,6 +8,16 @@
 ;; CR-someday mslater: with layout polymorphism, the tests could be
 ;; functorized instead concatenating files.
 
+
+(rule
+ (targets utils_u.ml)
+ (deps unbox_types.ml utils.ml)
+ (action
+   (with-stdout-to
+     utils_u.ml
+    (cat "unbox_types.ml" "utils.ml")
+ )))
+
 (rule
  (targets builtins_u.ml)
  (deps unbox_types.ml builtins.ml)
@@ -25,12 +35,14 @@
    ops_u.ml
    (progn
    (echo "module Builtins = Builtins_u\n\n")
-   (cat "unbox_types.ml" "ops.ml")))))
+   (echo "module Utils = Utils_u\n\n")
+   (cat "ops.ml")))))
 
 (library
  (name simd_test_builtins)
  (wrapped false)
- (modules float32_reference float64_reference builtins builtins_u))
+ (libraries stdlib_stable stdlib_upstream_compatible)
+ (modules utils utils_u float32_reference float64_reference builtins builtins_u))
 
 (copy_files#
   (files "%{env:ARCH=amd64}/*.{ml,c}"))
