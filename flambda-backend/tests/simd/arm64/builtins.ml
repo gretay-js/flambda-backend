@@ -194,6 +194,10 @@ module Float32x4 = struct
     = "caml_vec128_unreachable" "caml_neon_float32x4_cmeq"
     [@@noalloc] [@@builtin]
 
+  external cmge : (t[@unboxed]) -> (t[@unboxed]) -> (int32x4[@unboxed])
+    = "caml_vec128_unreachable" "caml_neon_float32x4_cmge"
+    [@@noalloc] [@@builtin]
+
   external cmgt : (t[@unboxed]) -> (t[@unboxed]) -> (int32x4[@unboxed])
     = "caml_vec128_unreachable" "caml_neon_float32x4_cmgt"
     [@@noalloc] [@@builtin]
