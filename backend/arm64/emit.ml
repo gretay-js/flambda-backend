@@ -425,7 +425,7 @@ end = struct
     | Round_f32 _ | Round_f64 _ | Round_f32x4 _ | Round_f32_i64 | Zip1_f32
     | Zip1q_f32 | Zip1q_f64 | Zip2q_f64 | Addq_f32 | Subq_f32 | Mulq_f32
     | Divq_f32 | Minq_f32 | Maxq_f32 | Recpeq_f32 | Sqrtq_f32 | Rsqrteq_f32
-    | Cvtq_s32_of_f32 | Cvtq_f32_of_s32 | Cvt_f64_f32 | Paddq_f32 | Fmin_f32
+    | Cvtq_s32_f32 | Cvtq_f32_s32 | Cvt_f64_f32 | Paddq_f32 | Fmin_f32
     | Fmax_f32 | Addq_i64 | Subq_i64 | Cmp_f32 _ | Cmpz_f32 _ | Cmpz_s32 _
     | Mvnq_s32 | Orrq_s32 | Andq_s32 | Eorq_s32 | Negq_s32 | Getq_lane_s32 _ ->
       1
@@ -492,8 +492,8 @@ end = struct
     | Recpeq_f32 -> ins I.FRECPE operands
     | Sqrtq_f32 -> ins I.FSQRT operands
     | Rsqrteq_f32 -> ins I.FRSQRTE operands
-    | Cvtq_s32_of_f32 -> ins I.FCVT operands
-    | Cvtq_f32_of_s32 -> ins I.FCVT operands
+    | Cvtq_s32_f32 -> ins I.FCVT operands
+    | Cvtq_f32_s32 -> ins I.FCVT operands
     | Cvt_f64_f32 -> ins I.FCVTL operands
     | Paddq_f32 -> ins I.FADDP operands
     | Cmp_f32 LT ->

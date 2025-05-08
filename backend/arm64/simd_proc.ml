@@ -69,8 +69,8 @@ let register_behavior (op : Simd.operation) =
   | Recpeq_f32 | Sqrtq_f32 | Rsqrteq_f32 | Round_f32x4 _ -> Rf32x4_to_Rf32x4
   | Zip1q_f64 | Zip2q_f64 -> Rf64x2_Rf64x2_to_Rf64x2
   | Addq_i64 | Subq_i64 -> Ri64x2_Ri64x2_to_Ri64x2
-  | Cvtq_s32_of_f32 -> Rf32x4_to_Ri32x4
-  | Cvtq_f32_of_s32 -> Ri32x4_to_Rf32x4
+  | Cvtq_s32_f32 -> Rf32x4_to_Ri32x4
+  | Cvtq_f32_s32 -> Ri32x4_to_Rf32x4
   | Cvt_f64_f32 ->
     (* Input should be in Vec128 register but only the bottom f32x2 is used by
        this instruction. *)
