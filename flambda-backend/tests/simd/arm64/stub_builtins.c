@@ -13,6 +13,7 @@ BUILTIN(caml_neon_float64_round_near);
 
 BUILTIN(caml_neon_float32x4_cmeq);
 BUILTIN(caml_neon_float32x4_cmgt);
+BUILTIN(caml_neon_float32x4_cmge);
 BUILTIN(caml_neon_float32x4_cmle);
 BUILTIN(caml_neon_float32x4_cmlt);
 
