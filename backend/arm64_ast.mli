@@ -260,6 +260,8 @@ module Instruction_name : sig
     | FCVTZS
     | FCVTNS
     | SCVTF
+    | FCVTL
+    | FCVTN
     | FRINT of Rounding_mode.t
     | FRINT64 of Rounding_mode.t
     | FMIN
@@ -273,7 +275,6 @@ module Instruction_name : sig
     | FADDP
     | FCM of Float_cond.t
     | CM of Cond.t
-    | FCVTL
     | ADDV
     | MVN
     | NEG

@@ -343,7 +343,8 @@ end = struct
       check_reg Vec128 i.arg.(1);
       check_reg Vec128 i.res.(0)
     | Ri32x4_to_Ri32x4 | Rf32x2_to_Rf64x2 | Rf32x4_to_Rf32x4 | Rf32x4_to_Ri32x4
-    | Ri32x4_to_Rf32x4 ->
+    | Ri32x4_to_Rf32x4 | Rf64x2_to_f32x2 | Ri32x2_to_Rf64x2 | Rf64x2_to_Ri32x2
+      ->
       check_reg Vec128 i.arg.(0);
       check_reg Vec128 i.res.(0)
     | Rf32_Rf32_to_Rf32 ->
@@ -412,7 +413,10 @@ end = struct
     | Ri32x4_to_Ri32x4 | Rf32x4_to_Rf32x4 | Rf32x4_to_Ri32x4 | Ri32x4_to_Rf32x4
       ->
       [| emit_reg_v4s i.res.(0); emit_reg_v4s i.arg.(0) |]
-    | Rf32x2_to_Rf64x2 -> [| emit_reg_v2d i.res.(0); emit_reg_v2s i.arg.(0) |]
+    | Rf32x2_to_Rf64x2 | Ri32x2_to_Rf64x2 ->
+      [| emit_reg_v2d i.res.(0); emit_reg_v2s i.arg.(0) |]
+    | Rf64x2_to_Ri32x2 | Rf64x2_to_f32x2 ->
+      [| emit_reg_v2s i.res.(0); emit_reg_v2d i.arg.(0) |]
     | Rf32_Rf32_to_Rf32 | Rf64_Rf64_to_Rf64 -> emit_regs_binary i
     | Rf64_to_Rf64 | Rf32_to_Rf32 | Rf32_to_Ri64 -> emit_regs_unary i
     | Ri32x4_to_Ri32 { lane : int } ->
@@ -425,9 +429,10 @@ end = struct
     | Round_f32 _ | Round_f64 _ | Round_f32x4 _ | Round_f32_i64 | Zip1_f32
     | Zip1q_f32 | Zip1q_f64 | Zip2q_f64 | Addq_f32 | Subq_f32 | Mulq_f32
     | Divq_f32 | Minq_f32 | Maxq_f32 | Recpeq_f32 | Sqrtq_f32 | Rsqrteq_f32
-    | Cvtq_s32_f32 | Cvtq_f32_s32 | Cvt_f64_f32 | Paddq_f32 | Fmin_f32
-    | Fmax_f32 | Addq_i64 | Subq_i64 | Cmp_f32 _ | Cmpz_f32 _ | Cmpz_s32 _
-    | Mvnq_s32 | Orrq_s32 | Andq_s32 | Eorq_s32 | Negq_s32 | Getq_lane_s32 _ ->
+    | Cvtq_s32_f32 | Cvtq_f32_s32 | Cvt_f64_f32 | Cvt_f32_f64 | Cvt_f64_s32
+    | Cvt_s32_f64 | Paddq_f32 | Fmin_f32 | Fmax_f32 | Addq_i64 | Subq_i64
+    | Cmp_f32 _ | Cmpz_f32 _ | Cmpz_s32 _ | Mvnq_s32 | Orrq_s32 | Andq_s32
+    | Eorq_s32 | Negq_s32 | Getq_lane_s32 _ ->
       1
 
   let emit_rounding_mode (rm : Simd.Rounding_mode.t) : I.Rounding_mode.t =
@@ -492,9 +497,12 @@ end = struct
     | Recpeq_f32 -> ins I.FRECPE operands
     | Sqrtq_f32 -> ins I.FSQRT operands
     | Rsqrteq_f32 -> ins I.FRSQRTE operands
-    | Cvtq_s32_f32 -> ins I.FCVT operands
-    | Cvtq_f32_s32 -> ins I.FCVT operands
+    | Cvtq_s32_f32 -> ins I.FCVTNS operands
+    | Cvtq_f32_s32 -> ins I.SCVTF operands
     | Cvt_f64_f32 -> ins I.FCVTL operands
+    | Cvt_f32_f64 -> ins I.FCVTN operands
+    | Cvt_f64_s32 -> ins I.SCVTF operands
+    | Cvt_s32_f64 -> ins I.FCVTNS operands
     | Paddq_f32 -> ins I.FADDP operands
     | Cmp_f32 LT ->
       (* FCMLT is only supported with ZERO. *)

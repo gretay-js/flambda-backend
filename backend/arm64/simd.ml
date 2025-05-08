@@ -143,6 +143,9 @@ type operation =
   | Cvtq_s32_f32
   | Cvtq_f32_s32
   | Cvt_f64_f32
+  | Cvt_f32_f64
+  | Cvt_f64_s32
+  | Cvt_s32_f64
   | Paddq_f32
   | Cmp_f32 of Float_cond.t
   | Cmpz_f32 of Float_cond.t
@@ -184,6 +187,9 @@ let print_name op =
   | Cvtq_s32_f32 -> "Cvtq_s32_f32"
   | Cvtq_f32_s32 -> "Cvtq_f32_s32"
   | Cvt_f64_f32 -> "Cvt_f64_f32"
+  | Cvt_f32_f64 -> "Cvt_f32_f64"
+  | Cvt_f64_s32 -> "Cvt_f64_s32"
+  | Cvt_s32_f64 -> "Cvt_s32_f64"
   | Paddq_f32 -> "Paddq_f64"
   | Cmp_f32 cond -> "Cmp_f32_" ^ Float_cond.to_string cond
   | Cmpz_f32 cond -> "Cmp_f32_" ^ Float_cond.to_string cond
@@ -232,6 +238,9 @@ let equal_operation op1 op2 =
   | Cvtq_s32_f32, Cvtq_s32_f32
   | Cvtq_f32_s32, Cvtq_f32_s32
   | Cvt_f64_f32, Cvt_f64_f32
+  | Cvt_f32_f64, Cvt_f32_f64
+  | Cvt_f64_s32, Cvt_f64_s32
+  | Cvt_s32_f64, Cvt_s32_f64
   | Paddq_f32, Paddq_f32
   | Mvnq_s32, Mvnq_s32
   | Orrq_s32, Orrq_s32
@@ -248,9 +257,9 @@ let equal_operation op1 op2 =
       | Fmin_f32 | Fmax_f32 | Zip1_f32 | Zip1q_f32 | Zip1q_f64 | Zip2q_f64
       | Addq_i64 | Subq_i64 | Addq_f32 | Subq_f32 | Mulq_f32 | Divq_f32
       | Minq_f32 | Maxq_f32 | Recpeq_f32 | Sqrtq_f32 | Rsqrteq_f32
-      | Cvtq_s32_f32 | Cvtq_f32_s32 | Cvt_f64_f32 | Paddq_f32 | Cmp_f32 _
-      | Cmpz_f32 _ | Cmpz_s32 _ | Mvnq_s32 | Orrq_s32 | Andq_s32 | Eorq_s32
-      | Negq_s32 | Getq_lane_s32 _ ),
+      | Cvtq_s32_f32 | Cvtq_f32_s32 | Cvt_f64_f32 | Cvt_f32_f64 | Cvt_f64_s32
+      | Cvt_s32_f64 | Paddq_f32 | Cmp_f32 _ | Cmpz_f32 _ | Cmpz_s32 _ | Mvnq_s32
+      | Orrq_s32 | Andq_s32 | Eorq_s32 | Negq_s32 | Getq_lane_s32 _ ),
       _ ) ->
     false
 
@@ -261,8 +270,9 @@ let class_of_operation op =
   | Zip1_f32 | Zip1q_f32 | Zip1q_f64 | Zip2q_f64 | Addq_i64 | Subq_i64
   | Addq_f32 | Subq_f32 | Mulq_f32 | Divq_f32 | Minq_f32 | Maxq_f32 | Recpeq_f32
   | Sqrtq_f32 | Rsqrteq_f32 | Cvtq_s32_f32 | Cvtq_f32_s32 | Cvt_f64_f32
-  | Paddq_f32 | Cmp_f32 _ | Cmpz_f32 _ | Cmpz_s32 _ | Mvnq_s32 | Orrq_s32
-  | Andq_s32 | Eorq_s32 | Negq_s32 | Getq_lane_s32 _ ->
+  | Cvt_f32_f64 | Cvt_f64_s32 | Cvt_s32_f64 | Paddq_f32 | Cmp_f32 _ | Cmpz_f32 _
+  | Cmpz_s32 _ | Mvnq_s32 | Orrq_s32 | Andq_s32 | Eorq_s32 | Negq_s32
+  | Getq_lane_s32 _ ->
     Pure
 
 let operation_is_pure op = match class_of_operation op with Pure -> true

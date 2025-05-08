@@ -418,6 +418,8 @@ module Instruction_name = struct
     | FCVTZS
     | FCVTNS
     | SCVTF
+    | FCVTL
+    | FCVTN
     | FRINT of Rounding_mode.t
     | FRINT64 of Rounding_mode.t
     | FMIN
@@ -431,7 +433,6 @@ module Instruction_name = struct
     | FADDP
     | FCM of Float_cond.t
     | CM of Cond.t
-    | FCVTL
     | ADDV
     | MVN
     | NEG
@@ -525,6 +526,7 @@ module Instruction_name = struct
     | FCVTZS -> "fcvtzs"
     | FCVTNS -> "fcvtns"
     | SCVTF -> "scvtf"
+    | FCVTN -> "fcvtn"
     | FRINT rm -> "frint" ^ Rounding_mode.to_string rm
     | FRINT64 rm -> "frint64" ^ Rounding_mode.to_string rm
     | FMIN -> "fmin"

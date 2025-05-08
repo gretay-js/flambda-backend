@@ -81,8 +81,7 @@ BUILTIN(caml_neon_cvt_int32x4_to_float32x4);
 BUILTIN(caml_neon_cvt_float64x2_to_int32x2);
 BUILTIN(caml_neon_cvt_float64x2_to_float32x2);
 BUILTIN(caml_neon_cvt_float32x4_to_int32x4);
-BUILTIN(caml_neon_float32x2_to_float64x2);
-BUILTIN(caml_neon_float32x4_to_int32x4);
+BUILTIN(caml_neon_cvt_float32x2_to_float64x2);
 
 BUILTIN(caml_neon_int32x4_bitwise_not);
 BUILTIN(caml_neon_int32x4_bitwise_or);
