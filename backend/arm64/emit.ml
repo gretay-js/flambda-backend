@@ -250,6 +250,8 @@ end = struct
 
   let emit_reg_v2d reg = reg_v2d (reg_index reg)
 
+  let emit_reg_v16b reg = reg_v16b (reg_index reg)
+
   let emit_reg_w reg = reg_w (reg_index reg)
 
   let emit_reg_s reg = reg_s (reg_index reg)
@@ -337,14 +339,15 @@ end = struct
       check_reg Float i.arg.(0);
       check_reg Float i.arg.(1);
       check_reg Float i.res.(0)
-    | Rf32x4_Rf32x4_to_Ri32x4 | Rf32x4_Rf32x4_to_Rf32x4
-    | Rf64x2_Rf64x2_to_Rf64x2 | Ri64x2_Ri64x2_to_Ri64x2 ->
+    | Ri8x16_Ri8x16_to_Ri8x16 | Rf32x4_Rf32x4_to_Ri32x4
+    | Rf32x4_Rf32x4_to_Rf32x4 | Rf64x2_Rf64x2_to_Rf64x2
+    | Ri64x2_Ri64x2_to_Ri64x2 ->
       check_reg Vec128 i.arg.(0);
       check_reg Vec128 i.arg.(1);
       check_reg Vec128 i.res.(0)
     | Ri32x4_to_Ri32x4 | Rf32x2_to_Rf64x2 | Rf32x4_to_Rf32x4 | Rf32x4_to_Ri32x4
     | Ri32x4_to_Rf32x4 | Rf64x2_to_f32x2 | Ri32x2_to_Rf64x2 | Rf64x2_to_Ri32x2
-      ->
+    | Ri8x16_to_Ri8x16 ->
       check_reg Vec128 i.arg.(0);
       check_reg Vec128 i.res.(0)
     | Rf32_Rf32_to_Rf32 ->
@@ -417,6 +420,12 @@ end = struct
       [| emit_reg_v2d i.res.(0); emit_reg_v2s i.arg.(0) |]
     | Rf64x2_to_Ri32x2 | Rf64x2_to_f32x2 ->
       [| emit_reg_v2s i.res.(0); emit_reg_v2d i.arg.(0) |]
+    | Ri8x16_to_Ri8x16 -> [| emit_reg_v16b i.res.(0); emit_reg_v16b i.arg.(0) |]
+    | Ri8x16_Ri8x16_to_Ri8x16 ->
+      [| emit_reg_v16b i.res.(0);
+         emit_reg_v16b i.arg.(0);
+         emit_reg_v16b i.arg.(1)
+      |]
     | Rf32_Rf32_to_Rf32 | Rf64_Rf64_to_Rf64 -> emit_regs_binary i
     | Rf64_to_Rf64 | Rf32_to_Rf32 | Rf32_to_Ri64 -> emit_regs_unary i
     | Ri32x4_to_Ri32 { lane : int } ->
