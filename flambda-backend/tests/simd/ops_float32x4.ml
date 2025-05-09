@@ -70,8 +70,8 @@ let () =
   Float32.check_floats (check_binop "sub" Float32.sub sub);
   Float32.check_floats (check_binop "mul" Float32.mul mul);
   Float32.check_floats (check_binop "div" Float32.div div);
-  Float32.check_floats (check_binop "max" Float32.max max);
-  Float32.check_floats (check_binop "min" Float32.min min)
+  Float32.check_floats (check_binop "max" Float32.c_max max);
+  Float32.check_floats (check_binop "min" Float32.c_min min)
 
 let check_unop msg scalar vector f =
   (failmsg := fun () -> Printf.printf "check_unop %s  %lx\n%!" msg f);

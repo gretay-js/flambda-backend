@@ -627,18 +627,6 @@ double float64_max(double l, double r) {
   return simd_low_float64x2(simd_float64x2_max(lv, rv));
 }
 
-float float32_min(float l, float r) {
-  simd_float32x4_t lv = simd_dup_float32x4(l);
-  simd_float32x4_t rv = simd_dup_float32x4(r);
-  return simd_extract_float32x4(simd_float32x4_min(lv, rv), 0);
-}
-float float32_max(float l, float r) {
-  simd_float32x4_t lv = simd_dup_float32x4(l);
-  simd_float32x4_t rv = simd_dup_float32x4(r);
-  return simd_extract_float32x4(simd_float32x4_max(lv, rv), 0);
-}
-
-
 // Float32
 
 int32_t int32_of_float(float f) {
