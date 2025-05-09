@@ -580,19 +580,37 @@ double float64_sqrt(double f) {
   return simd_low_float64x2(simd_float64x2_sqrt(v));
 }
 
-static inline bool iszero(double a) {
+static inline bool iszero_f64(double a) {
+  return ((a == 0.0) || (a == -0.0));
+}
+
+static inline bool iszero_f32(float a) {
   return ((a == 0.0) || (a == -0.0));
 }
 
 double float64_min_match_sse(double l, double r) {
-  if (iszero(l) && iszero(r)) return r;
+  if (iszero_f64(l) && iszero_f64(r)) return r;
   if (isnan(l) || isnan(r)) return r;
   if (l < r) return l;
   return r;
 }
 
 double float64_max_match_sse(double l, double r) {
-  if (iszero(l) && iszero(r)) return r;
+  if (iszero_f64(l) && iszero_f64(r)) return r;
+  if (isnan(l) || isnan(r)) return r;
+  if (l > r) return l;
+  return r;
+}
+
+float float32_min_match_sse(float l, float r) {
+  if (iszero_f32(l) && iszero_f32(r)) return r;
+  if (isnan(l) || isnan(r)) return r;
+  if (l < r) return l;
+  return r;
+}
+
+float float32_max_match_sse(float l, float r) {
+  if (iszero_f32(l) && iszero_f32(r)) return r;
   if (isnan(l) || isnan(r)) return r;
   if (l > r) return l;
   return r;
@@ -607,6 +625,17 @@ double float64_max(double l, double r) {
   simd_float64x2_t lv = simd_dup_float64x2(l);
   simd_float64x2_t rv = simd_dup_float64x2(r);
   return simd_low_float64x2(simd_float64x2_max(lv, rv));
+}
+
+float float32_min(float l, float r) {
+  simd_float32x4_t lv = simd_dup_float32x4(l);
+  simd_float32x4_t rv = simd_dup_float32x4(r);
+  return simd_extract_float32x4(simd_float32x4_min(lv, rv), 0);
+}
+float float32_max(float l, float r) {
+  simd_float32x4_t lv = simd_dup_float32x4(l);
+  simd_float32x4_t rv = simd_dup_float32x4(r);
+  return simd_extract_float32x4(simd_float32x4_max(lv, rv), 0);
 }
 
 
