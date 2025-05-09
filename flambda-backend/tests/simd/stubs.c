@@ -2,6 +2,7 @@
 #include <caml/simd.h>
 #include <caml/callback.h>
 #include <assert.h>
+#include <stdbool.h>
 
 value vec128_run_callback(value f)
 {
@@ -549,6 +550,25 @@ double float64_sqrt(double f) {
   simd_float64x2_t v = simd_dup_float64x2(f);
   return simd_low_float64x2(simd_float64x2_sqrt(v));
 }
+
+static inline bool iszero(double a) {
+  return ((a == 0.0) || (a == -0.0));
+}
+
+double float64_min_match_sse(double l, double r) {
+  if (iszero(l) && iszero(r)) return r;
+  if (isnan(l) || isnan(r)) return r;
+  if (l < r) return l;
+  return r;
+}
+
+double float64_max_match_sse(double l, double r) {
+  if (iszero(l) && iszero(r)) return r;
+  if (isnan(l) || isnan(r)) return r;
+  if (l > r) return l;
+  return r;
+}
+
 double float64_min(double l, double r) {
   simd_float64x2_t lv = simd_dup_float64x2(l);
   simd_float64x2_t rv = simd_dup_float64x2(r);

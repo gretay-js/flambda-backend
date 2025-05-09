@@ -121,6 +121,8 @@ module DSL : sig
 
   val emit_reg_v2d : Reg.t -> Arm64_ast.Operand.t
 
+  val emit_reg_v16b : Reg.t -> Arm64_ast.Operand.t
+
   val imm : int -> Arm64_ast.Operand.t
 
   val imm_float : float -> Arm64_ast.Operand.t
@@ -437,11 +439,12 @@ end = struct
     | Min_scalar_f32 | Max_scalar_f32 -> 2
     | Round_f32 _ | Round_f64 _ | Round_f32x4 _ | Round_f32_i64 | Zip1_f32
     | Zip1q_f32 | Zip1q_f64 | Zip2q_f64 | Addq_f32 | Subq_f32 | Mulq_f32
-    | Divq_f32 | Minq_f32 | Maxq_f32 | Recpeq_f32 | Sqrtq_f32 | Rsqrteq_f32
-    | Cvtq_s32_f32 | Cvtq_f32_s32 | Cvt_f64_f32 | Cvt_f32_f64 | Cvt_f64_s32
-    | Cvt_s32_f64 | Paddq_f32 | Fmin_f32 | Fmax_f32 | Addq_i64 | Subq_i64
-    | Cmp_f32 _ | Cmpz_f32 _ | Cmpz_s32 _ | Mvnq_s32 | Orrq_s32 | Andq_s32
-    | Eorq_s32 | Negq_s32 | Getq_lane_s32 _ ->
+    | Divq_f32 | Minq_f32 | Maxq_f32 | Minq_f64 | Maxq_f64 | Recpeq_f32
+    | Sqrtq_f32 | Rsqrteq_f32 | Cvtq_s32_f32 | Cvtq_f32_s32 | Cvt_f64_f32
+    | Cvt_f32_f64 | Cvt_f64_s32 | Cvt_s32_f64 | Paddq_f32 | Fmin_f32 | Fmax_f32
+    | Fmin_f64 | Fmax_f64 | Addq_i64 | Subq_i64 | Cmp_f32 _ | Cmpz_f32 _
+    | Cmpz_s32 _ | Mvnq_s32 | Orrq_s32 | Andq_s32 | Eorq_s32 | Negq_s32
+    | Getq_lane_s32 _ ->
       1
 
   let emit_rounding_mode (rm : Simd.Rounding_mode.t) : I.Rounding_mode.t =
@@ -493,6 +496,8 @@ end = struct
     | Round_f32_i64 -> ins I.FCVTNS operands
     | Fmin_f32 -> ins I.FMIN operands
     | Fmax_f32 -> ins I.FMAX operands
+    | Fmin_f64 -> ins I.FMIN operands
+    | Fmax_f64 -> ins I.FMAX operands
     | Zip1_f32 | Zip1q_f32 | Zip1q_f64 -> ins I.ZIP1 operands
     | Zip2q_f64 -> ins I.ZIP2 operands
     | Addq_i64 -> ins I.ADD operands
@@ -503,6 +508,8 @@ end = struct
     | Divq_f32 -> ins I.FDIV operands
     | Minq_f32 -> ins I.FMIN operands
     | Maxq_f32 -> ins I.FMAX operands
+    | Minq_f64 -> ins I.FMIN operands
+    | Maxq_f64 -> ins I.FMAX operands
     | Recpeq_f32 -> ins I.FRECPE operands
     | Sqrtq_f32 -> ins I.FSQRT operands
     | Rsqrteq_f32 -> ins I.FRSQRTE operands
@@ -1371,7 +1378,7 @@ let emit_reinterpret_cast (cast : Cmm.reinterpret_cast) i =
     then (
       DSL.check_reg Vec128 src;
       DSL.check_reg Vec128 dst;
-      DSL.ins I.FMOV [| DSL.emit_reg dst; DSL.emit_reg src |])
+      DSL.ins I.MOV [| DSL.emit_reg_v16b dst; DSL.emit_reg_v16b src |])
   | Int_of_value | Value_of_int -> move src dst
 
 let emit_static_cast (cast : Cmm.static_cast) i =

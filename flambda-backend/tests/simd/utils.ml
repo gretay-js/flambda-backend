@@ -167,7 +167,7 @@ module Vector_casts = struct
     [@@noalloc] [@@unboxed] [@@builtin]
 
   let () =
-    (failmsg := fun () -> Printf.printf "vector casts!");
+    (failmsg := fun () -> Printf.printf "vector casts 1! ");
     let _0 = int32x4_of_int64s 1L 2L in
     let _1 = int16x8_of_int64s 3L 4L in
     let _2 = int8x16_of_int64s 5L 6L in
@@ -210,6 +210,7 @@ module Vector_casts = struct
     [@@noalloc] [@@unboxed] [@@builtin]
 
   let () =
+    (failmsg := fun () -> Printf.printf "vector casts 2! ");
     let _0 = int64x2_of_int64s 1L 2L in
     let _1 = int16x8_of_int64s 3L 4L in
     let _2 = int8x16_of_int64s 5L 6L in
@@ -252,6 +253,7 @@ module Vector_casts = struct
     [@@noalloc] [@@unboxed] [@@builtin]
 
   let () =
+    (failmsg := fun () -> Printf.printf "vector casts 3! ");
     let _0 = int64x2_of_int64s 1L 2L in
     let _1 = int32x4_of_int64s 3L 4L in
     let _2 = int8x16_of_int64s 5L 6L in
@@ -294,6 +296,7 @@ module Vector_casts = struct
     [@@noalloc] [@@unboxed] [@@builtin]
 
   let () =
+    (failmsg := fun () -> Printf.printf "vector casts 4! ");
     let _0 = int64x2_of_int64s 1L 2L in
     let _1 = int32x4_of_int64s 3L 4L in
     let _2 = int16x8_of_int64s 5L 6L in
@@ -336,6 +339,7 @@ module Vector_casts = struct
     [@@noalloc] [@@unboxed] [@@builtin]
 
   let () =
+    (failmsg := fun () -> Printf.printf "vector casts 5! ");
     let _0 = int64x2_of_int64s 1L 2L in
     let _1 = int32x4_of_int64s 3L 4L in
     let _2 = int16x8_of_int64s 5L 6L in
@@ -378,6 +382,7 @@ module Vector_casts = struct
     [@@noalloc] [@@unboxed] [@@builtin]
 
   let () =
+    (failmsg := fun () -> Printf.printf "vector casts 6! ");
     let v_0 = int64x2_of_int64s 1L 2L in
     let v_1 = int32x4_of_int64s 3L 4L in
     let v_2 = int16x8_of_int64s 5L 6L in
@@ -405,6 +410,7 @@ module Float32 = struct
   include Float32_reference
 
   let to_float32x4 t0 t1 t2 t3 =
+    (failmsg := fun () -> Printf.printf "Float32!");
     let i0 = Int64.of_int32 t0 |> Int64.logand 0xffffffffL in
     let i1 = Int64.of_int32 t1 |> Int64.logand 0xffffffffL in
     let i2 = Int64.of_int32 t2 |> Int64.logand 0xffffffffL in
@@ -421,10 +427,14 @@ module Float64 = struct
     include Builtins.Float64
 
     let () =
+      (failmsg := fun () -> Printf.printf "Float64!");
       check_floats (fun l r -> eqf' (max l r) (c_max l r));
       check_floats (fun l r -> eqf' (min l r) (c_min l r));
+      check_floats (fun l r -> eqf' (max_match_sse l r) (c_max_match_sse l r));
+      check_floats (fun l r -> eqf' (min_match_sse l r) (c_min_match_sse l r));
       check_floats (fun l _ -> eqf' (sqrt l) (c_sqrt l));
-      check_floats (fun l _ -> eqf' (round_near l) (c_round l))
+      check_floats (fun l _ -> eqf' (round_near l) (c_round l));
+      failmsg := fun () -> Printf.printf "Something else!"
   end
 end
 
