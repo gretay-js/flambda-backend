@@ -585,7 +585,7 @@ static inline bool iszero_f64(double a) {
 }
 
 static inline bool iszero_f32(float a) {
-  return ((a == 0.0) || (a == -0.0));
+  return ((a == 0.0f) || (a == -0.0f));
 }
 
 double float64_min_match_sse(double l, double r) {
