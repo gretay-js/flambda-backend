@@ -40,7 +40,7 @@ typedef int32x4_t simd_int32x4_t;
 #define simd_float32x4_sqrt vsqrtq_f32
 #define simd_float32x4_rcp vrecpeq_f32
 #define simd_float32x4_rsqrt vrsqrteq_f32
-#define simd_float32x4_to_int32x4 vcvtq_s32_f32
+#define simd_float32x4_to_int32x4 vcvtnq_s32_f32
 #define simd_int32x4_to_float32x4 vcvtq_f32_s32
 
 /* [caml_float32_to_bits] is defined in runtime/float32.c */

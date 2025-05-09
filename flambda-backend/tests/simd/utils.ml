@@ -410,7 +410,6 @@ module Float32 = struct
   include Float32_reference
 
   let to_float32x4 t0 t1 t2 t3 =
-    (failmsg := fun () -> Printf.printf "Float32!");
     let i0 = Int64.of_int32 t0 |> Int64.logand 0xffffffffL in
     let i1 = Int64.of_int32 t1 |> Int64.logand 0xffffffffL in
     let i2 = Int64.of_int32 t2 |> Int64.logand 0xffffffffL in
