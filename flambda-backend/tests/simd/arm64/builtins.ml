@@ -173,18 +173,23 @@ module Int32x4 = struct
 
   external bitwise_not : int32x4 -> int32x4
     = "caml_vec128_unreachable" "caml_neon_int32x4_bitwise_not"
+    [@@noalloc] [@@unboxed] [@@builtin]
 
   external bitwise_or : int32x4 -> int32x4 -> int32x4
     = "caml_vec128_unreachable" "caml_neon_int32x4_bitwise_or"
+    [@@noalloc] [@@unboxed] [@@builtin]
 
   external bitwise_and : int32x4 -> int32x4
     = "caml_vec128_unreachable" "caml_neon_int32x4_bitwise_and"
+    [@@noalloc] [@@unboxed] [@@builtin]
 
   external bitwise_xor : int32x4 -> int32x4 -> int32x4
     = "caml_vec128_unreachable" "caml_neon_int32x4_bitwise_xor"
+    [@@noalloc] [@@unboxed] [@@builtin]
 
-  external neg : int32x4 -> int32x4 -> int32x4
-    = "caml_vec128_unreachable" "caml_neon_int32x4_bitwise_neg"
+  external neg : int32x4 -> int32x4
+    = "caml_vec128_unreachable" "caml_neon_int32x4_neg"
+    [@@noalloc] [@@unboxed] [@@builtin]
 end
 
 module Float32x4 = struct
