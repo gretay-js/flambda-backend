@@ -654,11 +654,12 @@ module Make (Target : Cfg_selectgen_target_intf.S) = struct
               | Maybe_out_of_range ->
                 Target.is_store_out_of_range chunk ~byte_offset:!byte_offset
             in
-            let new_addressing_mode =
+            let _ =
               match is_out_of_range with
-              | Within_range -> !addressing_mode
+              | Within_range -> ()
               | Out_of_range ->
-                (* Use a temporary to store the address [!base + offset]. *)
+                (* Use a temporary to store the address [!base +
+                   !byte_offset]. *)
                 let tmp = Reg.createv Cmm.typ_int in
                 (* CR-someday xclerc: Now that this code in the "generic" part,
                    it is maybe a bit unexpected to assume there is no better
@@ -674,17 +675,22 @@ module Make (Target : Cfg_selectgen_target_intf.S) = struct
                 insert_debug env sub_cfg (Op (Operation.Intop Iadd)) dbg
                   (Array.append !base tmp) new_base;
                 (* Use the temporary as the new base address. *)
+                if !Clflags.verbose
+                then
+                  Format.printf
+                    "Resetting offset %d for base register from %a to %a\n"
+                    !byte_offset Printreg.regs !base Printreg.regs new_base;
                 base := new_base;
                 byte_offset := 0;
-                Arch.identity_addressing
+                addressing_mode := Arch.identity_addressing
             in
             insert_debug env sub_cfg
-              (Op (Store (chunk, new_addressing_mode, false)))
+              (Op (Store (chunk, !addressing_mode, false)))
               dbg
               (Array.append [| r |] !base)
               [||];
             let size = SU.size_component r.Reg.typ in
-            addressing_mode := Arch.offset_addressing new_addressing_mode size;
+            addressing_mode := Arch.offset_addressing !addressing_mode size;
             byte_offset := !byte_offset + size
           done
         | Some op ->
