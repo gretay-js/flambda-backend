@@ -588,6 +588,10 @@ static inline bool iszero_f32(float a) {
   return ((a == 0.0f) || (a == -0.0f));
 }
 
+static inline bool isnan_f32(float a) {
+  return (a != a);
+}
+
 double float64_min_match_sse(double l, double r) {
   if (iszero_f64(l) && iszero_f64(r)) return r;
   if (isnan(l) || isnan(r)) return r;
@@ -604,14 +608,14 @@ double float64_max_match_sse(double l, double r) {
 
 float float32_min_match_sse(float l, float r) {
   if (iszero_f32(l) && iszero_f32(r)) return r;
-  if (isnan(l) || isnan(r)) return r;
+  if (isnan_f32(l) || isnan_f32(r)) return r;
   if (l < r) return l;
   return r;
 }
 
 float float32_max_match_sse(float l, float r) {
   if (iszero_f32(l) && iszero_f32(r)) return r;
-  if (isnan(l) || isnan(r)) return r;
+  if (isnan_f32(l) || isnan_f32(r)) return r;
   if (l > r) return l;
   return r;
 }
