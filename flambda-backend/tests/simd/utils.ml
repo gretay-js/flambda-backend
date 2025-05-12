@@ -423,16 +423,24 @@ module Float64 = struct
   include Float64_reference
 
   module Tests = struct
-    include Builtins.Float64
-
     let () =
       (failmsg := fun () -> Printf.printf "Float64!");
-      check_floats (fun l r -> eqf' (max l r) (c_max l r));
-      check_floats (fun l r -> eqf' (min l r) (c_min l r));
-      check_floats (fun l r -> eqf' (max_match_sse l r) (c_max_match_sse l r));
-      check_floats (fun l r -> eqf' (min_match_sse l r) (c_min_match_sse l r));
-      check_floats (fun l _ -> eqf' (sqrt l) (c_sqrt l));
-      check_floats (fun l _ -> eqf' (round_near l) (c_round l));
+      check_floats (fun l r ->
+          eqf' (Builtins.Float64.max l r) (Float64_reference.c_max l r));
+      check_floats (fun l r ->
+          eqf' (Builtins.Float64.min l r) (Float64_reference.c_min l r));
+      check_floats (fun l r ->
+          eqf'
+            (Builtins.Float64.max_match_sse l r)
+            (Float64_reference.c_max_match_sse l r));
+      check_floats (fun l r ->
+          eqf'
+            (Builtins.Float64.min_match_sse l r)
+            (Float64_reference.c_min_match_sse l r));
+      check_floats (fun l _ ->
+          eqf' (Builtins.Float64.sqrt l) (Float64_reference.c_sqrt l));
+      check_floats (fun l _ ->
+          eqf' (Builtins.Float64.round_near l) (Float64_reference.c_round l));
       failmsg := fun () -> Printf.printf "Something else!"
   end
 end
