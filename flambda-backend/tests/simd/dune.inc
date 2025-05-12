@@ -101,6 +101,61 @@
    (diff empty.expected ops_float32x4_u.out)))
 
 (executable
+ (name ops_float64x2)
+ (modules ops_float64x2)
+ (enabled_if (= %{context_name} "main"))
+ (ocamlopt_flags
+  (:standard ))
+ (libraries simd_test_helpers simd_test_builtins stdlib_stable stdlib_upstream_compatible)
+ (foreign_archives stubs))
+
+(rule
+ (alias   runtest)
+ (enabled_if (= %{context_name} "main"))
+ (action
+  (with-outputs-to
+   ops_float64x2.out
+   (run ./ops_float64x2.exe))))
+
+(rule
+ (alias runtest)
+ (enabled_if (= %{context_name} "main"))
+ (action
+   (diff empty.expected ops_float64x2.out)))
+
+(executable
+ (name ops_float64x2_u)
+ (modules ops_float64x2_u)
+ (enabled_if
+      (and (= %{context_name} "main")
+           (= %{architecture} "amd64")
+           (<> %{system} macosx)))
+ (ocamlopt_flags
+  (:standard ))
+ (libraries simd_test_helpers simd_test_builtins stdlib_stable stdlib_upstream_compatible)
+ (foreign_archives stubs))
+
+(rule
+ (alias   runtest)
+ (enabled_if
+      (and (= %{context_name} "main")
+           (= %{architecture} "amd64")
+           (<> %{system} macosx)))
+ (action
+  (with-outputs-to
+   ops_float64x2_u.out
+   (run ./ops_float64x2_u.exe))))
+
+(rule
+ (alias runtest)
+ (enabled_if
+      (and (= %{context_name} "main")
+           (= %{architecture} "amd64")
+           (<> %{system} macosx)))
+ (action
+   (diff empty.expected ops_float64x2_u.out)))
+
+(executable
  (name ops)
  (modules ops)
  (enabled_if
@@ -461,6 +516,76 @@
            (<> %{system} macosx)))
  (action
    (diff empty.expected ops_float32x4_u_nodynlink.out)))
+
+(rule
+ (alias runtest)
+ (enabled_if (= %{context_name} "main"))
+ (action
+  (copy ops_float64x2.ml ops_float64x2_nodynlink.ml)))
+
+(executable
+ (name ops_float64x2_nodynlink)
+ (modules ops_float64x2_nodynlink)
+ (enabled_if (= %{context_name} "main"))
+ (ocamlopt_flags
+  (:standard -nodynlink))
+ (libraries simd_test_helpers simd_test_builtins stdlib_stable stdlib_upstream_compatible)
+ (foreign_archives stubs))
+
+(rule
+ (alias   runtest)
+ (enabled_if (= %{context_name} "main"))
+ (action
+  (with-outputs-to
+   ops_float64x2_nodynlink.out
+   (run ./ops_float64x2_nodynlink.exe))))
+
+(rule
+ (alias runtest)
+ (enabled_if (= %{context_name} "main"))
+ (action
+   (diff empty.expected ops_float64x2_nodynlink.out)))
+
+(rule
+ (alias runtest)
+ (enabled_if
+      (and (= %{context_name} "main")
+           (= %{architecture} "amd64")
+           (<> %{system} macosx)))
+ (action
+  (copy ops_float64x2_u.ml ops_float64x2_u_nodynlink.ml)))
+
+(executable
+ (name ops_float64x2_u_nodynlink)
+ (modules ops_float64x2_u_nodynlink)
+ (enabled_if
+      (and (= %{context_name} "main")
+           (= %{architecture} "amd64")
+           (<> %{system} macosx)))
+ (ocamlopt_flags
+  (:standard -nodynlink))
+ (libraries simd_test_helpers simd_test_builtins stdlib_stable stdlib_upstream_compatible)
+ (foreign_archives stubs))
+
+(rule
+ (alias   runtest)
+ (enabled_if
+      (and (= %{context_name} "main")
+           (= %{architecture} "amd64")
+           (<> %{system} macosx)))
+ (action
+  (with-outputs-to
+   ops_float64x2_u_nodynlink.out
+   (run ./ops_float64x2_u_nodynlink.exe))))
+
+(rule
+ (alias runtest)
+ (enabled_if
+      (and (= %{context_name} "main")
+           (= %{architecture} "amd64")
+           (<> %{system} macosx)))
+ (action
+   (diff empty.expected ops_float64x2_u_nodynlink.out)))
 
 (rule
  (alias runtest)
@@ -922,6 +1047,88 @@
            (<> %{system} macosx)))
  (action
    (diff empty.expected ops_float32x4_u_internal_assembler.out)))
+
+(rule
+ (alias runtest)
+ (enabled_if
+      (and (= %{context_name} "main")
+           (= %{architecture} "amd64")
+           (<> %{system} macosx)))
+ (action
+  (copy ops_float64x2.ml ops_float64x2_internal_assembler.ml)))
+
+(executable
+ (name ops_float64x2_internal_assembler)
+ (modules ops_float64x2_internal_assembler)
+ (enabled_if
+      (and (= %{context_name} "main")
+           (= %{architecture} "amd64")
+           (<> %{system} macosx)))
+ (ocamlopt_flags
+  (:standard -internal-assembler))
+ (libraries simd_test_helpers simd_test_builtins stdlib_stable stdlib_upstream_compatible)
+ (foreign_archives stubs))
+
+(rule
+ (alias   runtest)
+ (enabled_if
+      (and (= %{context_name} "main")
+           (= %{architecture} "amd64")
+           (<> %{system} macosx)))
+ (action
+  (with-outputs-to
+   ops_float64x2_internal_assembler.out
+   (run ./ops_float64x2_internal_assembler.exe))))
+
+(rule
+ (alias runtest)
+ (enabled_if
+      (and (= %{context_name} "main")
+           (= %{architecture} "amd64")
+           (<> %{system} macosx)))
+ (action
+   (diff empty.expected ops_float64x2_internal_assembler.out)))
+
+(rule
+ (alias runtest)
+ (enabled_if
+      (and (= %{context_name} "main")
+           (= %{architecture} "amd64")
+           (<> %{system} macosx)))
+ (action
+  (copy ops_float64x2_u.ml ops_float64x2_u_internal_assembler.ml)))
+
+(executable
+ (name ops_float64x2_u_internal_assembler)
+ (modules ops_float64x2_u_internal_assembler)
+ (enabled_if
+      (and (= %{context_name} "main")
+           (= %{architecture} "amd64")
+           (<> %{system} macosx)))
+ (ocamlopt_flags
+  (:standard -internal-assembler))
+ (libraries simd_test_helpers simd_test_builtins stdlib_stable stdlib_upstream_compatible)
+ (foreign_archives stubs))
+
+(rule
+ (alias   runtest)
+ (enabled_if
+      (and (= %{context_name} "main")
+           (= %{architecture} "amd64")
+           (<> %{system} macosx)))
+ (action
+  (with-outputs-to
+   ops_float64x2_u_internal_assembler.out
+   (run ./ops_float64x2_u_internal_assembler.exe))))
+
+(rule
+ (alias runtest)
+ (enabled_if
+      (and (= %{context_name} "main")
+           (= %{architecture} "amd64")
+           (<> %{system} macosx)))
+ (action
+   (diff empty.expected ops_float64x2_u_internal_assembler.out)))
 
 (rule
  (alias runtest)
