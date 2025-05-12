@@ -667,16 +667,21 @@ module Make (Target : Cfg_selectgen_target_intf.S) = struct
                 insert_debug env sub_cfg
                   (Op (SU.make_const_int (Nativeint.of_int !byte_offset)))
                   dbg [||] tmp;
+                (* The new base is a pointer into the middle of an ocaml
+                   value. *)
+                assert (!byte_offset > 0);
+                let new_base = Reg.createv Cmm.typ_addr in
                 insert_debug env sub_cfg (Op (Operation.Intop Iadd)) dbg
-                  (Array.append !base tmp) tmp;
+                  (Array.append !base tmp) new_base;
                 (* Use the temporary as the new base address. *)
-                base := tmp;
+                base := new_base;
+                byte_offset := 0;
                 Arch.identity_addressing
             in
             insert_debug env sub_cfg
               (Op (Store (chunk, new_addressing_mode, false)))
               dbg
-              (Array.append [| r |] regs_addr)
+              (Array.append [| r |] !base)
               [||];
             let size = SU.size_component r.Reg.typ in
             addressing_mode := Arch.offset_addressing new_addressing_mode size;
