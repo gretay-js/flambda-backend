@@ -1324,7 +1324,7 @@ let move (src : Reg.t) (dst : Reg.t) =
     | Float, Reg _, Float, Reg _ | Float32, Reg _, Float32, Reg _ ->
       DSL.ins I.FMOV [| DSL.emit_reg dst; DSL.emit_reg src |]
     | (Vec128 | Valx2), Reg _, (Vec128 | Valx2), Reg _ ->
-      DSL.ins I.MOV [| DSL.emit_reg_v2d dst; DSL.emit_reg_v2d src |]
+      DSL.ins I.MOV [| DSL.emit_reg_v16b dst; DSL.emit_reg_v16b src |]
     | (Int | Val | Addr), Reg _, (Int | Val | Addr), Reg _ ->
       DSL.ins I.MOV [| DSL.emit_reg dst; DSL.emit_reg src |]
     | _, Reg _, _, Stack _ ->
