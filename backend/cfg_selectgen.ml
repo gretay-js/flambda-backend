@@ -606,10 +606,10 @@ module Make (Target : Cfg_selectgen_target_intf.S) = struct
     Ok (Array.concat (Array.to_list locs), stack_ofs)
 
   and emit_stores env sub_cfg dbg (args : Cmm.expression list) regs_addr =
+    let byte_offset = ref (-Arch.size_int) in
     let addressing_mode =
-      ref (Arch.offset_addressing Arch.identity_addressing (-Arch.size_int))
+      ref (Arch.offset_addressing Arch.identity_addressing !byte_offset)
     in
-    let byte_offset = ref 0 in
     let base =
       assert (Array.length regs_addr = 1);
       ref regs_addr
@@ -677,7 +677,7 @@ module Make (Target : Cfg_selectgen_target_intf.S) = struct
                 (* Use the temporary as the new base address. *)
                 if !Clflags.verbose
                 then
-                  Format.printf
+                  Misc.fatal_errorf
                     "Resetting offset %d for base register from %a to %a\n"
                     !byte_offset Printreg.regs !base Printreg.regs new_base;
                 base := new_base;
