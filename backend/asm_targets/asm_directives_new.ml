@@ -281,7 +281,7 @@ module Directive = struct
          as a number of bytes. *)
       let n =
         match TS.assembler (), TS.architecture () with
-        | MacOS, _ | GAS_like, (ARM | AArch64 | POWER) -> (* Misc.log2 *) n
+        | MacOS, _ | GAS_like, (ARM | AArch64 | POWER) -> Misc.log2 n
         | _, _ -> n
       in
       bprintf buf "\t.align\t%d" n
