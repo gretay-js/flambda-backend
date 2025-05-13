@@ -693,3 +693,8 @@ int32_t float32_round(int32_t f) {
   simd_float32x4_t v = simd_dup_float32x4(float_of_int32(f));
   return simd_extract_float32x4(simd_float32x4_round_near(v), 0);
 }
+
+
+value caml_test_abort(value unused) {
+  abort ();
+}
