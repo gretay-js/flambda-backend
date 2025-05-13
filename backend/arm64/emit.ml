@@ -870,7 +870,6 @@ let emit_float_literal (f, lbl) =
   D.float64_from_bits f
 
 let emit_vec128_literal (({ high; low } : Cmm.vec128_bits), lbl) =
-  D.align ~bytes:16;
   D.define_label lbl;
   D.float64_from_bits low;
   D.float64_from_bits high
@@ -1460,7 +1459,7 @@ let emit_static_cast (cast : Cmm.static_cast) i =
     | Int8x16 -> DSL.ins I.FMOV [| DSL.emit_reg_s dst; DSL.emit_reg_w src |]
     | Int16x8 -> DSL.ins I.FMOV [| DSL.emit_reg_s dst; DSL.emit_reg_w src |]
     | Int32x4 -> DSL.ins I.FMOV [| DSL.emit_reg_s dst; DSL.emit_reg_w src |]
-    | Int64x2 -> DSL.ins I.FMOV [| DSL.emit_reg_d dst; DSL.emit_reg src |]
+    | Int64x2 -> DSL.ins I.FMOV [| DSL.emit_reg_v2d dst; DSL.emit_reg src |]
     | Float32x4 ->
       if distinct
       then (
@@ -2220,7 +2219,6 @@ let emit_item (d : Cmm.data_item) =
   | Csingle f -> D.float32_boo f
   | Cdouble f -> D.float64 f
   | Cvec128 { high; low } ->
-    D.align ~bytes:16;
     D.float64_from_bits low;
     D.float64_from_bits high
   | Csymbol_address s ->

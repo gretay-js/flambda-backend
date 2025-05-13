@@ -2712,6 +2712,17 @@ let unaligned_load_128 ~ptr_out_of_heap ptr idx dbg =
     ( mk_load_mut Onetwentyeight_unaligned,
       [add_int_ptr ~ptr_out_of_heap ptr idx dbg],
       dbg )
+(* (\* CR: big/little endian *\) *)
+(* let cconst_int i = Cconst_int (i, dbg) in *)
+(* let cast e = Cop (Cstatic_cast (V128_of_scalar Int64x2), [e], dbg) in *)
+(* let low = cast (unaligned_load_64 ~ptr_out_of_heap ptr idx dbg) in *)
+(* let idx' = *)
+(*   add_int_ptr ~ptr_out_of_heap *)
+(*     (add_int_ptr ~ptr_out_of_heap ptr idx dbg) *)
+(*     (cconst_int 8) dbg *)
+(* in *)
+(* let high = cast (unaligned_load_64 ~ptr_out_of_heap ptr idx' dbg) in *)
+(* Cop (Cor, [Cop (Clsl, [high; cconst_int 64], dbg); low], dbg) *)
 
 let unaligned_set_128 ~ptr_out_of_heap ptr idx newval dbg =
   assert (size_vec128 = 16);
