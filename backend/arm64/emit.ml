@@ -870,6 +870,7 @@ let emit_float_literal (f, lbl) =
   D.float64_from_bits f
 
 let emit_vec128_literal (({ high; low } : Cmm.vec128_bits), lbl) =
+  D.align ~bytes:16;
   D.define_label lbl;
   D.float64_from_bits low;
   D.float64_from_bits high

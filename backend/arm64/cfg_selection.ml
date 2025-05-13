@@ -96,7 +96,7 @@ let select_addressing chunk (expr : Cmm.expression) :
     addressing_mode * Cmm.expression =
   match expr with
   | Cop ((Caddv | Cadda), [Cconst_symbol (s, _); Cconst_int (n, _)], _)
-    when use_direct_addressing s ->
+    when use_direct_addressing s && is_offset chunk n ->
     Ibased (s.sym_name, n), Ctuple []
   | Cop ((Caddv | Cadda), [arg; Cconst_int (n, _)], _) when is_offset chunk n ->
     Iindexed n, arg
