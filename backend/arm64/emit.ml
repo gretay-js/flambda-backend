@@ -803,6 +803,8 @@ let function_name = ref ""
 let tailrec_entry_point = ref None
 
 (* Pending floating-point literals *)
+let float32_literals = ref ([] : (int32 * L.t) list)
+
 let float_literals = ref ([] : (int64 * L.t) list)
 
 let vec128_literals = ref ([] : (Cmm.vec128_bits * L.t) list)
@@ -819,6 +821,8 @@ let add_literal p f =
     let lbl = L.create Text in
     p := (f, lbl) :: !p;
     lbl
+
+let float32_literal f = add_literal float32_literals f
 
 let float_literal f = add_literal float_literals f
 
@@ -847,6 +851,20 @@ let emit_literals p align emit_literal =
     List.iter emit_literal !p;
     p := [])
 
+let emit_float32_literal (f, lbl) =
+  D.define_label lbl;
+  let comment =
+    if !Clflags.keep_asm_file
+    then Some (Printf.sprintf "%.12f" (Int32.float_of_bits f))
+    else None
+  in
+  (* Do not use [D.float32] to aviod conversion [Int32.float_of_bits f] that
+     does not preserve single precision. *)
+  D.int32 ?comment f;
+  (* padding to 8 bytes *)
+  D.int32 0xDEAD_BEEFl;
+  ()
+
 let emit_float_literal (f, lbl) =
   D.define_label lbl;
   D.float64_from_bits f
@@ -857,6 +875,8 @@ let emit_vec128_literal (({ high; low } : Cmm.vec128_bits), lbl) =
   D.float64_from_bits high
 
 let emit_literals () =
+  (* Align float32 literals to [size_float]=8 bytes, not 4. *)
+  emit_literals float32_literals size_float emit_float32_literal;
   emit_literals float_literals size_float emit_float_literal;
   emit_literals vec128_literals size_vec128 emit_vec128_literal
 
@@ -1497,7 +1517,7 @@ let emit_instr i =
          [float_literal] (see the conversion from int32 to int64 below). Thus,
          we load the lower half. Note that this is different from Cmm 32-bit
          floats ([Csingle]), which are emitted as 4-byte constants. *)
-      let lbl = float_literal (Int64.of_int32 f) in
+      let lbl = float32_literal f in
       emit_load_literal i.res.(0) lbl
   | Lop (Const_float f) ->
     if Int64.equal f 0L
@@ -2196,9 +2216,10 @@ let emit_item (d : Cmm.data_item) =
   | Cint32 n -> D.int32 (Numbers.Int64.to_int32_exn (Int64.of_nativeint n))
   (* CR mshinwell: Add [Targetint.of_nativeint] *)
   | Cint n -> D.targetint (Targetint.of_int64 (Int64.of_nativeint n))
-  | Csingle f -> D.float32 f
+  | Csingle f -> D.float32_boo f
   | Cdouble f -> D.float64 f
   | Cvec128 { high; low } ->
+    D.align ~bytes:16;
     D.float64_from_bits low;
     D.float64_from_bits high
   | Csymbol_address s ->

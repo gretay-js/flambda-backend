@@ -568,7 +568,7 @@ let const_machine_width ?comment constant =
   | Thirty_two -> const ?comment constant Thirty_two
   | Sixty_four -> const ?comment constant Sixty_four
 
-let float32 f =
+let float32_boo f =
   let comment =
     if !Clflags.keep_asm_file then Some (Printf.sprintf "%.12f" f) else None
   in
