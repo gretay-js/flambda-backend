@@ -26,10 +26,14 @@ let eqf32 lv hv l h =
   if h <> hv then Printf.printf "%f <> %f\n" (f32 h) (f32 hv);
   if l <> lv || h <> hv then !failmsg ()
 
+external abort : unit -> unit = "caml_test_abort" [@@noalloc]
+
 let eqf' lv l =
   let fail = lv <> l && not (Float.is_nan lv && Float.is_nan l) in
   if fail then Printf.printf "%f <> %f\n" l lv;
-  if fail then !failmsg ()
+  if fail then !failmsg ();
+  (* if fail then abort (); *)
+  ()
 
 external int64x2_of_int64s : int64 -> int64 -> int64x2
   = "caml_vec128_unreachable" "vec128_of_int64s"
