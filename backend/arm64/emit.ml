@@ -829,14 +829,20 @@ let emit_literals p align emit_literal =
   if not (Misc.Stdlib.List.is_empty !p)
   then (
     if macosx
-    then (
+    then
       D.switch_to_section_raw
-        ~names:["__TEXT,__literal" ^ Int.to_string align]
+        ~names:["__TEXT"; "__literal" ^ Int.to_string align]
         ~flags:None
-        ~args:[Int.to_string align ^ "byte_literals"];
-      (* CR sspies: The following section is incorrect. We are in a data section
-         here. Fix this when cleaning up the section mechanism. *)
-      D.unsafe_set_internal_section_ref Text);
+        ~args:[Int.to_string align ^ "byte_literals"]
+    else
+      D.switch_to_section_raw
+        ~names:[".rodata.cst" ^ Int.to_string align]
+        ~flags:(Some "aM")
+        ~args:["@progbits"; Int.to_string align];
+    (* CR sspies: We set the internal section ref to Text here, because section
+       ref does not support named text sections yet. Fix this when cleaning up
+       the section mechanism. *)
+    D.unsafe_set_internal_section_ref Text;
     D.align ~bytes:align;
     List.iter emit_literal !p;
     p := [])
@@ -846,7 +852,6 @@ let emit_float_literal (f, lbl) =
   D.float64_from_bits f
 
 let emit_vec128_literal (({ high; low } : Cmm.vec128_bits), lbl) =
-  D.align ~bytes:16;
   D.define_label lbl;
   D.float64_from_bits low;
   D.float64_from_bits high
