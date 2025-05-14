@@ -1,9 +1,9 @@
+open Utils
+
 let eqi lv hv l h =
   if l <> lv then Printf.printf "%016x <> %016x\n" lv l;
   if h <> hv then Printf.printf "%016x <> %016x\n" hv h;
   if l <> lv || h <> hv then !failmsg ()
-
-module Float32 = Float32_reference
 
 module Float32x4 = struct
   include Builtins.Float32x4
@@ -62,6 +62,37 @@ module Float32x4 = struct
             eq_float32x4 ~result ~expect))
 end
 
+module Float64x2 = struct
+  include Builtins.Float64x2
+  include Sse_other_builtins.Float64x2
+
+  let () =
+    Test_helpers.run_if_not_under_rosetta2 ~f:(fun () ->
+        Float64.check_floats (fun f0 f1 ->
+            (failmsg := fun () -> Printf.printf "%f | %f\n%!" f0 f1);
+            let fv0 = to_float64x2 f0 f0 in
+            let fv1 = to_float64x2 f1 f1 in
+            let result = addsub fv0 fv1 in
+            let expect = to_float64x2 (f0 -. f1) (f0 +. f1) in
+            eq_float64x2 ~result ~expect);
+        Float64.check_floats (fun f0 f1 ->
+            (failmsg := fun () -> Printf.printf "%f | %f\n%!" f0 f1);
+            let fv0 = to_float64x2 f0 f1 in
+            let fv1 = to_float64x2 f1 f0 in
+            let result = hsub fv0 fv1 in
+            let expect = to_float64x2 (f0 -. f1) (f1 -. f0) in
+            eq_float64x2 ~result ~expect))
+
+  let () =
+    Float64.check_floats (fun f0 f1 ->
+        (failmsg := fun () -> Printf.printf "%f dp %f\n%!" f0 f1);
+        let fv0 = to_float64x2 f0 f1 in
+        let fv1 = to_float64x2 f1 f0 in
+        let result = dp 0b0011_0001 fv0 fv1 in
+        let expect = to_float64x2 ((f0 *. f1) +. (f1 *. f0)) 0.0 in
+        eq_float64x2 ~result ~expect)
+end
+
 module Int64 = struct
   include Sse_other_builtins.Int64
 
@@ -112,24 +143,102 @@ module Int64x2 = struct
     eq (int64x2_low_int64 c3) (int64x2_high_int64 c3) 48L 0L
 end
 
-module Int32s = struct
-  external int32x4_of_int64s : int64 -> int64 -> int32x4
-    = "caml_vec128_unreachable" "vec128_of_int64s"
-    [@@noalloc] [@@unboxed]
-
-  let of_int32s a b c d =
-    let a = Int64.of_int32 a |> Int64.logand 0xffffffffL in
-    let b = Int64.of_int32 b |> Int64.logand 0xffffffffL in
-    let c = Int64.of_int32 c |> Int64.logand 0xffffffffL in
-    let d = Int64.of_int32 d |> Int64.logand 0xffffffffL in
-    int32x4_of_int64s
-      Int64.(logor (shift_left b 32) a)
-      Int64.(logor (shift_left d 32) c)
-end
-
 module SSE_Util = struct
   let () =
     let v = Int32s.of_int32s 0xffffffffl 0x80000000l 0x7fffffffl 0x0l in
     let i = Builtins.SSE_Utils.movemask_32 v in
     eqi i 0 0b0011 0
+end
+
+module Int32x4 = struct
+  Int32s.check_ints (fun l r ->
+      (failmsg := fun () -> Printf.printf "%08lx|%08lx mulsign\n%!" l r);
+      let v0 = Int32s.of_int32s l l r r in
+      let v1 = Int32s.of_int32s l r l r in
+      let result = mulsign v0 v1 in
+      let mulsign x y = Int32.mul (Int32.compare y 0l |> Int32.of_int) x in
+      let expect =
+        Int32s.of_int32s (mulsign l l) (mulsign l r) (mulsign r l) (mulsign r r)
+      in
+      eq (int32x4_low_int64 result)
+        (int32x4_high_int64 result)
+        (int32x4_low_int64 expect)
+        (int32x4_high_int64 expect));
+  Int32s.check_ints (fun l r ->
+      (failmsg := fun () -> Printf.printf "%08lx|%08lx hsub\n%!" l r);
+      let v0 = Int32s.of_int32s l r r l in
+      let v1 = Int32s.of_int32s r l l r in
+      let result = hsub v0 v1 in
+      let expect =
+        Int32s.of_int32s (Int32.sub l r) (Int32.sub r l) (Int32.sub r l)
+          (Int32.sub l r)
+      in
+      eq (int32x4_low_int64 result)
+        (int32x4_high_int64 result)
+        (int32x4_low_int64 expect)
+        (int32x4_high_int64 expect))
+end
+
+module Int16x8 = struct
+  let () =
+    Int16.check_ints (fun l r ->
+        (failmsg := fun () -> Printf.printf "%04x|%04x mulsign\n%!" l r);
+        let v0 = Int16.of_ints l l r r l l r r in
+        let v1 = Int16.of_ints l r l r l r l r in
+        let result = mulsign v0 v1 in
+        let mulsign x y = Int16.mulsign x y in
+        let expect =
+          Int16.of_ints (mulsign l l) (mulsign l r) (mulsign r l) (mulsign r r)
+            (mulsign l l) (mulsign l r) (mulsign r l) (mulsign r r)
+        in
+        eq (int16x8_low_int64 result)
+          (int16x8_high_int64 result)
+          (int16x8_low_int64 expect)
+          (int16x8_high_int64 expect));
+    Int16.check_ints (fun l r ->
+        (failmsg := fun () -> Printf.printf "%04x|%04x hsubs\n%!" l r);
+        let v0 = Int16.of_ints l l r r l l r r in
+        let v1 = Int16.of_ints r r l l r r l l in
+        let result = hsub_saturating v0 v1 in
+        let expect =
+          Int16.of_ints (Int16.subs l l) (Int16.subs r r) (Int16.subs l l)
+            (Int16.subs r r) (Int16.subs r r) (Int16.subs l l) (Int16.subs r r)
+            (Int16.subs l l)
+        in
+        eq (int16x8_low_int64 result)
+          (int16x8_high_int64 result)
+          (int16x8_low_int64 expect)
+          (int16x8_high_int64 expect));
+    Int16.check_ints (fun l r ->
+        (failmsg := fun () -> Printf.printf "%04x|%04x hsub\n%!" l r);
+        let v0 = Int16.of_ints l l r r l l r r in
+        let v1 = Int16.of_ints r r l l r r l l in
+        let result = hsub v0 v1 in
+        let expect =
+          Int16.of_ints (Int16.sub l l) (Int16.sub r r) (Int16.sub l l)
+            (Int16.sub r r) (Int16.sub r r) (Int16.sub l l) (Int16.sub r r)
+            (Int16.sub l l)
+        in
+        eq (int16x8_low_int64 result)
+          (int16x8_high_int64 result)
+          (int16x8_low_int64 expect)
+          (int16x8_high_int64 expect))
+end
+
+module Int8x16 = struct
+  let () =
+    Int8.check_ints (fun l r ->
+        (failmsg := fun () -> Printf.printf "%02x|%02x mulsign\n%!" l r);
+        let v0 = Int8.of_ints l l r r l l r r in
+        let v1 = Int8.of_ints l r l r l r l r in
+        let result = mulsign v0 v1 in
+        let mulsign x y = Int8.mulsign x y in
+        let expect =
+          Int8.of_ints (mulsign l l) (mulsign l r) (mulsign r l) (mulsign r r)
+            (mulsign l l) (mulsign l r) (mulsign r l) (mulsign r r)
+        in
+        eq (int8x16_low_int64 result)
+          (int8x16_high_int64 result)
+          (int8x16_low_int64 expect)
+          (int8x16_high_int64 expect))
 end

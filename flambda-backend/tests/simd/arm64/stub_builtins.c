@@ -134,8 +134,6 @@ BUILTIN(caml_neon_int16x8_mul_high_unsigned);
 BUILTIN(caml_neon_int16x8_mul_low);
 BUILTIN(caml_neon_int16x8_mul_hadd_int32x4);
 
-BUILTIN(caml_neon_float32x4_addsub);
-BUILTIN(caml_neon_float64x2_addsub);
 BUILTIN(caml_neon_float32x4_hadd);
 BUILTIN(caml_neon_float64x2_hadd);
 BUILTIN(caml_neon_float32x4_hsub);

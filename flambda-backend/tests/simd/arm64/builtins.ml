@@ -128,14 +128,6 @@ module Int32x4 = struct
     = "caml_vec128_unreachable" "caml_neon_int32x4_hadd"
     [@@noalloc] [@@unboxed] [@@builtin]
 
-  external hsub : t -> t -> t
-    = "caml_vec128_unreachable" "caml_neon_int32x4_hsub"
-    [@@noalloc] [@@unboxed] [@@builtin]
-
-  external mulsign : t -> t -> t
-    = "caml_vec128_unreachable" "caml_neon_int32x4_mulsign"
-    [@@noalloc] [@@unboxed] [@@builtin]
-
   external max : t -> t -> t = "caml_vec128_unreachable" "caml_neon_int32x4_max"
     [@@noalloc] [@@unboxed] [@@builtin]
 
@@ -288,22 +280,132 @@ module Float32x4 = struct
     [@@noalloc] [@@builtin]
 end
 
+module Int64x2 = struct
+  type t = int64x2
+
+  external add : t -> t -> t = "caml_vec128_unreachable" "caml_neon_int64x2_add"
+    [@@noalloc] [@@unboxed] [@@builtin]
+
+  external sub : t -> t -> t = "caml_vec128_unreachable" "caml_neon_int64x2_sub"
+    [@@noalloc] [@@unboxed] [@@builtin]
+
+  external cmpeqz : t -> t
+    = "caml_vec128_unreachable" "caml_neon_int64x2_cmpeqz"
+    [@@noalloc] [@@unboxed] [@@builtin]
+
+  external cmpgez : t -> t
+    = "caml_vec128_unreachable" "caml_neon_int64x2_cmpgez"
+    [@@noalloc] [@@unboxed] [@@builtin]
+
+  external cmpgtz : t -> t
+    = "caml_vec128_unreachable" "caml_neon_int64x2_cmpgtz"
+    [@@noalloc] [@@unboxed] [@@builtin]
+
+  external cmplez : t -> t
+    = "caml_vec128_unreachable" "caml_neon_int64x2_cmplez"
+    [@@noalloc] [@@unboxed] [@@builtin]
+
+  external cmpltz : t -> t
+    = "caml_vec128_unreachable" "caml_neon_int64x2_cmpltz"
+    [@@noalloc] [@@unboxed] [@@builtin]
+
+  external cmpeq : t -> t -> t
+    = "caml_vec128_unreachable" "caml_neon_int64x2_cmpeq"
+    [@@noalloc] [@@unboxed] [@@builtin]
+
+  external cmpgt : t -> t -> t
+    = "caml_vec128_unreachable" "caml_neon_int64x2_cmpgt"
+    [@@noalloc] [@@unboxed] [@@builtin]
+
+  external sll : t -> t -> t = "caml_vec128_unreachable" "caml_neon_int64x2_sll"
+    [@@noalloc] [@@unboxed] [@@builtin]
+
+  external srl : t -> t -> t = "caml_vec128_unreachable" "caml_neon_int64x2_srl"
+    [@@noalloc] [@@unboxed] [@@builtin]
+
+  external slli : (int[@untagged]) -> (t[@unboxed]) -> (t[@unboxed])
+    = "caml_vec128_unreachable" "caml_neon_int64x2_slli"
+    [@@noalloc] [@@builtin]
+
+  external srli : (int[@untagged]) -> (t[@unboxed]) -> (t[@unboxed])
+    = "caml_vec128_unreachable" "caml_neon_int64x2_srli"
+    [@@noalloc] [@@builtin]
+
+  external extract : (int[@untagged]) -> (t[@unboxed]) -> (int64[@unboxed])
+    = "caml_vec128_unreachable" "caml_neon_int64x2_extract"
+    [@@noalloc] [@@builtin]
+
+  external insert :
+    (int[@untagged]) -> (t[@unboxed]) -> (int64[@unboxed]) -> (t[@unboxed])
+    = "caml_vec128_unreachable" "caml_neon_int64x2_insert"
+    [@@noalloc] [@@builtin]
+
+  external bitwise_not : int32x4 -> int32x4
+    = "caml_vec128_unreachable" "caml_neon_int32x4_bitwise_not"
+    [@@noalloc] [@@unboxed] [@@builtin]
+
+  external bitwise_or : int32x4 -> int32x4 -> int32x4
+    = "caml_vec128_unreachable" "caml_neon_int32x4_bitwise_or"
+    [@@noalloc] [@@unboxed] [@@builtin]
+
+  external bitwise_and : int32x4 -> int32x4
+    = "caml_vec128_unreachable" "caml_neon_int32x4_bitwise_and"
+    [@@noalloc] [@@unboxed] [@@builtin]
+
+  external bitwise_xor : int32x4 -> int32x4 -> int32x4
+    = "caml_vec128_unreachable" "caml_neon_int32x4_bitwise_xor"
+    [@@noalloc] [@@unboxed] [@@builtin]
+
+  external neg : int32x4 -> int32x4
+    = "caml_vec128_unreachable" "caml_neon_int32x4_neg"
+    [@@noalloc] [@@unboxed] [@@builtin]
+end
+
 module Float64x2 = struct
   type t = float64x2
 
   (* Math *)
 
-  external cmp :
-    (int[@untagged]) -> (t[@unboxed]) -> (t[@unboxed]) -> (int64x2[@unboxed])
-    = "caml_vec128_unreachable" "caml_neon_float64x2_cmp"
+  external cmeq : (t[@unboxed]) -> (t[@unboxed]) -> (int64x2[@unboxed])
+    = "caml_vec128_unreachable" "caml_neon_float32x4_cmeq"
     [@@noalloc] [@@builtin]
 
-  external movemask_64 : (int64x2[@unboxed]) -> (int[@untagged])
-    = "caml_vec128_unreachable" "caml_neon_vec128_movemask_64"
+  external cmge : (t[@unboxed]) -> (t[@unboxed]) -> (int64x2[@unboxed])
+    = "caml_vec128_unreachable" "caml_neon_float32x4_cmge"
     [@@noalloc] [@@builtin]
+
+  external cmgt : (t[@unboxed]) -> (t[@unboxed]) -> (int64x2[@unboxed])
+    = "caml_vec128_unreachable" "caml_neon_float32x4_cmgt"
+    [@@noalloc] [@@builtin]
+
+  external cmle : (t[@unboxed]) -> (t[@unboxed]) -> (int64x2[@unboxed])
+    = "caml_vec128_unreachable" "caml_neon_float32x4_cmle"
+    [@@noalloc] [@@builtin]
+
+  external cmlt : (t[@unboxed]) -> (t[@unboxed]) -> (int64x2[@unboxed])
+    = "caml_vec128_unreachable" "caml_neon_float32x4_cmlt"
+    [@@noalloc] [@@builtin]
+
+  let is_nan t = Int64x2.bitwise_not (cmeq t t)
+
+  let cmp n t1 t2 =
+    match Float_cond_x86.float_condition_of_int n with
+    | EQf -> cmeq t1 t2
+    | LTf -> cmlt t1 t2
+    | LEf -> cmle t1 t2
+    | NEQf -> Int64x2.bitwise_not (cmeq t1 t2)
+    | NLTf -> Int64x2.bitwise_not (cmlt t1 t2)
+    | NLEf -> Int64x2.bitwise_not (cmle t1 t2)
+    (* CR gyorsh: this is not efficient but gives us more testing coverage. *)
+    | UNORDf -> Int64x2.bitwise_or (is_nan t1) (is_nan t2)
+    | ORDf -> Int64x2.bitwise_not (Int64x2.bitwise_or (is_nan t1) (is_nan t2))
 
   external add : t -> t -> t
     = "caml_vec128_unreachable" "caml_neon_float64x2_add"
+    [@@noalloc] [@@unboxed] [@@builtin]
+
+  external hadd : t -> t -> t
+    = "caml_vec128_unreachable" "caml_neon_float64x2_hadd"
     [@@noalloc] [@@unboxed] [@@builtin]
 
   external sub : t -> t -> t
@@ -337,66 +439,12 @@ module Float64x2 = struct
     = "caml_vec128_unreachable" "caml_neon_cvt_float64x2_to_float32x2"
     [@@noalloc] [@@unboxed] [@@builtin]
 
-  external addsub : t -> t -> t
-    = "caml_vec128_unreachable" "caml_neon_float64x2_addsub"
-    [@@noalloc] [@@unboxed] [@@builtin]
-
   external hadd : t -> t -> t
     = "caml_vec128_unreachable" "caml_neon_float64x2_hadd"
     [@@noalloc] [@@unboxed] [@@builtin]
 
-  external hsub : t -> t -> t
-    = "caml_vec128_unreachable" "caml_neon_float64x2_hsub"
-    [@@noalloc] [@@unboxed] [@@builtin]
-
-  external dp :
-    (int[@untagged]) -> (t[@unboxed]) -> (t[@unboxed]) -> (t[@unboxed])
-    = "caml_vec128_unreachable" "caml_neon_float64x2_dp"
-    [@@noalloc] [@@builtin]
-
   external round : (int[@untagged]) -> (t[@unboxed]) -> (t[@unboxed])
     = "caml_vec128_unreachable" "caml_neon_float64x2_round"
-    [@@noalloc] [@@builtin]
-end
-
-module Int64x2 = struct
-  type t = int64x2
-
-  external add : t -> t -> t = "caml_vec128_unreachable" "caml_neon_int64x2_add"
-    [@@noalloc] [@@unboxed] [@@builtin]
-
-  external sub : t -> t -> t = "caml_vec128_unreachable" "caml_neon_int64x2_sub"
-    [@@noalloc] [@@unboxed] [@@builtin]
-
-  external cmpeq : t -> t -> t
-    = "caml_vec128_unreachable" "caml_neon_int64x2_cmpeq"
-    [@@noalloc] [@@unboxed] [@@builtin]
-
-  external cmpgt : t -> t -> t
-    = "caml_vec128_unreachable" "caml_neon_int64x2_cmpgt"
-    [@@noalloc] [@@unboxed] [@@builtin]
-
-  external sll : t -> t -> t = "caml_vec128_unreachable" "caml_neon_int64x2_sll"
-    [@@noalloc] [@@unboxed] [@@builtin]
-
-  external srl : t -> t -> t = "caml_vec128_unreachable" "caml_neon_int64x2_srl"
-    [@@noalloc] [@@unboxed] [@@builtin]
-
-  external slli : (int[@untagged]) -> (t[@unboxed]) -> (t[@unboxed])
-    = "caml_vec128_unreachable" "caml_neon_int64x2_slli"
-    [@@noalloc] [@@builtin]
-
-  external srli : (int[@untagged]) -> (t[@unboxed]) -> (t[@unboxed])
-    = "caml_vec128_unreachable" "caml_neon_int64x2_srli"
-    [@@noalloc] [@@builtin]
-
-  external extract : (int[@untagged]) -> (t[@unboxed]) -> (int64[@unboxed])
-    = "caml_vec128_unreachable" "caml_neon_int64x2_extract"
-    [@@noalloc] [@@builtin]
-
-  external insert :
-    (int[@untagged]) -> (t[@unboxed]) -> (int64[@unboxed]) -> (t[@unboxed])
-    = "caml_vec128_unreachable" "caml_neon_int64x2_insert"
     [@@noalloc] [@@builtin]
 end
 
@@ -480,18 +528,6 @@ module Int16x8 = struct
 
   external hadd_saturating : t -> t -> t
     = "caml_vec128_unreachable" "caml_neon_int16x8_hadd_saturating"
-    [@@noalloc] [@@unboxed] [@@builtin]
-
-  external hsub : t -> t -> t
-    = "caml_vec128_unreachable" "caml_neon_int16x8_hsub"
-    [@@noalloc] [@@unboxed] [@@builtin]
-
-  external hsub_saturating : t -> t -> t
-    = "caml_vec128_unreachable" "caml_neon_int16x8_hsub_saturating"
-    [@@noalloc] [@@unboxed] [@@builtin]
-
-  external mulsign : t -> t -> t
-    = "caml_vec128_unreachable" "caml_neon_int16x8_mulsign"
     [@@noalloc] [@@unboxed] [@@builtin]
 
   external avgu : t -> t -> t
@@ -623,10 +659,6 @@ module Int8x16 = struct
   external abs : t -> t = "caml_vec128_unreachable" "caml_neon_int8x16_abs"
     [@@noalloc] [@@unboxed] [@@builtin]
 
-  external mulsign : t -> t -> t
-    = "caml_vec128_unreachable" "caml_neon_int8x16_mulsign"
-    [@@noalloc] [@@unboxed] [@@builtin]
-
   external avgu : t -> t -> t
     = "caml_vec128_unreachable" "caml_neon_int8x16_avg_unsigned"
     [@@noalloc] [@@unboxed] [@@builtin]
@@ -695,18 +727,29 @@ module SSE_Util = struct
     let mask = Int32x4.cmpltz t in
     let res = 0l in
     let i = 0 in
-    let lane_mask = Int32x4.extract i mask |> Int32.logand 1l in
+    let lane_mask = Int32x4.extract i mask |> Int32.logand Int32.one in
     let res = Int32.logor res (Int32.shift_left lane_mask i) in
     let i = 1 in
-    let lane_mask = Int32x4.extract i mask |> Int32.logand 1l in
+    let lane_mask = Int32x4.extract i mask |> Int32.logand Int32.one in
     let res = Int32.logor res (Int32.shift_left lane_mask i) in
     let i = 2 in
-    let lane_mask = Int32x4.extract i mask |> Int32.logand 1l in
+    let lane_mask = Int32x4.extract i mask |> Int32.logand Int32.one in
     let res = Int32.logor res (Int32.shift_left lane_mask i) in
     let i = 3 in
-    let lane_mask = Int32x4.extract i mask |> Int32.logand 1l in
+    let lane_mask = Int32x4.extract i mask |> Int32.logand Int32.one in
     let res = Int32.logor res (Int32.shift_left lane_mask i) in
     Int32.to_int res
+
+  let movemask_64 t =
+    let mask = Int64x2.cmpltz t in
+    let res = 0L in
+    let i = 0 in
+    let lane_mask = Int64x2.extract i mask |> Int64.logand Int64.one in
+    let res = Int64.logor res (Int64.shift_left lane_mask i) in
+    let i = 1 in
+    let lane_mask = Int64x2.extract i mask |> Int64.logand Int64.one in
+    let res = Int64.logor res (Int64.shift_left lane_mask i) in
+    Int64.to_int res
 end
 
 module SSE2_Util = struct

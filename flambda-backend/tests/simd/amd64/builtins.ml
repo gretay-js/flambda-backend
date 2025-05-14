@@ -138,22 +138,9 @@ module Float64x2 = struct
     = "caml_vec128_unreachable" "caml_sse2_cvt_float64x2_float32x2"
     [@@noalloc] [@@unboxed] [@@builtin]
 
-  external addsub : t -> t -> t
-    = "caml_vec128_unreachable" "caml_sse3_float64x2_addsub"
-    [@@noalloc] [@@unboxed] [@@builtin]
-
   external hadd : t -> t -> t
     = "caml_vec128_unreachable" "caml_sse3_float64x2_hadd"
     [@@noalloc] [@@unboxed] [@@builtin]
-
-  external hsub : t -> t -> t
-    = "caml_vec128_unreachable" "caml_sse3_float64x2_hsub"
-    [@@noalloc] [@@unboxed] [@@builtin]
-
-  external dp :
-    (int[@untagged]) -> (t[@unboxed]) -> (t[@unboxed]) -> (t[@unboxed])
-    = "caml_vec128_unreachable" "caml_sse41_float64x2_dp"
-    [@@noalloc] [@@builtin]
 
   external round : (int[@untagged]) -> (t[@unboxed]) -> (t[@unboxed])
     = "caml_vec128_unreachable" "caml_sse41_float64x2_round"
@@ -252,10 +239,6 @@ module Int32x4 = struct
 
   external hadd : t -> t -> t
     = "caml_vec128_unreachable" "caml_ssse3_int32x4_hadd"
-    [@@noalloc] [@@unboxed] [@@builtin]
-
-  external hsub : t -> t -> t
-    = "caml_vec128_unreachable" "caml_ssse3_int32x4_hsub"
     [@@noalloc] [@@unboxed] [@@builtin]
 
   external mulsign : t -> t -> t
@@ -388,14 +371,6 @@ module Int16x8 = struct
 
   external hadd_saturating : t -> t -> t
     = "caml_vec128_unreachable" "caml_ssse3_int16x8_hadd_saturating"
-    [@@noalloc] [@@unboxed] [@@builtin]
-
-  external hsub : t -> t -> t
-    = "caml_vec128_unreachable" "caml_ssse3_int16x8_hsub"
-    [@@noalloc] [@@unboxed] [@@builtin]
-
-  external hsub_saturating : t -> t -> t
-    = "caml_vec128_unreachable" "caml_ssse3_int16x8_hsub_saturating"
     [@@noalloc] [@@unboxed] [@@builtin]
 
   external mulsign : t -> t -> t

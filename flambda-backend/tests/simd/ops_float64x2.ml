@@ -35,8 +35,8 @@ let check_cmp msg scalar vector f0 f1 =
   let v1 = to_float64x2 f0 f1 in
   let v2 = to_float64x2 f1 f0 in
   let result = vector v1 v2 in
-  let mask = movemask_64 result in
-  eqi mask mask expect_mask (movemask_64 expect);
+  let mask = Builtins.SSE_Util.movemask_64 result in
+  eqi mask mask expect_mask (Builtins.SSE_Util.movemask_64 expect);
   eq (int64x2_low_int64 result)
     (int64x2_high_int64 result)
     (int64x2_low_int64 expect)
@@ -147,32 +147,11 @@ let () =
           (failmsg := fun () -> Printf.printf "%f | %f\n%!" f0 f1);
           let fv0 = to_float64x2 f0 f0 in
           let fv1 = to_float64x2 f1 f1 in
-          let result = addsub fv0 fv1 in
-          let expect = to_float64x2 (f0 -. f1) (f0 +. f1) in
-          eq_float64x2 ~result ~expect);
-      Float64.check_floats (fun f0 f1 ->
-          (failmsg := fun () -> Printf.printf "%f | %f\n%!" f0 f1);
-          let fv0 = to_float64x2 f0 f0 in
-          let fv1 = to_float64x2 f1 f1 in
           let result = hadd fv0 fv1 in
           let expect = to_float64x2 (f0 +. f0) (f1 +. f1) in
-          eq_float64x2 ~result ~expect);
-      Float64.check_floats (fun f0 f1 ->
-          (failmsg := fun () -> Printf.printf "%f | %f\n%!" f0 f1);
-          let fv0 = to_float64x2 f0 f1 in
-          let fv1 = to_float64x2 f1 f0 in
-          let result = hsub fv0 fv1 in
-          let expect = to_float64x2 (f0 -. f1) (f1 -. f0) in
           eq_float64x2 ~result ~expect))
 
 let () =
-  Float64.check_floats (fun f0 f1 ->
-      (failmsg := fun () -> Printf.printf "%f dp %f\n%!" f0 f1);
-      let fv0 = to_float64x2 f0 f1 in
-      let fv1 = to_float64x2 f1 f0 in
-      let result = dp 0b0011_0001 fv0 fv1 in
-      let expect = to_float64x2 ((f0 *. f1) +. (f1 *. f0)) 0.0 in
-      eq_float64x2 ~result ~expect);
   Float64.check_floats (fun f0 f1 ->
       (failmsg := fun () -> Printf.printf "roundf64 %f %f\n%!" f0 f1);
       let fv = to_float64x2 f0 f1 in
