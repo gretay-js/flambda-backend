@@ -30,7 +30,7 @@ external abort : unit -> unit = "caml_test_abort" [@@noalloc]
 
 let eqf' lv l =
   let fail = lv <> l && not (Float.is_nan lv && Float.is_nan l) in
-  if fail then Printf.printf "%f <> %f\n" l lv;
+  if fail then Printf.printf "expected = %f <> %f = actual\n" l lv;
   if fail then !failmsg ();
   (* if fail then abort (); *)
   ()
