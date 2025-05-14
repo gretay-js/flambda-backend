@@ -237,11 +237,12 @@ end = struct
     | Float32 -> Arm64_ast.Reg.reg_s index
     | Vec128 | Valx2 -> Arm64_ast.Reg.reg_q index
 
-  let emit_reglane_s reg ~lane =
-    (* Clang 17 assembler does not accept optional number of lanes notation of
-       the form Vn.4S[lane], even though it is required to do so in ARMARM. Emit
-       Vn.S[lane]. *)
-    reglane_s (reg_index reg) ~lane
+  (* [emit_reglane_*]: Clang 17 assembler does not accept optional number of
+     lanes notation of the form Vn.4S[lane], even though it is required to do so
+     in ARMARM. Emit Vn.S[lane]. *)
+  let emit_reglane_s reg ~lane = reglane_s (reg_index reg) ~lane
+
+  let emit_reglane_d reg ~lane = reglane_d (reg_index reg) ~lane
 
   let emit_struct_reglane_d reg ~lane = struct_reglane_d (reg_index reg) ~lane
 
@@ -364,7 +365,7 @@ end = struct
     | Rf32_to_Ri64 ->
       check_reg Float32 i.arg.(0);
       check_reg Int i.res.(0)
-    | Ri32x4_to_Ri32 _ -> check_reg Vec128 i.arg.(0)
+    | Ri32x4_to_Ri32 _ | Ri64x2_to_Ri64 _ -> check_reg Vec128 i.arg.(0)
 
   let src_operands ops =
     (* returns a copy of [ops] without the first operand, which is assumed to be
@@ -427,6 +428,8 @@ end = struct
     | Rf64_to_Rf64 | Rf32_to_Rf32 | Rf32_to_Ri64 -> emit_regs_unary i
     | Ri32x4_to_Ri32 { lane : int } ->
       [| emit_reg i.res.(0); emit_reglane_s i.arg.(0) ~lane |]
+    | Ri64x2_to_Ri64 { lane : int } ->
+      [| emit_reg i.res.(0); emit_reglane_d i.arg.(0) ~lane |]
 
   let simd_instr_size (op : Simd.operation) =
     match op with
@@ -439,7 +442,7 @@ end = struct
     | Cvt_f32_f64 | Cvt_f64_s32 | Cvt_s32_f64 | Paddq_f32 | Fmin_f32 | Fmax_f32
     | Fmin_f64 | Fmax_f64 | Addq_i64 | Subq_i64 | Cmp_f32 _ | Cmpz_f32 _
     | Cmpz_s32 _ | Mvnq_s32 | Orrq_s32 | Andq_s32 | Eorq_s32 | Negq_s32
-    | Getq_lane_s32 _ ->
+    | Getq_lane_s32 _ | Getq_lane_s64 _ ->
       1
 
   let emit_rounding_mode (rm : Simd.Rounding_mode.t) : I.Rounding_mode.t =
@@ -537,7 +540,7 @@ end = struct
     | Andq_s32 -> ins I.AND operands
     | Eorq_s32 -> ins I.EOR operands
     | Negq_s32 -> ins I.NEG operands
-    | Getq_lane_s32 _ -> ins I.SMOV operands
+    | Getq_lane_s32 _ | Getq_lane_s64 _ -> ins I.SMOV operands
 end
 
 (* Record live pointers at call points *)

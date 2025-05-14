@@ -57,6 +57,7 @@ type register_behavior =
   | Rf32_to_Ri64
   (* extract *)
   | Ri32x4_to_Ri32 of { lane : int }
+  | Ri64x2_to_Ri64 of { lane : int }
 
 let register_behavior (op : Simd.operation) =
   match op with
@@ -89,8 +90,9 @@ let register_behavior (op : Simd.operation) =
   | Cmp_f32 _ -> Rf32x4_Rf32x4_to_Ri32x4
   | Cmpz_f32 _ -> Rf32x4_to_Ri32x4
   | Negq_s32 | Cmpz_s32 _ -> Ri32x4_to_Ri32x4
-  | Getq_lane_s32 { lane } ->
-    Ri32x4_to_Ri32 { lane }
+  | Getq_lane_s32 { lane } -> Ri32x4_to_Ri32 { lane }
+  | Getq_lane_s64 { lane } ->
+    Ri64x2_to_Ri64 { lane }
     (* Bitwise operation, lane width does not matter. The only two encodings
        provided are 8B and 16B. *)
   | Eorq_s32 | Andq_s32 | Orrq_s32 -> Ri8x16_Ri8x16_to_Ri8x16

@@ -35,8 +35,8 @@ let check_cmp msg scalar vector f0 f1 =
   let v1 = to_float64x2 f0 f1 in
   let v2 = to_float64x2 f1 f0 in
   let result = vector v1 v2 in
-  let mask = movemask_64 result in
-  eqi mask mask expect_mask (movemask_64 expect);
+  let mask = Builtins.SSE_Util.movemask_64 result in
+  eqi mask mask expect_mask (Builtins.SSE_Util.movemask_64 expect);
   eq (int64x2_low_int64 result)
     (int64x2_high_int64 result)
     (int64x2_low_int64 expect)

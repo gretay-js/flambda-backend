@@ -368,8 +368,32 @@ module Int64x2 = struct
   external sub : t -> t -> t = "caml_vec128_unreachable" "caml_neon_int64x2_sub"
     [@@noalloc] [@@unboxed] [@@builtin]
 
+  external cmpeqz : t -> t
+    = "caml_vec128_unreachable" "caml_neon_int64x2_cmpeqz"
+    [@@noalloc] [@@unboxed] [@@builtin]
+
+  external cmpgez : t -> t
+    = "caml_vec128_unreachable" "caml_neon_int64x2_cmpgez"
+    [@@noalloc] [@@unboxed] [@@builtin]
+
+  external cmpgtz : t -> t
+    = "caml_vec128_unreachable" "caml_neon_int64x2_cmpgtz"
+    [@@noalloc] [@@unboxed] [@@builtin]
+
+  external cmplez : t -> t
+    = "caml_vec128_unreachable" "caml_neon_int64x2_cmplez"
+    [@@noalloc] [@@unboxed] [@@builtin]
+
+  external cmpltz : t -> t
+    = "caml_vec128_unreachable" "caml_neon_int64x2_cmpltz"
+    [@@noalloc] [@@unboxed] [@@builtin]
+
   external cmpeq : t -> t -> t
     = "caml_vec128_unreachable" "caml_neon_int64x2_cmpeq"
+    [@@noalloc] [@@unboxed] [@@builtin]
+
+  external cmpgt : t -> t -> t
+    = "caml_vec128_unreachable" "caml_neon_int64x2_cmpgt"
     [@@noalloc] [@@unboxed] [@@builtin]
 
   external cmpgt : t -> t -> t
@@ -695,18 +719,47 @@ module SSE_Util = struct
     let mask = Int32x4.cmpltz t in
     let res = 0l in
     let i = 0 in
-    let lane_mask = Int32x4.extract i mask |> Int32.logand 1l in
+    let lane_mask = Int32x4.extract i mask |> Int32.logand Int32.one in
     let res = Int32.logor res (Int32.shift_left lane_mask i) in
     let i = 1 in
-    let lane_mask = Int32x4.extract i mask |> Int32.logand 1l in
+    let lane_mask = Int32x4.extract i mask |> Int32.logand Int32.one in
     let res = Int32.logor res (Int32.shift_left lane_mask i) in
     let i = 2 in
-    let lane_mask = Int32x4.extract i mask |> Int32.logand 1l in
+    let lane_mask = Int32x4.extract i mask |> Int32.logand Int32.one in
     let res = Int32.logor res (Int32.shift_left lane_mask i) in
     let i = 3 in
-    let lane_mask = Int32x4.extract i mask |> Int32.logand 1l in
+    let lane_mask = Int32x4.extract i mask |> Int32.logand Int32.one in
     let res = Int32.logor res (Int32.shift_left lane_mask i) in
     Int32.to_int res
+
+  let movemask_64 t =
+    let mask = Int64x2.cmpltz t in
+    let res = 0L in
+    let i = 0 in
+    let lane_mask = Int64x2.extract i mask |> Int64.logand Int64.one in
+    let res = Int64.logor res (Int64.shift_left lane_mask i) in
+    let i = 1 in
+    let lane_mask = Int64x2.extract i mask |> Int64.logand Int64.one in
+    let res = Int64.logor res (Int64.shift_left lane_mask i) in
+    let i = 2 in
+    let lane_mask = Int64x2.extract i mask |> Int64.logand Int64.one in
+    let res = Int64.logor res (Int64.shift_left lane_mask i) in
+    let i = 3 in
+    let lane_mask = Int64x2.extract i mask |> Int64.logand Int64.one in
+    let res = Int64.logor res (Int64.shift_left lane_mask i) in
+    let i = 4 in
+    let lane_mask = Int64x2.extract i mask |> Int64.logand Int64.one in
+    let res = Int64.logor res (Int64.shift_left lane_mask i) in
+    let i = 5 in
+    let lane_mask = Int64x2.extract i mask |> Int64.logand Int64.one in
+    let res = Int64.logor res (Int64.shift_left lane_mask i) in
+    let i = 6 in
+    let lane_mask = Int64x2.extract i mask |> Int64.logand Int64.one in
+    let res = Int64.logor res (Int64.shift_left lane_mask i) in
+    let i = 7 in
+    let lane_mask = Int64x2.extract i mask |> Int64.logand Int64.one in
+    let res = Int64.logor res (Int64.shift_left lane_mask i) in
+    Int64.to_int res
 end
 
 module SSE2_Util = struct

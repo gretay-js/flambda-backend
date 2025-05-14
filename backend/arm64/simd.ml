@@ -160,6 +160,7 @@ type operation =
   | Eorq_s32
   | Negq_s32
   | Getq_lane_s32 of { lane : int (* 0 <= lane <= 3 *) }
+  | Getq_lane_s64 of { lane : int (* 0 <= lane <= 7 *) }
 
 let print_name op =
   match op with
@@ -208,6 +209,7 @@ let print_name op =
   | Eorq_s32 -> "Eorq_s32"
   | Negq_s32 -> "Negq_s32"
   | Getq_lane_s32 { lane } -> "Getq_lane_s32_" ^ Int.to_string lane
+  | Getq_lane_s64 { lane } -> "Getq_lane_s64_" ^ Int.to_string lane
 
 let print_operation printreg op ppf arg =
   (* CR gyorsh: does not support memory operands (except stack operands). *)
@@ -261,6 +263,7 @@ let equal_operation op1 op2 =
   | Negq_s32, Negq_s32 ->
     true
   | Getq_lane_s32 { lane = l }, Getq_lane_s32 { lane = l' } -> Int.equal l l'
+  | Getq_lane_s64 { lane = l }, Getq_lane_s64 { lane = l' } -> Int.equal l l'
   | Cmp_f32 c, Cmp_f32 c' -> Float_cond.equal c c'
   | Cmpz_f32 c, Cmpz_f32 c' -> Float_cond.equal c c'
   | Cmpz_s32 c, Cmpz_s32 c' -> Cond.equal c c'
@@ -272,7 +275,7 @@ let equal_operation op1 op2 =
       | Recpeq_f32 | Sqrtq_f32 | Rsqrteq_f32 | Cvtq_s32_f32 | Cvtq_f32_s32
       | Cvt_f64_f32 | Cvt_f32_f64 | Cvt_f64_s32 | Cvt_s32_f64 | Paddq_f32
       | Cmp_f32 _ | Cmpz_f32 _ | Cmpz_s32 _ | Mvnq_s32 | Orrq_s32 | Andq_s32
-      | Eorq_s32 | Negq_s32 | Getq_lane_s32 _ ),
+      | Eorq_s32 | Negq_s32 | Getq_lane_s32 _ | Getq_lane_s64 _ ),
       _ ) ->
     false
 
@@ -285,7 +288,8 @@ let class_of_operation op =
   | Maxq_f32 | Minq_f64 | Maxq_f64 | Recpeq_f32 | Sqrtq_f32 | Rsqrteq_f32
   | Cvtq_s32_f32 | Cvtq_f32_s32 | Cvt_f64_f32 | Cvt_f32_f64 | Cvt_f64_s32
   | Cvt_s32_f64 | Paddq_f32 | Cmp_f32 _ | Cmpz_f32 _ | Cmpz_s32 _ | Mvnq_s32
-  | Orrq_s32 | Andq_s32 | Eorq_s32 | Negq_s32 | Getq_lane_s32 _ ->
+  | Orrq_s32 | Andq_s32 | Eorq_s32 | Negq_s32 | Getq_lane_s32 _
+  | Getq_lane_s64 _ ->
     Pure
 
 let operation_is_pure op = match class_of_operation op with Pure -> true
