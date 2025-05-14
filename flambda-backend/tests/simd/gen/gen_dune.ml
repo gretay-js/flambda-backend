@@ -114,8 +114,8 @@ let () =
     [ "basic", enabled_if_main;
       "basic_u", enabled_if_main;
       "ops_float32x4", enabled_if_main;
-      "ops_float32x4_u", enabled_if_main_amd64_not_macos;
-      "ops_float64x2", enabled_if_main;
+      "ops_float32x4_u", enabled_if_main;
+      "ops_float64x2", enabled_if_main_amd64_not_macos;
       "ops_float64x2_u", enabled_if_main_amd64_not_macos;
       "ops", enabled_if_main_amd64_not_macos;
       "ops_u", enabled_if_main_amd64_not_macos;
