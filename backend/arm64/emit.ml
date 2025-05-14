@@ -124,6 +124,7 @@ module DSL : sig
   val emit_reg_v16b : Reg.t -> Arm64_ast.Operand.t
 
   val emit_struct_reglane_d : Reg.t -> lane:int -> Arm64_ast.Operand.t
+    [@@warning "-32"]
 
   val imm : int -> Arm64_ast.Operand.t
 
@@ -1667,13 +1668,14 @@ let emit_instr i =
              DSL.emit_reg reg_tmp1;
              DSL.emit_symbol ~reloc:LOWER_TWELVE s
           |]);
-      (* CR gyorsh: check endianness *)
-      DSL.ins I.LD1
-        [| DSL.emit_struct_reglane_d dst ~lane:0; DSL.emit_mem reg_tmp1 |];
-      DSL.ins I.ADD
-        [| DSL.emit_reg reg_tmp1; DSL.emit_reg reg_tmp1; DSL.imm 8 |];
-      DSL.ins I.LD1
-        [| DSL.emit_struct_reglane_d dst ~lane:1; DSL.emit_mem reg_tmp1 |])
+      DSL.ins I.LDR [| DSL.emit_reg dst; DSL.emit_mem reg_tmp1 |]
+    (* (\* CR gyorsh: check endianness *\) *)
+    (* DSL.ins I.LD1 *)
+    (*   [| DSL.emit_struct_reglane_d dst ~lane:0; DSL.emit_mem reg_tmp1 |]; *)
+    (* DSL.ins I.ADD *)
+    (*   [| DSL.emit_reg reg_tmp1; DSL.emit_reg reg_tmp1; DSL.imm 8 |]; *)
+    (* DSL.ins I.LD1 *)
+    (*   [| DSL.emit_struct_reglane_d dst ~lane:1; DSL.emit_mem reg_tmp1 |]) *))
   | Lop (Store (size, addr, assignment)) -> (
     (* NB: assignments other than Word_int and Word_val do not follow the
        Multicore OCaml memory model and so do not emit a barrier *)
@@ -1707,8 +1709,10 @@ let emit_instr i =
     | Single { reg = Float32 } ->
       DSL.check_reg Float32 src;
       DSL.ins I.STR [| DSL.emit_reg src; DSL.emit_addressing addr base |]
-    | Onetwentyeight_aligned | Onetwentyeight_unaligned ->
-      (* CR gyorsh: check alignment *)
+    | Onetwentyeight_aligned ->
+      DSL.check_reg Vec128 src;
+      DSL.ins I.STR [| DSL.emit_reg src; DSL.emit_mem reg_tmp1 |]
+    | Onetwentyeight_unaligned ->
       DSL.check_reg Vec128 src;
       (match addr with
       | Iindexed n ->
