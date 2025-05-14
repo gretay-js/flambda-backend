@@ -79,11 +79,11 @@ jobs:
           #   config: --enable-middle-end=flambda2 --disable-warn-error
           #   os: macos-latest
 
-          # - name: flambda2_macos_arm64_runtime5_irc
-          #   config: --enable-middle-end=flambda2 --enable-runtime5 --disable-warn-error
-          #   os: macos-latest
-          #   build_ocamlparam: '_,w=-46,regalloc=irc'
-          #   ocamlparam: '_,w=-46,regalloc=irc'
+          - name: flambda2_macos_arm64_runtime5_irc
+            config: --enable-middle-end=flambda2 --enable-runtime5 --disable-warn-error
+            os: macos-latest
+            build_ocamlparam: '_,w=-46,regalloc=irc'
+            ocamlparam: '_,w=-46,regalloc=irc'
 
           # - name: flambda2_macos_arm64_debug_runtime5_irc
           #   config: --enable-middle-end=flambda2 --enable-runtime5 --disable-warn-error
