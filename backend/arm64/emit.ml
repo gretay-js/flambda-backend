@@ -1409,10 +1409,10 @@ let emit_static_cast (cast : Cmm.static_cast) i =
   match cast with
   | Int_of_float Float64 ->
     DSL.check_reg Float src;
-    DSL.ins I.FCVTNS [| DSL.emit_reg dst; DSL.emit_reg src |]
+    DSL.ins I.FCVTZS [| DSL.emit_reg dst; DSL.emit_reg src |]
   | Int_of_float Float32 ->
     DSL.check_reg Float32 src;
-    DSL.ins I.FCVTNS [| DSL.emit_reg dst; DSL.emit_reg src |]
+    DSL.ins I.FCVTZS [| DSL.emit_reg dst; DSL.emit_reg src |]
   | Float_of_int Float64 ->
     DSL.check_reg Float dst;
     DSL.ins I.SCVTF [| DSL.emit_reg dst; DSL.emit_reg src |]
