@@ -1657,16 +1657,15 @@ let emit_instr i =
       | Iindexed n ->
         DSL.ins I.ADD
           [| DSL.emit_reg reg_tmp1; DSL.emit_reg i.arg.(0); DSL.imm n |]
-      | Ibased (s, ofs) ->
+      | Ibased (s, offset) ->
         assert (not !Clflags.dlcode);
         (* see selection_utils.ml *)
         let s = S.create s in
-        DSL.ins I.ADRP
-          [| DSL.emit_reg reg_tmp1; DSL.emit_symbol ~offset:ofs s |];
+        DSL.ins I.ADRP [| DSL.emit_reg reg_tmp1; DSL.emit_symbol ~offset s |];
         DSL.ins I.ADD
           [| DSL.emit_reg reg_tmp1;
              DSL.emit_reg reg_tmp1;
-             DSL.emit_symbol ~reloc:LOWER_TWELVE s
+             DSL.emit_symbol ~offset ~reloc:LOWER_TWELVE s
           |]);
       DSL.ins I.LDR [| DSL.emit_reg dst; DSL.emit_mem reg_tmp1 |]
     (* (\* CR gyorsh: check endianness *\) *)
@@ -1718,16 +1717,15 @@ let emit_instr i =
       | Iindexed n ->
         DSL.ins I.ADD
           [| DSL.emit_reg reg_tmp1; DSL.emit_reg i.arg.(1); DSL.imm n |]
-      | Ibased (s, ofs) ->
+      | Ibased (s, offset) ->
         assert (not !Clflags.dlcode);
         (* see selection_utils.ml *)
         let s = S.create s in
-        DSL.ins I.ADRP
-          [| DSL.emit_reg reg_tmp1; DSL.emit_symbol ~offset:ofs s |];
+        DSL.ins I.ADRP [| DSL.emit_reg reg_tmp1; DSL.emit_symbol ~offset s |];
         DSL.ins I.ADD
           [| DSL.emit_reg reg_tmp1;
              DSL.emit_reg reg_tmp1;
-             DSL.emit_symbol ~reloc:LOWER_TWELVE s
+             DSL.emit_symbol ~offset ~reloc:LOWER_TWELVE s
           |]);
       DSL.ins I.STR [| DSL.emit_reg src; DSL.emit_mem reg_tmp1 |])
   | Lop (Alloc { bytes = n; dbginfo; mode = Heap }) ->
