@@ -1710,7 +1710,22 @@ let emit_instr i =
     | Onetwentyeight_aligned | Onetwentyeight_unaligned ->
       (* CR gyorsh: check alignment *)
       DSL.check_reg Vec128 src;
-      DSL.ins I.STR [| DSL.emit_reg src; DSL.emit_addressing addr base |])
+      (match addr with
+      | Iindexed n ->
+        DSL.ins I.ADD
+          [| DSL.emit_reg reg_tmp1; DSL.emit_reg i.arg.(1); DSL.imm n |]
+      | Ibased (s, ofs) ->
+        assert (not !Clflags.dlcode);
+        (* see selection_utils.ml *)
+        let s = S.create s in
+        DSL.ins I.ADRP
+          [| DSL.emit_reg reg_tmp1; DSL.emit_symbol ~offset:ofs s |];
+        DSL.ins I.ADD
+          [| DSL.emit_reg reg_tmp1;
+             DSL.emit_reg reg_tmp1;
+             DSL.emit_symbol ~reloc:LOWER_TWELVE s
+          |]);
+      DSL.ins I.STR [| DSL.emit_reg src; DSL.emit_mem reg_tmp1 |])
   | Lop (Alloc { bytes = n; dbginfo; mode = Heap }) ->
     assembly_code_for_allocation i ~n ~local:false ~far:false ~dbginfo
   | Lop (Specific (Ifar_alloc { bytes = n; dbginfo })) ->
