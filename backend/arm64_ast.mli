@@ -279,6 +279,7 @@ module Instruction_name : sig
     | MVN
     | NEG
     | SMOV
+    | LD1
 end
 
 module DSL : sig
@@ -346,7 +347,13 @@ module DSL : sig
 
   val reglane_v4s : int -> lane:int -> Operand.t
 
+  val reglane_v2d : int -> lane:int -> Operand.t
+
   val reglane_s : int -> lane:int -> Operand.t
+
+  val reglane_d : int -> lane:int -> Operand.t
+
+  val struct_reglane_d : int -> lane:int -> Operand.t
 
   (* CR gyorsh: [print_*] functions below are exposed temporarily to use DSL for
      some but not all instructions in [emit.ml]. They can eventually*)

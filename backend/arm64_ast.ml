@@ -86,22 +86,41 @@ module Neon_reg_name = struct
       Printf.sprintf "V%d.%s[%d]" index suffix t.lane
   end
 
+  module Struct_lane = struct
+    type t =
+      { r : Scalar.t;
+        lane : int
+      }
+
+    let check_index t =
+      let last = Scalar.num_lanes t.r - 1 in
+      check_index 0 last t.lane
+
+    let name t index =
+      Printf.sprintf "{V%d.%s}[%d]" index (Scalar.to_string t.r) t.lane
+  end
+
   type t =
     | Vector of Vector.t
     | Scalar of Scalar.t
     | Lane of Lane.t
+    | Struct_lane of Struct_lane.t
 
   let last = 31
 
   let check_index t index =
     check_index 0 last index;
-    match t with Vector _ | Scalar _ -> () | Lane l -> Lane.check_index l
+    match t with
+    | Vector _ | Scalar _ -> ()
+    | Lane l -> Lane.check_index l
+    | Struct_lane l -> Struct_lane.check_index l
 
   let name t index =
     match t with
     | Vector v -> Vector.name v index
     | Scalar s -> Scalar.name s index
     | Lane l -> Lane.name l index
+    | Struct_lane l -> Struct_lane.name l index
 end
 
 (* General-purpose register description *)
@@ -441,6 +460,7 @@ module Instruction_name = struct
     | MVN
     | NEG
     | SMOV
+    | LD1
 
   (* CR gyorsh: can some of this be automatically generated from the type? *)
   let to_string t =
@@ -549,6 +569,7 @@ module Instruction_name = struct
     | MVN -> "mvn"
     | NEG -> "neg"
     | SMOV -> "smov"
+    | LD1 -> "ld1"
 end
 
 module Symbol = struct
@@ -868,9 +889,22 @@ module DSL = struct
     let r = Neon_reg_name.(Lane.V Vector.V4S) in
     reglane index ~lane r
 
+  let reglane_v2d index ~lane =
+    let r = Neon_reg_name.(Lane.V Vector.V2D) in
+    reglane index ~lane r
+
   let reglane_s index ~lane =
     let r = Neon_reg_name.(Lane.S Scalar.S) in
     reglane index ~lane r
+
+  let reglane_d index ~lane =
+    let r = Neon_reg_name.(Lane.S Scalar.D) in
+    reglane index ~lane r
+
+  let struct_reglane_d index ~lane =
+    let r = Neon_reg_name.Scalar.D in
+    let reg_name = Reg_name.(Neon Neon_reg_name.(Struct_lane { r; lane })) in
+    Operand.Reg (Reg.create reg_name index)
 
   let reg_v2s index = Operand.reg_v2s.(index)
 

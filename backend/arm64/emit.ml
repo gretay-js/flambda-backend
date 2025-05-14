@@ -123,6 +123,8 @@ module DSL : sig
 
   val emit_reg_v16b : Reg.t -> Arm64_ast.Operand.t
 
+  val emit_struct_reglane_d : Reg.t -> lane:int -> Arm64_ast.Operand.t
+
   val imm : int -> Arm64_ast.Operand.t
 
   val imm_float : float -> Arm64_ast.Operand.t
@@ -240,11 +242,13 @@ end = struct
     | Float32 -> Arm64_ast.Reg.reg_s index
     | Vec128 | Valx2 -> Arm64_ast.Reg.reg_q index
 
-  let emit_reglane_s reg lane =
+  let emit_reglane_s reg ~lane =
     (* Clang 17 assembler does not accept optional number of lanes notation of
        the form Vn.4S[lane], even though it is required to do so in ARMARM. Emit
        Vn.S[lane]. *)
     reglane_s (reg_index reg) ~lane
+
+  let emit_struct_reglane_d reg ~lane = struct_reglane_d (reg_index reg) ~lane
 
   let emit_reg_v2s reg = reg_v2s (reg_index reg)
 
@@ -431,7 +435,7 @@ end = struct
     | Rf32_Rf32_to_Rf32 | Rf64_Rf64_to_Rf64 -> emit_regs_binary i
     | Rf64_to_Rf64 | Rf32_to_Rf32 | Rf32_to_Ri64 -> emit_regs_unary i
     | Ri32x4_to_Ri32 { lane : int } ->
-      [| emit_reg i.res.(0); emit_reglane_s i.arg.(0) lane |]
+      [| emit_reg i.res.(0); emit_reglane_s i.arg.(0) ~lane |]
 
   let simd_instr_size (op : Simd.operation) =
     match op with
@@ -1652,11 +1656,27 @@ let emit_instr i =
       DSL.check_reg Float32 dst;
       DSL.ins I.LDR
         [| DSL.emit_reg dst; DSL.emit_addressing addressing_mode base |]
-    | Onetwentyeight_aligned | Onetwentyeight_unaligned ->
-      (* CR gyorsh: check alignment *)
+    | Onetwentyeight_aligned ->
       DSL.check_reg Vec128 dst;
       DSL.ins I.LDR
-        [| DSL.emit_reg dst; DSL.emit_addressing addressing_mode base |])
+        [| DSL.emit_reg dst; DSL.emit_addressing addressing_mode base |]
+    | Onetwentyeight_unaligned ->
+      DSL.check_reg Vec128 dst;
+      (match addressing_mode with
+      | Iindexed n ->
+        DSL.ins I.ADD
+          [| DSL.emit_reg reg_tmp1; DSL.emit_reg i.arg.(0); DSL.imm n |]
+      | Ibased (s, ofs) ->
+        assert (not !Clflags.dlcode);
+        (* see selection_utils.ml *)
+        DSL.ins I.ADRP
+          [| DSL.emit_reg reg_tmp1; DSL.emit_symbol ~offset:ofs (S.create s) |]);
+      (* CR gyorsh: check endianness *)
+      DSL.ins I.LD1
+        [| DSL.emit_struct_reglane_d dst ~lane:0; DSL.emit_mem reg_tmp1 |];
+      DSL.ins I.ADD [| DSL.emit_reg reg_tmp1; DSL.emit_reg base; DSL.imm 64 |];
+      DSL.ins I.LD1
+        [| DSL.emit_struct_reglane_d dst ~lane:1; DSL.emit_mem reg_tmp1 |])
   | Lop (Store (size, addr, assignment)) -> (
     (* NB: assignments other than Word_int and Word_val do not follow the
        Multicore OCaml memory model and so do not emit a barrier *)
