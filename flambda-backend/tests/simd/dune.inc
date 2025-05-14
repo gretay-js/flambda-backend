@@ -71,7 +71,10 @@
 (executable
  (name ops_float32x4_u)
  (modules ops_float32x4_u)
- (enabled_if (= %{context_name} "main"))
+ (enabled_if
+      (and (= %{context_name} "main")
+           (= %{architecture} "amd64")
+           (<> %{system} macosx)))
  (ocamlopt_flags
   (:standard ))
  (libraries simd_test_helpers simd_test_builtins stdlib_stable stdlib_upstream_compatible)
@@ -79,7 +82,10 @@
 
 (rule
  (alias   runtest)
- (enabled_if (= %{context_name} "main"))
+ (enabled_if
+      (and (= %{context_name} "main")
+           (= %{architecture} "amd64")
+           (<> %{system} macosx)))
  (action
   (with-outputs-to
    ops_float32x4_u.out
@@ -87,7 +93,10 @@
 
 (rule
  (alias runtest)
- (enabled_if (= %{context_name} "main"))
+ (enabled_if
+      (and (= %{context_name} "main")
+           (= %{architecture} "amd64")
+           (<> %{system} macosx)))
  (action
    (diff empty.expected ops_float32x4_u.out)))
 
@@ -478,14 +487,20 @@
 
 (rule
  (alias runtest)
- (enabled_if (= %{context_name} "main"))
+ (enabled_if
+      (and (= %{context_name} "main")
+           (= %{architecture} "amd64")
+           (<> %{system} macosx)))
  (action
   (copy ops_float32x4_u.ml ops_float32x4_u_nodynlink.ml)))
 
 (executable
  (name ops_float32x4_u_nodynlink)
  (modules ops_float32x4_u_nodynlink)
- (enabled_if (= %{context_name} "main"))
+ (enabled_if
+      (and (= %{context_name} "main")
+           (= %{architecture} "amd64")
+           (<> %{system} macosx)))
  (ocamlopt_flags
   (:standard -nodynlink))
  (libraries simd_test_helpers simd_test_builtins stdlib_stable stdlib_upstream_compatible)
@@ -493,7 +508,10 @@
 
 (rule
  (alias   runtest)
- (enabled_if (= %{context_name} "main"))
+ (enabled_if
+      (and (= %{context_name} "main")
+           (= %{architecture} "amd64")
+           (<> %{system} macosx)))
  (action
   (with-outputs-to
    ops_float32x4_u_nodynlink.out
@@ -501,7 +519,10 @@
 
 (rule
  (alias runtest)
- (enabled_if (= %{context_name} "main"))
+ (enabled_if
+      (and (= %{context_name} "main")
+           (= %{architecture} "amd64")
+           (<> %{system} macosx)))
  (action
    (diff empty.expected ops_float32x4_u_nodynlink.out)))
 
