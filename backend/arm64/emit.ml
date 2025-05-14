@@ -188,12 +188,6 @@ module DSL : sig
     S.t ->
     Arm64_ast.Operand.t
 
-  val emit_immediate_symbol :
-    ?offset:int ->
-    ?reloc:Arm64_ast.Symbol.reloc_directive ->
-    S.t ->
-    Arm64_ast.Operand.t
-
   val ins : I.t -> Arm64_ast.Operand.t array -> unit
 
   val labeled_ins : L.t -> I.t -> Arm64_ast.Operand.t array -> unit
@@ -284,10 +278,6 @@ end = struct
     symbol (Arm64_ast.Symbol.create ?offset ?reloc sym)
 
   let emit_symbol ?offset ?reloc s =
-    let sym = S.encode s in
-    symbol (Arm64_ast.Symbol.create ?offset ?reloc sym)
-
-  let emit_immediate_symbol ?offset ?reloc s =
     let sym = S.encode s in
     symbol (Arm64_ast.Symbol.create ?offset ?reloc sym)
 
@@ -898,7 +888,7 @@ let emit_load_symbol_addr dst s =
     DSL.ins I.ADD
       [| DSL.emit_reg dst;
          DSL.emit_reg dst;
-         DSL.emit_immediate_symbol ~reloc:LOWER_TWELVE s
+         DSL.emit_symbol ~reloc:LOWER_TWELVE s
       |])
   else (
     DSL.ins I.ADRP [| DSL.emit_reg dst; DSL.emit_symbol ~reloc:GOT s |];
@@ -1669,8 +1659,14 @@ let emit_instr i =
       | Ibased (s, ofs) ->
         assert (not !Clflags.dlcode);
         (* see selection_utils.ml *)
+        let s = S.create s in
         DSL.ins I.ADRP
-          [| DSL.emit_reg reg_tmp1; DSL.emit_symbol ~offset:ofs (S.create s) |]);
+          [| DSL.emit_reg reg_tmp1; DSL.emit_symbol ~offset:ofs s |];
+        DSL.ins I.ADD
+          [| DSL.emit_reg reg_tmp1;
+             DSL.emit_reg reg_tmp1;
+             DSL.emit_symbol ~reloc:LOWER_TWELVE s
+          |]);
       (* CR gyorsh: check endianness *)
       DSL.ins I.LD1
         [| DSL.emit_struct_reglane_d dst ~lane:0; DSL.emit_mem reg_tmp1 |];
