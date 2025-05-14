@@ -1665,8 +1665,10 @@ let emit_instr i =
         DSL.ins I.ADD
           [| DSL.emit_reg reg_tmp1;
              DSL.emit_reg reg_tmp1;
-             DSL.emit_symbol ~offset ~reloc:LOWER_TWELVE s
-          |]);
+             DSL.emit_symbol ~reloc:LOWER_TWELVE ~offset s
+          |]
+        (* DSL.ins I.ADD *)
+        (*   [| DSL.emit_reg reg_tmp1; DSL.emit_reg reg_tmp1; DSL.imm offset |] *));
       DSL.ins I.LDR [| DSL.emit_reg dst; DSL.emit_mem reg_tmp1 |]
     (* (\* CR gyorsh: check endianness *\) *)
     (* DSL.ins I.LD1 *)
@@ -1710,7 +1712,7 @@ let emit_instr i =
       DSL.ins I.STR [| DSL.emit_reg src; DSL.emit_addressing addr base |]
     | Onetwentyeight_aligned ->
       DSL.check_reg Vec128 src;
-      DSL.ins I.STR [| DSL.emit_reg src; DSL.emit_mem reg_tmp1 |]
+      DSL.ins I.STR [| DSL.emit_reg src; DSL.emit_mem base |]
     | Onetwentyeight_unaligned ->
       DSL.check_reg Vec128 src;
       (match addr with
@@ -1725,8 +1727,10 @@ let emit_instr i =
         DSL.ins I.ADD
           [| DSL.emit_reg reg_tmp1;
              DSL.emit_reg reg_tmp1;
-             DSL.emit_symbol ~offset ~reloc:LOWER_TWELVE s
-          |]);
+             DSL.emit_symbol ~reloc:LOWER_TWELVE ~offset s
+          |]
+        (* DSL.ins I.ADD *)
+        (*   [| DSL.emit_reg reg_tmp1; DSL.emit_reg reg_tmp1; DSL.imm offset |] *));
       DSL.ins I.STR [| DSL.emit_reg src; DSL.emit_mem reg_tmp1 |])
   | Lop (Alloc { bytes = n; dbginfo; mode = Heap }) ->
     assembly_code_for_allocation i ~n ~local:false ~far:false ~dbginfo
