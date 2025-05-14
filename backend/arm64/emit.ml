@@ -1674,7 +1674,8 @@ let emit_instr i =
       (* CR gyorsh: check endianness *)
       DSL.ins I.LD1
         [| DSL.emit_struct_reglane_d dst ~lane:0; DSL.emit_mem reg_tmp1 |];
-      DSL.ins I.ADD [| DSL.emit_reg reg_tmp1; DSL.emit_reg base; DSL.imm 64 |];
+      DSL.ins I.ADD
+        [| DSL.emit_reg reg_tmp1; DSL.emit_reg reg_tmp1; DSL.imm 8 |];
       DSL.ins I.LD1
         [| DSL.emit_struct_reglane_d dst ~lane:1; DSL.emit_mem reg_tmp1 |])
   | Lop (Store (size, addr, assignment)) -> (
