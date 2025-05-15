@@ -49,6 +49,9 @@ type register_behavior =
   | Rf64x2_to_Ri32x2
   | Ri8x16_to_Ri8x16
   | Ri8x16_Ri8x16_to_Ri8x16
+  | Ri64x2_to_Ri64x2
+  | Rf64x2_to_Ri64x2
+  | Rf64x2_Rf64x2_to_Ri64x2
   (* scalar *)
   | Rf32_Rf32_to_Rf32
   | Rf64_Rf64_to_Rf64
@@ -89,6 +92,11 @@ let register_behavior (op : Simd.operation) =
   | Cvt_s32_f64 -> Rf64x2_to_Ri32x2
   | Cmp_f32 _ -> Rf32x4_Rf32x4_to_Ri32x4
   | Cmpz_f32 _ -> Rf32x4_to_Ri32x4
+  | Cmp_f64 _ -> Rf64x2_Rf64x2_to_Ri64x2
+  | Cmpz_f64 _ -> Rf64x2_to_Ri64x2
+  | Cmp_s32 _ -> Rf32x4_Rf32x4_to_Ri32x4
+  | Cmp_s64 _ -> Ri64x2_Ri64x2_to_Ri64x2
+  | Cmpz_s64 _ -> Ri64x2_to_Ri64x2
   | Negq_s32 | Cmpz_s32 _ -> Ri32x4_to_Ri32x4
   | Getq_lane_s32 { lane } -> Ri32x4_to_Ri32 { lane }
   | Getq_lane_s64 { lane } ->

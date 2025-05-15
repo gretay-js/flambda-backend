@@ -298,10 +298,6 @@ module Float64x2 = struct
     = "caml_vec128_unreachable" "caml_neon_float64x2_cmp"
     [@@noalloc] [@@builtin]
 
-  external movemask_64 : (int64x2[@unboxed]) -> (int[@untagged])
-    = "caml_vec128_unreachable" "caml_neon_vec128_movemask_64"
-    [@@noalloc] [@@builtin]
-
   external add : t -> t -> t
     = "caml_vec128_unreachable" "caml_neon_float64x2_add"
     [@@noalloc] [@@unboxed] [@@builtin]

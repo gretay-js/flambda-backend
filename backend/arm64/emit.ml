@@ -339,13 +339,13 @@ end = struct
       check_reg Float i.res.(0)
     | Ri8x16_Ri8x16_to_Ri8x16 | Rf32x4_Rf32x4_to_Ri32x4
     | Rf32x4_Rf32x4_to_Rf32x4 | Rf64x2_Rf64x2_to_Rf64x2
-    | Ri64x2_Ri64x2_to_Ri64x2 ->
+    | Ri64x2_Ri64x2_to_Ri64x2 | Rf64x2_Rf64x2_to_Ri64x2 ->
       check_reg Vec128 i.arg.(0);
       check_reg Vec128 i.arg.(1);
       check_reg Vec128 i.res.(0)
     | Ri32x4_to_Ri32x4 | Rf32x2_to_Rf64x2 | Rf32x4_to_Rf32x4 | Rf32x4_to_Ri32x4
     | Ri32x4_to_Rf32x4 | Rf64x2_to_f32x2 | Ri32x2_to_Rf64x2 | Rf64x2_to_Ri32x2
-    | Ri8x16_to_Ri8x16 ->
+    | Ri8x16_to_Ri8x16 | Ri64x2_to_Ri64x2 | Rf64x2_to_Ri64x2 ->
       check_reg Vec128 i.arg.(0);
       check_reg Vec128 i.res.(0)
     | Rf32_Rf32_to_Rf32 ->
@@ -401,7 +401,8 @@ end = struct
          emit_reg_v4s i.arg.(0);
          emit_reg_v4s i.arg.(1)
       |]
-    | Ri64x2_Ri64x2_to_Ri64x2 | Rf64x2_Rf64x2_to_Rf64x2 ->
+    | Ri64x2_Ri64x2_to_Ri64x2 | Rf64x2_Rf64x2_to_Rf64x2
+    | Rf64x2_Rf64x2_to_Ri64x2 ->
       [| emit_reg_v2d i.res.(0);
          emit_reg_v2d i.arg.(0);
          emit_reg_v2d i.arg.(1)
@@ -418,6 +419,8 @@ end = struct
       [| emit_reg_v2d i.res.(0); emit_reg_v2s i.arg.(0) |]
     | Rf64x2_to_Ri32x2 | Rf64x2_to_f32x2 ->
       [| emit_reg_v2s i.res.(0); emit_reg_v2d i.arg.(0) |]
+    | Ri64x2_to_Ri64x2 | Rf64x2_to_Ri64x2 ->
+      [| emit_reg_v2d i.res.(0); emit_reg_v2d i.arg.(0) |]
     | Ri8x16_to_Ri8x16 -> [| emit_reg_v16b i.res.(0); emit_reg_v16b i.arg.(0) |]
     | Ri8x16_Ri8x16_to_Ri8x16 ->
       [| emit_reg_v16b i.res.(0);
@@ -441,8 +444,9 @@ end = struct
     | Sqrtq_f32 | Rsqrteq_f32 | Cvtq_s32_f32 | Cvtq_f32_s32 | Cvt_f64_f32
     | Cvt_f32_f64 | Cvt_f64_s32 | Cvt_s32_f64 | Paddq_f32 | Fmin_f32 | Fmax_f32
     | Fmin_f64 | Fmax_f64 | Addq_i64 | Subq_i64 | Cmp_f32 _ | Cmpz_f32 _
-    | Cmpz_s32 _ | Mvnq_s32 | Orrq_s32 | Andq_s32 | Eorq_s32 | Negq_s32
-    | Getq_lane_s32 _ | Getq_lane_s64 _ ->
+    | Cmpz_s32 _ | Cmp_f64 _ | Cmpz_f64 _ | Cmp_s32 _ | Cmp_s64 _ | Cmpz_s64 _
+    | Mvnq_s32 | Orrq_s32 | Andq_s32 | Eorq_s32 | Negq_s32 | Getq_lane_s32 _
+    | Getq_lane_s64 _ ->
       1
 
   let emit_rounding_mode (rm : Simd.Rounding_mode.t) : I.Rounding_mode.t =
@@ -518,7 +522,7 @@ end = struct
     | Cvt_f64_s32 -> ins I.SCVTF operands
     | Cvt_s32_f64 -> ins I.FCVTNS operands
     | Paddq_f32 -> ins I.FADDP operands
-    | Cmp_f32 LT ->
+    | Cmp_f32 LT | Cmp_f64 LT ->
       (* FCMLT is only supported with ZERO. *)
       (* CR gyorsh: [LT] and [GT] have different behavior w.r.t NaN arguments:
          [LT] holds for unordered, [GT] does not, according to floating-point
@@ -526,15 +530,17 @@ end = struct
          apply to FCMLT/FCMGT according to a note in section C3.7.14 (SIMD
          compare). *)
       ins (I.FCM I.Float_cond.GT) (swap_args operands)
-    | Cmp_f32 LE ->
+    | Cmp_f32 LE | Cmp_f64 LE ->
       (* FCMLE is only supported with ZERO *)
       (* CR gyorsh: same as LT/GT above. *)
       ins (I.FCM I.Float_cond.GE) (swap_args operands)
-    | Cmp_f32 ((EQ | GT | GE | NE | CC | CS | LS | HI) as c) ->
+    | Cmp_f32 ((EQ | GT | GE | NE | CC | CS | LS | HI) as c)
+    | Cmp_f64 ((EQ | GT | GE | NE | CC | CS | LS | HI) as c) ->
       ins (I.FCM (emit_float_cond c)) operands
-    | Cmpz_f32 c ->
+    | Cmpz_f32 c | Cmpz_f64 c ->
       ins (I.FCM (emit_float_cond c)) (Array.append operands [| imm_float 0. |])
-    | Cmpz_s32 c -> ins (I.CM (emit_cond c)) (Array.append operands [| imm 0 |])
+    | Cmpz_s32 c | Cmpz_s64 c ->
+      ins (I.CM (emit_cond c)) (Array.append operands [| imm 0 |])
     | Mvnq_s32 -> ins I.MVN operands
     | Orrq_s32 -> ins I.ORR operands
     | Andq_s32 -> ins I.AND operands
