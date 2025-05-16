@@ -62,14 +62,41 @@ let check_binop msg scalar vector f0 f1 =
   let v1 = Float32.to_float32x4 f0 f1 f0 f1 in
   let v2 = Float32.to_float32x4 f1 f0 f1 f0 in
   let result = vector v1 v2 in
-  (failmsg := fun () -> Printf.printf "check_binop32 %s %lx %lx\n%!" msg f0 f1);
+  let log () =
+    Printf.printf "expected scalar: %s %lx %lx = %lx\n" msg f0 f1 r0;
+    Printf.printf "expected scalar: %s %lx %lx = %lx\n" msg f1 f0 r1;
+    Printf.printf "expected scalar: %s %g %g = %g\n" msg (Int32.to_float f0)
+      (Int32.to_float f1) (Int32.to_float r0);
+    Printf.printf "expected scalar: %s %g %g = %g\n" msg (Int32.to_float f1)
+      (Int32.to_float f0) (Int32.to_float r1);
+    let print_float32x4 x =
+      for i = 3 downto 0 do
+        let i32 = float32x4_extract x i in
+        Printf.printf "0x%lx " i32
+        (* let fl = Int32.float_of_bits i32 in *)
+        (* Printf.printf "=%g\n" fl *)
+      done
+    in
+    print_float32x4 v1;
+    Printf.printf "\t input vector\n";
+    print_float32x4 v2;
+    Printf.printf "\t input vector\n";
+    print_float32x4 expect;
+    Printf.printf "\t expected vector\n";
+    print_float32x4 result;
+    Printf.printf "\t actual vector\n"
+  in
+  (failmsg
+     := fun () ->
+          Printf.printf "\ncheck_binop32 %s f0=%lx f1=%lx%!\n" msg f0 f1;
+          log ());
   eq_float32x4 ~result ~expect
 
 let () =
-  Float32.check_floats (check_binop "add" Float32.add add);
-  Float32.check_floats (check_binop "sub" Float32.sub sub);
-  Float32.check_floats (check_binop "mul" Float32.mul mul);
-  Float32.check_floats (check_binop "div" Float32.div div);
+  Float32.check_floats (check_binop "add" Float32.add Builtins.Float32x4.add);
+  Float32.check_floats (check_binop "sub" Float32.sub Builtins.Float32x4.sub);
+  Float32.check_floats (check_binop "mul" Float32.mul Builtins.Float32x4.mul);
+  Float32.check_floats (check_binop "div" Float32.div Builtins.Float32x4.div);
   Float32.check_floats (check_binop "max" Float32.c_max Builtins.Float32x4.max);
   Float32.check_floats (check_binop "min" Float32.c_min Builtins.Float32x4.min)
 

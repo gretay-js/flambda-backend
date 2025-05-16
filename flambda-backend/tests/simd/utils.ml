@@ -87,6 +87,10 @@ external float32x4_of_int64s : int64 -> int64 -> float32x4
   = "caml_vec128_unreachable" "vec128_of_int64s"
   [@@noalloc] [@@unboxed]
 
+external float32x4_of_int64s_new : int64 -> int64 -> float32x4
+  = "caml_vec128_unreachable" "float32x4_of_int64s"
+  [@@noalloc] [@@unboxed]
+
 external float32x4_low_int64 : float32x4 -> int64
   = "caml_vec128_unreachable" "vec128_low_int64"
   [@@noalloc] [@@unboxed]
@@ -114,9 +118,15 @@ external float32x4_extract :
 
 let eq_float32x4 ~result ~expect =
   for i = 0 to 3 do
-    let r = float32x4_extract result i |> Int32.float_of_bits in
-    let e = float32x4_extract expect i |> Int32.float_of_bits in
-    eqf' r e
+    let r = float32x4_extract result i in
+    let e = float32x4_extract expect i in
+    let l = e |> Int32.float_of_bits in
+    let lv = r |> Int32.float_of_bits in
+    let fail = lv <> l && not (Float.is_nan lv && Float.is_nan l) in
+    if fail then Printf.printf "expected=0x%lx <> 0x%lx\n" e r;
+    if fail then !failmsg ();
+    (* if fail then abort (); *)
+    ()
   done
 
 let eq_float64x2 ~result ~expect =
@@ -420,7 +430,7 @@ module Float32 = struct
     let i3 = Int64.of_int32 t3 |> Int64.logand 0xffffffffL in
     let i0 = Int64.logor (Int64.shift_left i1 32) i0 in
     let i1 = Int64.logor (Int64.shift_left i3 32) i2 in
-    float32x4_of_int64s i0 i1
+    float32x4_of_int64s_new i0 i1
 end
 
 module Float64 = struct

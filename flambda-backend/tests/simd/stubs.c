@@ -93,6 +93,11 @@ int64x2_t vec128_of_int64s(int64_t low, int64_t high)
   return vcombine_s64(vcreate_s64(low), vcreate_s64(high));
 }
 
+float32x4_t float32x4_of_int64s(int64_t low, int64_t high)
+{
+  return vcombine_s64(vcreate_s64(low), vcreate_s64(high));
+}
+
 #else /* __ARM_NEON */
 #if defined(__SSE4_2__)
 #include <smmintrin.h>
