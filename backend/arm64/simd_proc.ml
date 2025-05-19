@@ -21,8 +21,8 @@ open! Int_replace_polymorphic_compare [@@warning "-66"]
 (* [R] stands for register (not stack)
  *
  * [f32] Float32 in scalar register <Sn>
- * [i32] Int in general purpose register  <Wn>
- * [i64] Int in general purpose register <Xn>
+ * [s32] Int in general purpose register  <Wn>
+ * [s64] Int in general purpose register <Xn>
  * [f32x2] vector of two Float32 values represented
  *  using machtype Float and emitted in vector register Vd.2S
  *)
@@ -37,35 +37,35 @@ type register_behavior =
   | Rf32x2_Rf32x2_to_Rf32x2
   | Rf32x4_Rf32x4_to_Rf32x4
   | Rf64x2_Rf64x2_to_Rf64x2
-  | Ri64x2_Ri64x2_to_Ri64x2
-  | Rf32x4_Rf32x4_to_Ri32x4
-  | Ri32x4_to_Ri32x4
-  | Ri32x4_to_Rf32x4
+  | Rs64x2_Rs64x2_to_Rs64x2
+  | Rf32x4_Rf32x4_to_Rs32x4
+  | Rs32x4_to_Rs32x4
+  | Rs32x4_to_Rf32x4
   | Rf32x4_to_Rf32x4
-  | Rf32x4_to_Ri32x4
+  | Rf32x4_to_Rs32x4
   | Rf32x2_to_Rf64x2
   | Rf64x2_to_f32x2
-  | Ri32x2_to_Rf64x2
-  | Rf64x2_to_Ri32x2
+  | Rs32x2_to_Rf64x2
+  | Rf64x2_to_Rs32x2
   | Ri8x16_to_Ri8x16
   | Ri8x16_Ri8x16_to_Ri8x16
-  | Ri64x2_to_Ri64x2
-  | Rf64x2_to_Ri64x2
-  | Rf64x2_Rf64x2_to_Ri64x2
+  | Rs64x2_to_Rs64x2
+  | Rf64x2_to_Rs64x2
+  | Rf64x2_Rf64x2_to_Rs64x2
   (* scalar *)
   | Rf32_Rf32_to_Rf32
   | Rf64_Rf64_to_Rf64
   | Rf32_to_Rf32
   | Rf64_to_Rf64
-  | Rf32_to_Ri64
+  | Rf32_to_Rs64
   (* extract *)
-  | Ri32x4_to_Ri32 of { lane : int }
-  | Ri64x2_to_Ri64 of { lane : int }
+  | Rs32x4_to_Rs32 of { lane : int }
+  | Rs64x2_to_Rs64 of { lane : int }
 
 let register_behavior (op : Simd.operation) =
   match op with
   (* unary *)
-  | Round_f32_i64 -> Rf32_to_Ri64
+  | Round_f32_s64 -> Rf32_to_Rs64
   | Round_f32 _ -> Rf32_to_Rf32
   | Round_f64 _ -> Rf64_to_Rf64
   (* binary *)
@@ -77,9 +77,9 @@ let register_behavior (op : Simd.operation) =
     Rf32x4_Rf32x4_to_Rf32x4
   | Recpeq_f32 | Sqrtq_f32 | Rsqrteq_f32 | Round_f32x4 _ -> Rf32x4_to_Rf32x4
   | Zip1q_f64 | Zip2q_f64 | Minq_f64 | Maxq_f64 -> Rf64x2_Rf64x2_to_Rf64x2
-  | Addq_i64 | Subq_i64 -> Ri64x2_Ri64x2_to_Ri64x2
-  | Cvtq_s32_f32 -> Rf32x4_to_Ri32x4
-  | Cvtq_f32_s32 -> Ri32x4_to_Rf32x4
+  | Addq_s64 | Subq_s64 -> Rs64x2_Rs64x2_to_Rs64x2
+  | Cvtq_s32_f32 -> Rf32x4_to_Rs32x4
+  | Cvtq_f32_s32 -> Rs32x4_to_Rf32x4
   | Cvt_f64_f32 ->
     (* Input should be in Vec128 register but only the bottom f32x2 is used by
        this instruction. *)
@@ -88,19 +88,19 @@ let register_behavior (op : Simd.operation) =
     (* Output should be in Vec128 register but only the bottom f32x2 is used by
        this instruction. *)
     Rf64x2_to_f32x2
-  | Cvt_f64_s32 -> Ri32x2_to_Rf64x2
-  | Cvt_s32_f64 -> Rf64x2_to_Ri32x2
-  | Cmp_f32 _ -> Rf32x4_Rf32x4_to_Ri32x4
-  | Cmpz_f32 _ -> Rf32x4_to_Ri32x4
-  | Cmp_f64 _ -> Rf64x2_Rf64x2_to_Ri64x2
-  | Cmpz_f64 _ -> Rf64x2_to_Ri64x2
-  | Cmp_s32 _ -> Rf32x4_Rf32x4_to_Ri32x4
-  | Cmp_s64 _ -> Ri64x2_Ri64x2_to_Ri64x2
-  | Cmpz_s64 _ -> Ri64x2_to_Ri64x2
-  | Negq_s32 | Cmpz_s32 _ -> Ri32x4_to_Ri32x4
-  | Getq_lane_s32 { lane } -> Ri32x4_to_Ri32 { lane }
+  | Cvt_f64_s32 -> Rs32x2_to_Rf64x2
+  | Cvt_s32_f64 -> Rf64x2_to_Rs32x2
+  | Cmp_f32 _ -> Rf32x4_Rf32x4_to_Rs32x4
+  | Cmpz_f32 _ -> Rf32x4_to_Rs32x4
+  | Cmp_f64 _ -> Rf64x2_Rf64x2_to_Rs64x2
+  | Cmpz_f64 _ -> Rf64x2_to_Rs64x2
+  | Cmp_s32 _ -> Rf32x4_Rf32x4_to_Rs32x4
+  | Cmp_s64 _ -> Rs64x2_Rs64x2_to_Rs64x2
+  | Cmpz_s64 _ -> Rs64x2_to_Rs64x2
+  | Negq_s32 | Cmpz_s32 _ -> Rs32x4_to_Rs32x4
+  | Getq_lane_s32 { lane } -> Rs32x4_to_Rs32 { lane }
   | Getq_lane_s64 { lane } ->
-    Ri64x2_to_Ri64 { lane }
+    Rs64x2_to_Rs64 { lane }
     (* Bitwise operation, lane width does not matter. The only two encodings
        provided are 8B and 16B. *)
   | Eorq_s32 | Andq_s32 | Orrq_s32 -> Ri8x16_Ri8x16_to_Ri8x16

@@ -114,7 +114,7 @@ type operation =
   | Round_f32 of Rounding_mode.t
   | Round_f64 of Rounding_mode.t
   | Round_f32x4 of Rounding_mode.t
-  | Round_f32_i64
+  | Round_f32_s64
   (* [Min_scalar_f32/Max_scalar_f32] are emitted as a sequence of instructions
      that matches amd64 semantics of the same intrinsic
      [caml_simd_float32_min/max], regardless of the value of [FPCR.AH]. *)
@@ -131,8 +131,14 @@ type operation =
   | Zip1q_f32
   | Zip1q_f64
   | Zip2q_f64
-  | Addq_i64
-  | Subq_i64
+  | Addq_s64
+  | Subq_s64
+  | Addq_s32
+  | Subq_s32
+  | Minq_s32
+  | Maxq_s32
+  | Minq_u32
+  | Maxq_u32
   | Addq_f32
   | Subq_f32
   | Mulq_f32
@@ -141,6 +147,8 @@ type operation =
   | Maxq_f32
   | Minq_f64
   | Maxq_f64
+  | Absq_s32
+  | Absq_s64
   | Recpeq_f32
   | Sqrtq_f32
   | Rsqrteq_f32
@@ -151,6 +159,9 @@ type operation =
   | Cvt_f64_s32
   | Cvt_s32_f64
   | Paddq_f32
+  | Paddq_f64
+  | Paddq_s32
+  | Paddq_s64
   | Cmp_f32 of Float_cond.t
   | Cmp_f64 of Float_cond.t
   | Cmpz_f32 of Float_cond.t
@@ -164,15 +175,36 @@ type operation =
   | Andq_s32
   | Eorq_s32
   | Negq_s32
+  | Cntq_s32
+  | Mvnq_s64
+  | Orrq_s64
+  | Andq_s64
+  | Eorq_s64
+  | Negq_s64
+  | Cntq_s64
+  | Shlq_u32
+  | Shlq_u64
+  | Shlq_n_u32
+  | Shlq_n_u64
+  | Shrq_u32
+  | Shrq_u64
+  | Shrq_n_u32
+  | Shrq_n_u64
+  | Shrq_s32
+  | Shrq_s64
+  | Shrq_n_s32
+  | Shrq_n_s64
   | Getq_lane_s32 of { lane : int (* 0 <= lane <= 3 *) }
-  | Getq_lane_s64 of { lane : int (* 0 <= lane <= 7 *) }
+  | Getq_lane_s64 of { lane : int (* 0 <= lane <= 1 *) }
+  | Setq_lane_s32 of { lane : int (* 0 <= lane <= 3 *) }
+  | Setq_lane_s64 of { lane : int (* 0 <= lane <= 1 *) }
 
 let print_name op =
   match op with
   | Round_f32 rm -> "Round_f32_" ^ Rounding_mode.instruction_suffix rm
   | Round_f64 rm -> "Round_f64_" ^ Rounding_mode.instruction_suffix rm
   | Round_f32x4 rm -> "Round_f32x4_" ^ Rounding_mode.instruction_suffix rm
-  | Round_f32_i64 -> "Round_f32_i"
+  | Round_f32_s64 -> "Round_f32_i"
   | Zip1_f32 -> "Zip1_f32"
   | Zip1q_f32 -> "Zip1q_f32"
   | Zip1q_f64 -> "Zip1q_f64"
@@ -185,8 +217,8 @@ let print_name op =
   | Max_scalar_f32 -> "Max_scalar_f32"
   | Min_scalar_f64 -> "Min_scalar_f64"
   | Max_scalar_f64 -> "Max_scalar_f64"
-  | Addq_i64 -> "Addq_i64"
-  | Subq_i64 -> "Subq_i64"
+  | Addq_s64 -> "Addq_s64"
+  | Subq_s64 -> "Subq_s64"
   | Addq_f32 -> "Addq_f32"
   | Subq_f32 -> "Subq_f32"
   | Mulq_f32 -> "Mulq_f64"
@@ -204,7 +236,8 @@ let print_name op =
   | Cvt_f32_f64 -> "Cvt_f32_f64"
   | Cvt_f64_s32 -> "Cvt_f64_s32"
   | Cvt_s32_f64 -> "Cvt_s32_f64"
-  | Paddq_f32 -> "Paddq_f64"
+  | Paddq_f32 -> "Paddq_f32"
+  | Paddq_f64 -> "Paddq_f64"
   | Cmp_f32 cond -> "Cmp_f32_" ^ Float_cond.to_string cond
   | Cmpz_f32 cond -> "Cmpz_f32_" ^ Float_cond.to_string cond
   | Cmp_s32 cond -> "Cmp_s32_" ^ Cond.to_string cond
@@ -218,6 +251,37 @@ let print_name op =
   | Andq_s32 -> "Andq_s32"
   | Eorq_s32 -> "Eorq_s32"
   | Negq_s32 -> "Negq_s32"
+  | Addq_s32 -> "Addq_s32"
+  | Subq_s32 -> "Subq_s32"
+  | Minq_s32 -> "Minq_s32"
+  | Maxq_s32 -> "Maxq_s32"
+  | Minq_u32 -> "Minq_u32"
+  | Maxq_u32 -> "Maxq_u32"
+  | Absq_s32 -> "Absq_s32"
+  | Absq_s64 -> "Absq_s64"
+  | Paddq_s32 -> "Paddq_s32"
+  | Paddq_s64 -> "Paddq_s64"
+  | Cntq_s32 -> "Cntq_s32"
+  | Mvnq_s64 -> "Mvnq_s32"
+  | Orrq_s64 -> "Orrq_s64"
+  | Andq_s64 -> "Andq_s64"
+  | Eorq_s64 -> "BOO"
+  | Negq_s64 -> "BOO"
+  | Cntq_s64 -> "BOO"
+  | Shlq_u32 -> "BOO"
+  | Shlq_u64 -> "BOO"
+  | Shlq_n_u32 -> "BOO"
+  | Shlq_n_u64 -> "BOO"
+  | Shrq_u32 -> "BOO"
+  | Shrq_u64 -> "BOO"
+  | Shrq_n_u32 -> "BOO"
+  | Shrq_n_u64 -> "BOO"
+  | Shrq_s32 -> "BOO"
+  | Shrq_s64 -> "BOO"
+  | Shrq_n_s32 -> "BOO"
+  | Shrq_n_s64 -> "BOO"
+  | Setq_lane_s32 _ -> "BOO"
+  | Setq_lane_s64 _ -> assert false
   | Getq_lane_s32 { lane } -> "Getq_lane_s32_" ^ Int.to_string lane
   | Getq_lane_s64 { lane } -> "Getq_lane_s64_" ^ Int.to_string lane
 
@@ -233,7 +297,7 @@ let equal_operation op1 op2 =
   | Round_f64 mode, Round_f64 mode'
   | Round_f32x4 mode, Round_f32x4 mode' ->
     Rounding_mode.equal mode mode'
-  | Round_f32_i64, Round_f32_i64
+  | Round_f32_s64, Round_f32_s64
   | Min_scalar_f32, Min_scalar_f32
   | Max_scalar_f32, Max_scalar_f32
   | Min_scalar_f64, Min_scalar_f64
@@ -246,8 +310,8 @@ let equal_operation op1 op2 =
   | Zip1q_f32, Zip1q_f32
   | Zip1q_f64, Zip1q_f64
   | Zip2q_f64, Zip2q_f64
-  | Addq_i64, Addq_i64
-  | Subq_i64, Subq_i64
+  | Addq_s64, Addq_s64
+  | Subq_s64, Subq_s64
   | Addq_f32, Addq_f32
   | Subq_f32, Subq_f32
   | Mulq_f32, Mulq_f32
@@ -282,10 +346,10 @@ let equal_operation op1 op2 =
   | Cmpz_f64 c, Cmpz_f64 c' -> Float_cond.equal c c'
   | Cmp_s64 c, Cmp_s64 c' -> Cond.equal c c'
   | Cmpz_s64 c, Cmpz_s64 c' -> Cond.equal c c'
-  | ( ( Round_f32 _ | Round_f64 _ | Round_f32x4 _ | Round_f32_i64
+  | ( ( Round_f32 _ | Round_f64 _ | Round_f32x4 _ | Round_f32_s64
       | Min_scalar_f32 | Max_scalar_f32 | Min_scalar_f64 | Max_scalar_f64
       | Fmin_f32 | Fmax_f32 | Fmin_f64 | Fmax_f64 | Zip1_f32 | Zip1q_f32
-      | Zip1q_f64 | Zip2q_f64 | Addq_i64 | Subq_i64 | Addq_f32 | Subq_f32
+      | Zip1q_f64 | Zip2q_f64 | Addq_s64 | Subq_s64 | Addq_f32 | Subq_f32
       | Mulq_f32 | Divq_f32 | Minq_f32 | Maxq_f32 | Minq_f64 | Maxq_f64
       | Recpeq_f32 | Sqrtq_f32 | Rsqrteq_f32 | Cvtq_s32_f32 | Cvtq_f32_s32
       | Cvt_f64_f32 | Cvt_f32_f64 | Cvt_f64_s32 | Cvt_s32_f64 | Paddq_f32
@@ -297,10 +361,10 @@ let equal_operation op1 op2 =
 
 let class_of_operation op =
   match op with
-  | Round_f32 _ | Round_f64 _ | Round_f32x4 _ | Round_f32_i64 | Min_scalar_f32
+  | Round_f32 _ | Round_f64 _ | Round_f32x4 _ | Round_f32_s64 | Min_scalar_f32
   | Max_scalar_f32 | Min_scalar_f64 | Max_scalar_f64 | Fmin_f32 | Fmax_f32
   | Fmin_f64 | Fmax_f64 | Zip1_f32 | Zip1q_f32 | Zip1q_f64 | Zip2q_f64
-  | Addq_i64 | Subq_i64 | Addq_f32 | Subq_f32 | Mulq_f32 | Divq_f32 | Minq_f32
+  | Addq_s64 | Subq_s64 | Addq_f32 | Subq_f32 | Mulq_f32 | Divq_f32 | Minq_f32
   | Maxq_f32 | Minq_f64 | Maxq_f64 | Recpeq_f32 | Sqrtq_f32 | Rsqrteq_f32
   | Cvtq_s32_f32 | Cvtq_f32_s32 | Cvt_f64_f32 | Cvt_f32_f64 | Cvt_f64_s32
   | Cvt_s32_f64 | Paddq_f32 | Cmp_f32 _ | Cmpz_f32 _ | Cmpz_s32 _ | Cmp_f64 _

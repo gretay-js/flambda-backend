@@ -337,15 +337,15 @@ end = struct
       check_reg Float i.arg.(0);
       check_reg Float i.arg.(1);
       check_reg Float i.res.(0)
-    | Ri8x16_Ri8x16_to_Ri8x16 | Rf32x4_Rf32x4_to_Ri32x4
+    | Ri8x16_Ri8x16_to_Ri8x16 | Rf32x4_Rf32x4_to_Rs32x4
     | Rf32x4_Rf32x4_to_Rf32x4 | Rf64x2_Rf64x2_to_Rf64x2
-    | Ri64x2_Ri64x2_to_Ri64x2 | Rf64x2_Rf64x2_to_Ri64x2 ->
+    | Rs64x2_Rs64x2_to_Rs64x2 | Rf64x2_Rf64x2_to_Rs64x2 ->
       check_reg Vec128 i.arg.(0);
       check_reg Vec128 i.arg.(1);
       check_reg Vec128 i.res.(0)
-    | Ri32x4_to_Ri32x4 | Rf32x2_to_Rf64x2 | Rf32x4_to_Rf32x4 | Rf32x4_to_Ri32x4
-    | Ri32x4_to_Rf32x4 | Rf64x2_to_f32x2 | Ri32x2_to_Rf64x2 | Rf64x2_to_Ri32x2
-    | Ri8x16_to_Ri8x16 | Ri64x2_to_Ri64x2 | Rf64x2_to_Ri64x2 ->
+    | Rs32x4_to_Rs32x4 | Rf32x2_to_Rf64x2 | Rf32x4_to_Rf32x4 | Rf32x4_to_Rs32x4
+    | Rs32x4_to_Rf32x4 | Rf64x2_to_f32x2 | Rs32x2_to_Rf64x2 | Rf64x2_to_Rs32x2
+    | Ri8x16_to_Ri8x16 | Rs64x2_to_Rs64x2 | Rf64x2_to_Rs64x2 ->
       check_reg Vec128 i.arg.(0);
       check_reg Vec128 i.res.(0)
     | Rf32_Rf32_to_Rf32 ->
@@ -362,10 +362,10 @@ end = struct
     | Rf64_to_Rf64 ->
       check_reg Float i.arg.(0);
       check_reg Float i.res.(0)
-    | Rf32_to_Ri64 ->
+    | Rf32_to_Rs64 ->
       check_reg Float32 i.arg.(0);
       check_reg Int i.res.(0)
-    | Ri32x4_to_Ri32 _ | Ri64x2_to_Ri64 _ -> check_reg Vec128 i.arg.(0)
+    | Rs32x4_to_Rs32 _ | Rs64x2_to_Rs64 _ -> check_reg Vec128 i.arg.(0)
 
   let src_operands ops =
     (* returns a copy of [ops] without the first operand, which is assumed to be
@@ -401,25 +401,25 @@ end = struct
          emit_reg_v4s i.arg.(0);
          emit_reg_v4s i.arg.(1)
       |]
-    | Ri64x2_Ri64x2_to_Ri64x2 | Rf64x2_Rf64x2_to_Rf64x2
-    | Rf64x2_Rf64x2_to_Ri64x2 ->
+    | Rs64x2_Rs64x2_to_Rs64x2 | Rf64x2_Rf64x2_to_Rf64x2
+    | Rf64x2_Rf64x2_to_Rs64x2 ->
       [| emit_reg_v2d i.res.(0);
          emit_reg_v2d i.arg.(0);
          emit_reg_v2d i.arg.(1)
       |]
-    | Rf32x4_Rf32x4_to_Ri32x4 ->
+    | Rf32x4_Rf32x4_to_Rs32x4 ->
       [| emit_reg_v4s i.res.(0);
          emit_reg_v4s i.arg.(0);
          emit_reg_v4s i.arg.(1)
       |]
-    | Ri32x4_to_Ri32x4 | Rf32x4_to_Rf32x4 | Rf32x4_to_Ri32x4 | Ri32x4_to_Rf32x4
+    | Rs32x4_to_Rs32x4 | Rf32x4_to_Rf32x4 | Rf32x4_to_Rs32x4 | Rs32x4_to_Rf32x4
       ->
       [| emit_reg_v4s i.res.(0); emit_reg_v4s i.arg.(0) |]
-    | Rf32x2_to_Rf64x2 | Ri32x2_to_Rf64x2 ->
+    | Rf32x2_to_Rf64x2 | Rs32x2_to_Rf64x2 ->
       [| emit_reg_v2d i.res.(0); emit_reg_v2s i.arg.(0) |]
-    | Rf64x2_to_Ri32x2 | Rf64x2_to_f32x2 ->
+    | Rf64x2_to_Rs32x2 | Rf64x2_to_f32x2 ->
       [| emit_reg_v2s i.res.(0); emit_reg_v2d i.arg.(0) |]
-    | Ri64x2_to_Ri64x2 | Rf64x2_to_Ri64x2 ->
+    | Rs64x2_to_Rs64x2 | Rf64x2_to_Rs64x2 ->
       [| emit_reg_v2d i.res.(0); emit_reg_v2d i.arg.(0) |]
     | Ri8x16_to_Ri8x16 -> [| emit_reg_v16b i.res.(0); emit_reg_v16b i.arg.(0) |]
     | Ri8x16_Ri8x16_to_Ri8x16 ->
@@ -428,22 +428,22 @@ end = struct
          emit_reg_v16b i.arg.(1)
       |]
     | Rf32_Rf32_to_Rf32 | Rf64_Rf64_to_Rf64 -> emit_regs_binary i
-    | Rf64_to_Rf64 | Rf32_to_Rf32 | Rf32_to_Ri64 -> emit_regs_unary i
-    | Ri32x4_to_Ri32 { lane : int } ->
+    | Rf64_to_Rf64 | Rf32_to_Rf32 | Rf32_to_Rs64 -> emit_regs_unary i
+    | Rs32x4_to_Rs32 { lane : int } ->
       [| emit_reg i.res.(0); emit_reglane_s i.arg.(0) ~lane |]
-    | Ri64x2_to_Ri64 { lane : int } ->
+    | Rs64x2_to_Rs64 { lane : int } ->
       [| emit_reg i.res.(0); emit_reglane_d i.arg.(0) ~lane |]
 
   let simd_instr_size (op : Simd.operation) =
     match op with
     | Min_scalar_f64 | Max_scalar_f64 -> 2
     | Min_scalar_f32 | Max_scalar_f32 -> 2
-    | Round_f32 _ | Round_f64 _ | Round_f32x4 _ | Round_f32_i64 | Zip1_f32
+    | Round_f32 _ | Round_f64 _ | Round_f32x4 _ | Round_f32_s64 | Zip1_f32
     | Zip1q_f32 | Zip1q_f64 | Zip2q_f64 | Addq_f32 | Subq_f32 | Mulq_f32
     | Divq_f32 | Minq_f32 | Maxq_f32 | Minq_f64 | Maxq_f64 | Recpeq_f32
     | Sqrtq_f32 | Rsqrteq_f32 | Cvtq_s32_f32 | Cvtq_f32_s32 | Cvt_f64_f32
     | Cvt_f32_f64 | Cvt_f64_s32 | Cvt_s32_f64 | Paddq_f32 | Fmin_f32 | Fmax_f32
-    | Fmin_f64 | Fmax_f64 | Addq_i64 | Subq_i64 | Cmp_f32 _ | Cmpz_f32 _
+    | Fmin_f64 | Fmax_f64 | Addq_s64 | Subq_s64 | Cmp_f32 _ | Cmpz_f32 _
     | Cmpz_s32 _ | Cmp_f64 _ | Cmpz_f64 _ | Cmp_s32 _ | Cmp_s64 _ | Cmpz_s64 _
     | Mvnq_s32 | Orrq_s32 | Andq_s32 | Eorq_s32 | Negq_s32 | Getq_lane_s32 _
     | Getq_lane_s64 _ ->
@@ -495,15 +495,15 @@ end = struct
       ins_cond I.FCSEL I.Cond.GT operands
     | Round_f32 rm | Round_f64 rm | Round_f32x4 rm ->
       ins (I.FRINT (emit_rounding_mode rm)) operands
-    | Round_f32_i64 -> ins I.FCVTNS operands
+    | Round_f32_s64 -> ins I.FCVTNS operands
     | Fmin_f32 -> ins I.FMIN operands
     | Fmax_f32 -> ins I.FMAX operands
     | Fmin_f64 -> ins I.FMIN operands
     | Fmax_f64 -> ins I.FMAX operands
     | Zip1_f32 | Zip1q_f32 | Zip1q_f64 -> ins I.ZIP1 operands
     | Zip2q_f64 -> ins I.ZIP2 operands
-    | Addq_i64 -> ins I.ADD operands
-    | Subq_i64 -> ins I.SUB operands
+    | Addq_s64 -> ins I.ADD operands
+    | Subq_s64 -> ins I.SUB operands
     | Addq_f32 -> ins I.FADD operands
     | Subq_f32 -> ins I.FSUB operands
     | Mulq_f32 -> ins I.FMUL operands

@@ -64,7 +64,7 @@ let select_simd_instr op args =
   | "caml_neon_float64_round_current" -> Some (Round_f64 Current, args)
   | "caml_simd_float32_round_near" -> Some (Round_f32 Nearest, args)
   | "caml_neon_float64_round_near" -> Some (Round_f64 Nearest, args)
-  | "caml_simd_cast_float32_int64" -> Some (Round_f32_i64, args)
+  | "caml_simd_cast_float32_int64" -> Some (Round_f32_s64, args)
   (* min/max that match amd64 behavior, regardless of the value of FPCR.AH.
      implemented as a sequence of instructions *)
   | "caml_simd_float32_min" -> Some (Min_scalar_f32, args)
@@ -84,8 +84,8 @@ let select_simd_instr op args =
     Some (Zip1q_f64, args)
   | "caml_simd_vec128_interleave_high_64" | "caml_neon_float64x2_zip2" ->
     Some (Zip2q_f64, args)
-  | "caml_simd_int64x2_add" | "caml_neon_int64x2_add" -> Some (Addq_i64, args)
-  | "caml_simd_int64x2_sub" | "caml_neon_int64x2_sub" -> Some (Subq_i64, args)
+  | "caml_simd_int64x2_add" | "caml_neon_int64x2_add" -> Some (Addq_s64, args)
+  | "caml_simd_int64x2_sub" | "caml_neon_int64x2_sub" -> Some (Subq_s64, args)
   | "caml_neon_int32x4_add" -> Some (Addq_s32, args)
   | "caml_neon_int32x4_hadd" -> Some (Paddq_s32, args)
   | "caml_neon_int64x2_hadd" -> Some (Paddq_s64, args)
