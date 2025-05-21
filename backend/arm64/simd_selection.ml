@@ -150,16 +150,28 @@ let select_simd_instr op args =
   | "caml_neon_int64x2_neg" -> Some (Negq_s64, args)
   | "caml_neon_int32x4_sll" -> Some (Shlq_u32, args)
   | "caml_neon_int64x2_sll" -> Some (Shlq_u64, args)
-  | "caml_neon_int32x4_slli" -> Some (Shlq_n_u32 n, args)
-  | "caml_neon_int64x2_slli" -> Some (Shlq_n_u64 n, args)
-  | "caml_neon_int32x4_srl" -> Some (Shrq_u32 n, args)
-  | "caml_neon_int64x2_srl" -> Some (Shrq_u64 n, args)
-  | "caml_neon_int32x4_srli" -> Some (Shrq_n_u32 n, args)
-  | "caml_neon_int64x2_srli" -> Some (Shrq_n_u64 n, args)
-  | "caml_neon_int32x4_sra" -> Some (Shrq_s32 n, args)
-  | "caml_neon_int64x2_sra" -> Some (Shrq_s64 n, args)
-  | "caml_neon_int32x4_srai" -> Some (Shrq_n_s32 n, args)
-  | "caml_neon_int64x2_srai" -> Some (Shrq_n_s64 n, args)
+  | "caml_neon_int32x4_slli" ->
+    let n, args = extract_constant args ~max:32 op in
+    Some (Shlq_n_u32 n, args)
+  | "caml_neon_int64x2_slli" ->
+    let n, args = extract_constant args ~max:64 op in
+    Some (Shlq_n_u64 n, args)
+  | "caml_neon_int32x4_srl" -> Some (Shrq_u32, args)
+  | "caml_neon_int64x2_srl" -> Some (Shrq_u64, args)
+  | "caml_neon_int32x4_srli" ->
+    let n, args = extract_constant args ~max:32 op in
+    Some (Shrq_n_u32 n, args)
+  | "caml_neon_int64x2_srli" ->
+    let n, args = extract_constant args ~max:64 op in
+    Some (Shrq_n_u64 n, args)
+  | "caml_neon_int32x4_sra" -> Some (Shrq_s32, args)
+  | "caml_neon_int64x2_sra" -> Some (Shrq_s64, args)
+  | "caml_neon_int32x4_srai" ->
+    let n, args = extract_constant args ~max:32 op in
+    Some (Shrq_n_s32 n, args)
+  | "caml_neon_int64x2_srai" ->
+    let n, args = extract_constant args ~max:64 op in
+    Some (Shrq_n_s64 n, args)
   | "caml_neon_int32x4_extract" ->
     let lane, args = extract_constant args ~max:3 op in
     Some (Getq_lane_s32 { lane }, args)
@@ -178,7 +190,21 @@ let select_operation_cfg op args =
   select_simd_instr op args
   |> Option.map (fun (op, args) -> Operation.Specific (Isimd op), args)
 
-let pseudoregs_for_operation _ arg res = arg, res
+let pseudoregs_for_operation (simd_op : Simd.operation) arg res =
+  match Simd_proc.register_behavior simd_op with
+  | Rs32x4_Rs32_to_First _ | Rs64x2_Rs64_to_First _ ->
+    assert (not (Reg.is_preassigned arg.(0)));
+    arg.(0) <- res.(0);
+    arg, res
+  | Rf32x2_Rf32x2_to_Rf32x2 | Rf32x4_Rf32x4_to_Rf32x4 | Rf64x2_Rf64x2_to_Rf64x2
+  | Rs64x2_Rs64x2_to_Rs64x2 | Rf32x4_Rf32x4_to_Rs32x4 | Rs32x4_to_Rs32x4
+  | Rs32x4_to_Rf32x4 | Rf32x4_to_Rf32x4 | Rf32x4_to_Rs32x4 | Rf32x2_to_Rf64x2
+  | Rf64x2_to_f32x2 | Rs32x2_to_Rf64x2 | Rf64x2_to_Rs32x2 | Ri8x16_to_Ri8x16
+  | Ri8x16_Ri8x16_to_Ri8x16 | Rs64x2_to_Rs64x2 | Rf64x2_to_Rs64x2
+  | Rf64x2_Rf64x2_to_Rs64x2 | Rs32x4_Rs32x4_to_Rs32x4 | Rf32_Rf32_to_Rf32
+  | Rf64_Rf64_to_Rf64 | Rf32_to_Rf32 | Rf64_to_Rf64 | Rf32_to_Rs64
+  | Rs64x2_to_Rs64 _ | Rs32x4_to_Rs32 _ ->
+    arg, res
 
 (* See `amd64/simd_selection.ml`. *)
 

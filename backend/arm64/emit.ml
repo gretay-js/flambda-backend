@@ -338,8 +338,9 @@ end = struct
       check_reg Float i.arg.(1);
       check_reg Float i.res.(0)
     | Ri8x16_Ri8x16_to_Ri8x16 | Rf32x4_Rf32x4_to_Rs32x4
-    | Rf32x4_Rf32x4_to_Rf32x4 | Rf64x2_Rf64x2_to_Rf64x2
-    | Rs64x2_Rs64x2_to_Rs64x2 | Rf64x2_Rf64x2_to_Rs64x2 ->
+    | Rs32x4_Rs32x4_to_Rs32x4 | Rf32x4_Rf32x4_to_Rf32x4
+    | Rf64x2_Rf64x2_to_Rf64x2 | Rs64x2_Rs64x2_to_Rs64x2
+    | Rf64x2_Rf64x2_to_Rs64x2 ->
       check_reg Vec128 i.arg.(0);
       check_reg Vec128 i.arg.(1);
       check_reg Vec128 i.res.(0)
@@ -366,6 +367,8 @@ end = struct
       check_reg Float32 i.arg.(0);
       check_reg Int i.res.(0)
     | Rs32x4_to_Rs32 _ | Rs64x2_to_Rs64 _ -> check_reg Vec128 i.arg.(0)
+    | Rs32x4_Rs32_to_First _ | Rs64x2_Rs64_to_First _ ->
+      check_reg Vec128 i.arg.(0)
 
   let src_operands ops =
     (* returns a copy of [ops] without the first operand, which is assumed to be
@@ -396,7 +399,7 @@ end = struct
          emit_reg_v2s i.arg.(0);
          emit_reg_v2s i.arg.(1)
       |]
-    | Rf32x4_Rf32x4_to_Rf32x4 ->
+    | Rf32x4_Rf32x4_to_Rf32x4 | Rs32x4_Rs32x4_to_Rs32x4 ->
       [| emit_reg_v4s i.res.(0);
          emit_reg_v4s i.arg.(0);
          emit_reg_v4s i.arg.(1)
@@ -433,6 +436,10 @@ end = struct
       [| emit_reg i.res.(0); emit_reglane_s i.arg.(0) ~lane |]
     | Rs64x2_to_Rs64 { lane : int } ->
       [| emit_reg i.res.(0); emit_reglane_d i.arg.(0) ~lane |]
+    | Rs32x4_Rs32_to_First { lane } ->
+      [| emit_reglane_s i.res.(0) ~lane; emit_reg i.arg.(0) |]
+    | Rs64x2_Rs64_to_First { lane } ->
+      [| emit_reglane_d i.res.(0) ~lane; emit_reg i.arg.(0) |]
 
   let simd_instr_size (op : Simd.operation) =
     match op with
@@ -446,7 +453,12 @@ end = struct
     | Fmin_f64 | Fmax_f64 | Addq_s64 | Subq_s64 | Cmp_f32 _ | Cmpz_f32 _
     | Cmpz_s32 _ | Cmp_f64 _ | Cmpz_f64 _ | Cmp_s32 _ | Cmp_s64 _ | Cmpz_s64 _
     | Mvnq_s32 | Orrq_s32 | Andq_s32 | Eorq_s32 | Negq_s32 | Getq_lane_s32 _
-    | Getq_lane_s64 _ ->
+    | Getq_lane_s64 _ | Addq_s32 | Subq_s32 | Minq_s32 | Maxq_s32 | Minq_u32
+    | Maxq_u32 | Absq_s32 | Absq_s64 | Paddq_f64 | Paddq_s32 | Paddq_s64
+    | Cntq_s32 | Mvnq_s64 | Orrq_s64 | Andq_s64 | Eorq_s64 | Negq_s64 | Cntq_s64
+    | Shlq_u32 | Shlq_u64 | Shrq_u32 | Shrq_u64 | Shrq_s32 | Shrq_s64
+    | Shlq_n_u32 _ | Shlq_n_u64 _ | Shrq_n_u32 _ | Shrq_n_u64 _ | Shrq_n_s32 _
+    | Shrq_n_s64 _ | Setq_lane_s32 _ | Setq_lane_s64 _ ->
       1
 
   let emit_rounding_mode (rm : Simd.Rounding_mode.t) : I.Rounding_mode.t =
@@ -502,8 +514,8 @@ end = struct
     | Fmax_f64 -> ins I.FMAX operands
     | Zip1_f32 | Zip1q_f32 | Zip1q_f64 -> ins I.ZIP1 operands
     | Zip2q_f64 -> ins I.ZIP2 operands
-    | Addq_s64 -> ins I.ADD operands
-    | Subq_s64 -> ins I.SUB operands
+    | Addq_s64 | Addq_s32 -> ins I.ADD operands
+    | Subq_s64 | Subq_s32 -> ins I.SUB operands
     | Addq_f32 -> ins I.FADD operands
     | Subq_f32 -> ins I.FSUB operands
     | Mulq_f32 -> ins I.FMUL operands
@@ -512,6 +524,11 @@ end = struct
     | Maxq_f32 -> ins I.FMAX operands
     | Minq_f64 -> ins I.FMIN operands
     | Maxq_f64 -> ins I.FMAX operands
+    | Minq_s32 -> ins I.SMIN operands
+    | Maxq_s32 -> ins I.SMAX operands
+    | Minq_u32 -> ins I.UMIN operands
+    | Maxq_u32 -> ins I.UMAX operands
+    | Absq_s32 | Absq_s64 -> ins I.ABS operands
     | Recpeq_f32 -> ins I.FRECPE operands
     | Sqrtq_f32 -> ins I.FSQRT operands
     | Rsqrteq_f32 -> ins I.FRSQRTE operands
@@ -521,7 +538,8 @@ end = struct
     | Cvt_f32_f64 -> ins I.FCVTN operands
     | Cvt_f64_s32 -> ins I.SCVTF operands
     | Cvt_s32_f64 -> ins I.FCVTNS operands
-    | Paddq_f32 -> ins I.FADDP operands
+    | Paddq_f32 | Paddq_f64 -> ins I.FADDP operands
+    | Paddq_s32 | Paddq_s64 -> ins I.ADDP operands
     | Cmp_f32 LT | Cmp_f64 LT ->
       (* FCMLT is only supported with ZERO. *)
       (* CR gyorsh: [LT] and [GT] have different behavior w.r.t NaN arguments:
@@ -542,11 +560,22 @@ end = struct
       ins (I.FCM (emit_float_cond c)) (Array.append operands [| imm_float 0. |])
     | Cmpz_s32 c | Cmpz_s64 c ->
       ins (I.CM (emit_cond c)) (Array.append operands [| imm 0 |])
-    | Mvnq_s32 -> ins I.MVN operands
-    | Orrq_s32 -> ins I.ORR operands
-    | Andq_s32 -> ins I.AND operands
-    | Eorq_s32 -> ins I.EOR operands
-    | Negq_s32 -> ins I.NEG operands
+    | Mvnq_s32 | Mvnq_s64 -> ins I.MVN operands
+    | Orrq_s32 | Orrq_s64 -> ins I.ORR operands
+    | Andq_s32 | Andq_s64 -> ins I.AND operands
+    | Eorq_s32 | Eorq_s64 -> ins I.EOR operands
+    | Negq_s32 | Negq_s64 -> ins I.NEG operands
+    | Cntq_s32 | Cntq_s64 -> ins I.CNT operands
+    | Shlq_u32 | Shlq_u64 -> ins I.USHL operands
+    | Shrq_u32 | Shrq_u64 -> ins I.USHR operands
+    | Shrq_s32 | Shrq_s64 -> ins I.SSHL operands
+    | Shlq_n_u32 n | Shlq_n_u64 n ->
+      ins I.SHL (Array.append operands [| imm n |])
+    | Shrq_n_u32 _ | Shrq_n_u64 _ ->
+      ins I.USHR (Array.append operands [| imm n |])
+    | Shrq_n_s32 _ | Shrq_n_s64 _ ->
+      ins I.SSHR (Array.append operands [| imm n |])
+    | Setq_lane_s32 _ | Setq_lane_s64 _ -> assert false
     | Getq_lane_s32 _ -> ins I.SMOV operands
     | Getq_lane_s64 _ -> ins I.MOV operands
 end

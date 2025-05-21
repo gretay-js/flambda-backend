@@ -52,6 +52,7 @@ type register_behavior =
   | Rs64x2_to_Rs64x2
   | Rf64x2_to_Rs64x2
   | Rf64x2_Rf64x2_to_Rs64x2
+  | Rs32x4_Rs32x4_to_Rs32x4
   (* scalar *)
   | Rf32_Rf32_to_Rf32
   | Rf64_Rf64_to_Rf64
@@ -61,6 +62,9 @@ type register_behavior =
   (* extract *)
   | Rs32x4_to_Rs32 of { lane : int }
   | Rs64x2_to_Rs64 of { lane : int }
+  (* insert *)
+  | Rs32x4_Rs32_to_First of { lane : int }
+  | Rs64x2_Rs64_to_First of { lane : int }
 
 let register_behavior (op : Simd.operation) =
   match op with
@@ -76,8 +80,11 @@ let register_behavior (op : Simd.operation) =
   | Zip1q_f32 ->
     Rf32x4_Rf32x4_to_Rf32x4
   | Recpeq_f32 | Sqrtq_f32 | Rsqrteq_f32 | Round_f32x4 _ -> Rf32x4_to_Rf32x4
-  | Zip1q_f64 | Zip2q_f64 | Minq_f64 | Maxq_f64 -> Rf64x2_Rf64x2_to_Rf64x2
-  | Addq_s64 | Subq_s64 -> Rs64x2_Rs64x2_to_Rs64x2
+  | Zip1q_f64 | Zip2q_f64 | Minq_f64 | Maxq_f64 | Paddq_f64 ->
+    Rf64x2_Rf64x2_to_Rf64x2
+  | Addq_s64 | Subq_s64 | Paddq_s64 | Orrq_s64 | Andq_s64 | Eorq_s64 | Negq_s64
+    ->
+    Rs64x2_Rs64x2_to_Rs64x2
   | Cvtq_s32_f32 -> Rf32x4_to_Rs32x4
   | Cvtq_f32_s32 -> Rs32x4_to_Rf32x4
   | Cvt_f64_f32 ->
@@ -97,11 +104,21 @@ let register_behavior (op : Simd.operation) =
   | Cmp_s32 _ -> Rf32x4_Rf32x4_to_Rs32x4
   | Cmp_s64 _ -> Rs64x2_Rs64x2_to_Rs64x2
   | Cmpz_s64 _ -> Rs64x2_to_Rs64x2
-  | Negq_s32 | Cmpz_s32 _ -> Rs32x4_to_Rs32x4
-  | Getq_lane_s32 { lane } -> Rs32x4_to_Rs32 { lane }
-  | Getq_lane_s64 { lane } ->
+  | Negq_s32 | Cmpz_s32 _ | Absq_s32 | Cntq_s32 | Shlq_u32 | Shlq_n_u32 _
+  | Shrq_u32 | Shrq_n_u32 _ | Shrq_s32 | Shrq_n_s32 _ ->
+    Rs32x4_to_Rs32x4
+  | Getq_lane_s32 { lane } -> Rs32x4_Rs32_to_First { lane }
+  | Getq_lane_s64 { lane } -> Rs64x2_Rs64_to_First { lane }
+  | Setq_lane_s32 { lane } -> Rs32x4_to_Rs32 { lane }
+  | Setq_lane_s64 { lane } ->
     Rs64x2_to_Rs64 { lane }
     (* Bitwise operation, lane width does not matter. The only two encodings
        provided are 8B and 16B. *)
   | Eorq_s32 | Andq_s32 | Orrq_s32 -> Ri8x16_Ri8x16_to_Ri8x16
   | Mvnq_s32 -> Ri8x16_to_Ri8x16
+  | Addq_s32 | Subq_s32 | Minq_s32 | Maxq_s32 | Minq_u32 | Maxq_u32 | Paddq_s32
+    ->
+    Rs32x4_Rs32x4_to_Rs32x4
+  | Absq_s64 | Mvnq_s64 | Cntq_s64 | Shlq_u64 | Shlq_n_u64 _ | Shrq_u64
+  | Shrq_n_u64 _ | Shrq_s64 | Shrq_n_s64 _ ->
+    Rs64x2_to_Rs64x2

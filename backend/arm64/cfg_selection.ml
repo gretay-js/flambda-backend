@@ -228,6 +228,35 @@ let insert_move_extcall_arg (ty_arg : Cmm.exttype) src dst :
   then Rewritten (Op (Specific Imove32), src, dst)
   else Use_default
 
-let insert_op_debug _env _sub_cfg _op _dbg _rs _rd :
+exception Use_default_exn
+
+let pseudoregs_for_operation op arg res =
+  match (op : Operation.t) with
+  | Specific (Isimd simd_op) ->
+    Simd_selection.pseudoregs_for_operation simd_op arg res
+  | Specific
+      ( Ifar_poll | Imuladd | Imulsub | Inegmulf | Imuladdf | Inegmuladdf
+      | Imulsubf | Inegmulsubf | Isqrtf | Imove32 | Ifar_alloc _
+      | Ishiftarith (_, _)
+      | Ibswap _ | Isignext _ )
+  | Move | Spill | Reload | Opaque | Begin_region | End_region | Dls_get | Poll
+  | Const_int _ | Const_float32 _ | Const_float _ | Const_symbol _
+  | Const_vec128 _ | Stackoffset _ | Load _
+  | Store (_, _, _)
+  | Intop _
+  | Intop_imm (_, _)
+  | Intop_atomic _
+  | Floatop (_, _)
+  | Csel _ | Reinterpret_cast _ | Static_cast _ | Probe_is_enabled _
+  | Name_for_debugger _ | Alloc _ ->
+    raise Use_default_exn
+
+let insert_op_debug env sub_cfg op dbg rs rd :
     Cfg_selectgen_target_intf.insert_op_debug_result =
-  Use_default
+  try
+    let rsrc, rdst = pseudoregs_for_operation op rs rd in
+    Select_utils.insert_moves env sub_cfg rs rsrc;
+    Select_utils.insert_debug env sub_cfg (Op op) dbg rsrc rdst;
+    Select_utils.insert_moves env sub_cfg rdst rd;
+    Regs rd
+  with Use_default_exn -> Use_default
