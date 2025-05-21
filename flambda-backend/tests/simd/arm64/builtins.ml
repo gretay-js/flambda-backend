@@ -95,12 +95,6 @@ module Int32x4 = struct
   external sll : t -> t -> t = "caml_vec128_unreachable" "caml_neon_int32x4_sll"
     [@@noalloc] [@@unboxed] [@@builtin]
 
-  external srl : t -> t -> t = "caml_vec128_unreachable" "caml_neon_int32x4_srl"
-    [@@noalloc] [@@unboxed] [@@builtin]
-
-  external sra : t -> t -> t = "caml_vec128_unreachable" "caml_neon_int32x4_sra"
-    [@@noalloc] [@@unboxed] [@@builtin]
-
   external slli : (int[@untagged]) -> (t[@unboxed]) -> (t[@unboxed])
     = "caml_vec128_unreachable" "caml_neon_int32x4_slli"
     [@@noalloc] [@@builtin]
@@ -190,6 +184,24 @@ module Int32x4 = struct
   external neg : int32x4 -> int32x4
     = "caml_vec128_unreachable" "caml_neon_int32x4_neg"
     [@@noalloc] [@@unboxed] [@@builtin]
+
+  external ushl : t -> t -> t
+    = "caml_vec128_unreachable" "caml_neon_int32x4_ushl"
+    [@@noalloc] [@@unboxed] [@@builtin]
+
+  external sshl : t -> t -> t
+    = "caml_vec128_unreachable" "caml_neon_int32x4_sshl"
+    [@@noalloc] [@@unboxed] [@@builtin]
+
+  (* There seems to be no instruction for right shift (logic or arithmetic) that
+     takes count in a register (not an immediate). The operation can be
+     expressed using a negative count for the corresponding shift left
+     instructions USHL and SSHL. The sequence below assumes that count is in the
+     low byte of the 128-bit register, sign-extended. *)
+
+  let srl : t -> t -> t = fun arg count -> ushl arg (neg count)
+
+  let sra : t -> t -> t = fun arg count -> sshl arg (neg count)
 end
 
 module Float32x4 = struct
@@ -320,9 +332,6 @@ module Int64x2 = struct
   external sll : t -> t -> t = "caml_vec128_unreachable" "caml_neon_int64x2_sll"
     [@@noalloc] [@@unboxed] [@@builtin]
 
-  external srl : t -> t -> t = "caml_vec128_unreachable" "caml_neon_int64x2_srl"
-    [@@noalloc] [@@unboxed] [@@builtin]
-
   external slli : (int[@untagged]) -> (t[@unboxed]) -> (t[@unboxed])
     = "caml_vec128_unreachable" "caml_neon_int64x2_slli"
     [@@noalloc] [@@builtin]
@@ -359,6 +368,18 @@ module Int64x2 = struct
   external neg : int32x4 -> int32x4
     = "caml_vec128_unreachable" "caml_neon_int32x4_neg"
     [@@noalloc] [@@unboxed] [@@builtin]
+
+  external ushl : t -> t -> t
+    = "caml_vec128_unreachable" "caml_neon_int64x2_ushl"
+    [@@noalloc] [@@unboxed] [@@builtin]
+
+  external sshl : t -> t -> t
+    = "caml_vec128_unreachable" "caml_neon_int64x2_sshl"
+    [@@noalloc] [@@unboxed] [@@builtin]
+
+  let srl : t -> t -> t = fun arg count -> ushl arg (neg count)
+
+  let sra : t -> t -> t = fun arg count -> sshl arg (neg count)
 end
 
 module Float64x2 = struct
@@ -566,12 +587,6 @@ module Int16x8 = struct
   external sll : t -> t -> t = "caml_vec128_unreachable" "caml_neon_int16x8_sll"
     [@@noalloc] [@@unboxed] [@@builtin]
 
-  external srl : t -> t -> t = "caml_vec128_unreachable" "caml_neon_int16x8_srl"
-    [@@noalloc] [@@unboxed] [@@builtin]
-
-  external sra : t -> t -> t = "caml_vec128_unreachable" "caml_neon_int16x8_sra"
-    [@@noalloc] [@@unboxed] [@@builtin]
-
   external slli : (int[@untagged]) -> (t[@unboxed]) -> (t[@unboxed])
     = "caml_vec128_unreachable" "caml_neon_int16x8_slli"
     [@@noalloc] [@@builtin]
@@ -583,6 +598,21 @@ module Int16x8 = struct
   external srai : (int[@untagged]) -> (t[@unboxed]) -> (t[@unboxed])
     = "caml_vec128_unreachable" "caml_neon_int16x8_srai"
     [@@noalloc] [@@builtin]
+
+  external neg : t -> t = "caml_vec128_unreachable" "caml_neon_int16x8_neg"
+    [@@noalloc] [@@unboxed] [@@builtin]
+
+  external ushl : t -> t -> t
+    = "caml_vec128_unreachable" "caml_neon_int16x8_ushl"
+    [@@noalloc] [@@unboxed] [@@builtin]
+
+  external sshl : t -> t -> t
+    = "caml_vec128_unreachable" "caml_neon_int16x8_sshl"
+    [@@noalloc] [@@unboxed] [@@builtin]
+
+  let srl : t -> t -> t = fun arg count -> ushl arg (neg count)
+
+  let sra : t -> t -> t = fun arg count -> sshl arg (neg count)
 end
 
 module Int8x16 = struct

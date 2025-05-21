@@ -193,6 +193,8 @@ let select_operation_cfg op args =
 let pseudoregs_for_operation (simd_op : Simd.operation) arg res =
   match Simd_proc.register_behavior simd_op with
   | Rs32x4_Rs32_to_First _ | Rs64x2_Rs64_to_First _ ->
+    let arg = Array.copy arg in
+    let res = Array.copy res in
     assert (not (Reg.is_preassigned arg.(0)));
     arg.(0) <- res.(0);
     arg, res
