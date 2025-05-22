@@ -86,8 +86,7 @@ let register_behavior (op : Simd.operation) =
   | Addq_f64 | Subq_f64 | Mulq_f64 | Divq_f64 | Zip1q_f64 | Zip2q_f64 | Minq_f64
   | Maxq_f64 | Paddq_f64 ->
     Rf64x2_Rf64x2_to_Rf64x2
-  | Addq_s64 | Subq_s64 | Paddq_s64 | Orrq_s64 | Andq_s64 | Eorq_s64 | Negq_s64
-    ->
+  | Addq_s64 | Subq_s64 | Paddq_s64 | Orrq_s64 | Andq_s64 | Eorq_s64 ->
     Rs64x2_Rs64x2_to_Rs64x2
   | Cvtq_s32_f32 -> Rf32x4_to_Rs32x4
   | Cvtq_f32_s32 -> Rs32x4_to_Rf32x4
@@ -126,5 +125,5 @@ let register_behavior (op : Simd.operation) =
     ->
     Rs32x4_Rs32x4_to_Rs32x4
   | Absq_s64 | Mvnq_s64 | Cntq_s64 | Shlq_u64 | Shlq_s64 | Shlq_n_u64 _
-  | Shrq_n_u64 _ | Shrq_n_s64 _ ->
+  | Shrq_n_u64 _ | Shrq_n_s64 _ | Negq_s64 ->
     Rs64x2_to_Rs64x2
