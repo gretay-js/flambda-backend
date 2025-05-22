@@ -186,7 +186,14 @@ let select_simd_instr op args =
   | "caml_neon_int64x2_insert" ->
     let lane, args = extract_constant args ~max:1 op in
     Some (Setq_lane_s64 { lane }, args)
-  | "caml_neon_int32x4_dup" -> Some (Dupq_lane_s32 { lane = 0 })
+  | "caml_neon_int32x4_dup" -> Some (Dupq_lane_s32 { lane = 0 }, args)
+  | "caml_neon_int32x4_dup_lane" ->
+    let lane, args = extract_constant args ~max:3 op in
+    Some (Dupq_lane_s32 { lane }, args)
+  | "caml_neon_int64x2_dup" -> Some (Dupq_lane_s64 { lane = 0 }, args)
+  | "caml_neon_int64x2_dup_lane" ->
+    let lane, args = extract_constant args ~max:1 op in
+    Some (Dupq_lane_s64 { lane }, args)
   | _ -> None
 
 let select_operation_cfg op args =
@@ -208,7 +215,8 @@ let pseudoregs_for_operation (simd_op : Simd.operation) arg res =
   | Ri8x16_Ri8x16_to_Ri8x16 | Rs64x2_to_Rs64x2 | Rf64x2_to_Rs64x2
   | Rf64x2_Rf64x2_to_Rs64x2 | Rs32x4_Rs32x4_to_Rs32x4 | Rf32_Rf32_to_Rf32
   | Rf64_Rf64_to_Rf64 | Rf32_to_Rf32 | Rf64_to_Rf64 | Rf32_to_Rs64
-  | Rs64x2_to_Rs64 _ | Rs32x4_to_Rs32 _ ->
+  | Rs64x2_to_Rs64 _ | Rs32x4_to_Rs32 _ | Rs32x4lane_to_Rs32x4 _
+  | Rs64x2lane_to_Rs64x2 _ ->
     arg, res
 
 (* See `amd64/simd_selection.ml`. *)

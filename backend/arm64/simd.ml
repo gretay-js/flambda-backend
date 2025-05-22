@@ -200,6 +200,8 @@ type operation =
   | Getq_lane_s64 of { lane : int (* 0 <= lane <= 1 *) }
   | Setq_lane_s32 of { lane : int (* 0 <= lane <= 3 *) }
   | Setq_lane_s64 of { lane : int (* 0 <= lane <= 1 *) }
+  | Dupq_lane_s32 of { lane : int (* 0 <= lane <= 3 *) }
+  | Dupq_lane_s64 of { lane : int (* 0 <= lane <= 1 *) }
 
 let print_name op =
   match op with
@@ -288,6 +290,8 @@ let print_name op =
   | Setq_lane_s64 { lane } -> "Setq_lane_s64" ^ Int.to_string lane
   | Getq_lane_s32 { lane } -> "Getq_lane_s32_" ^ Int.to_string lane
   | Getq_lane_s64 { lane } -> "Getq_lane_s64_" ^ Int.to_string lane
+  | Dupq_lane_s32 { lane } -> "Dupq_lane_s32" ^ Int.to_string lane
+  | Dupq_lane_s64 { lane } -> "Dupq_lane_s64" ^ Int.to_string lane
 
 let print_operation printreg op ppf arg =
   (* CR gyorsh: does not support memory operands (except stack operands). *)
@@ -376,7 +380,9 @@ let equal_operation op1 op2 =
   | Getq_lane_s32 { lane = l }, Getq_lane_s32 { lane = l' }
   | Getq_lane_s64 { lane = l }, Getq_lane_s64 { lane = l' }
   | Setq_lane_s32 { lane = l }, Setq_lane_s32 { lane = l' }
-  | Setq_lane_s64 { lane = l }, Setq_lane_s64 { lane = l' } ->
+  | Setq_lane_s64 { lane = l }, Setq_lane_s64 { lane = l' }
+  | Dupq_lane_s32 { lane = l }, Dupq_lane_s32 { lane = l' }
+  | Dupq_lane_s64 { lane = l }, Dupq_lane_s64 { lane = l' } ->
     Int.equal l l'
   | Cmp_f32 c, Cmp_f32 c' -> Float_cond.equal c c'
   | Cmpz_f32 c, Cmpz_f32 c' -> Float_cond.equal c c'
@@ -396,12 +402,13 @@ let equal_operation op1 op2 =
       | Cvt_f64_s32 | Cvt_s32_f64 | Paddq_f32 | Cmp_f32 _ | Cmpz_f32 _
       | Cmpz_s32 _ | Cmp_f64 _ | Cmpz_f64 _ | Cmp_s32 _ | Cmp_s64 _ | Cmpz_s64 _
       | Mvnq_s32 | Orrq_s32 | Andq_s32 | Eorq_s32 | Negq_s32 | Getq_lane_s32 _
-      | Getq_lane_s64 _ | Addq_s32 | Subq_s32 | Minq_s32 | Maxq_s32 | Minq_u32
-      | Maxq_u32 | Absq_s32 | Absq_s64 | Paddq_f64 | Paddq_s32 | Paddq_s64
-      | Cntq_s32 | Mvnq_s64 | Orrq_s64 | Andq_s64 | Eorq_s64 | Negq_s64
-      | Cntq_s64 | Shlq_u32 | Shlq_u64 | Shlq_n_u32 _ | Shlq_n_u64 _
-      | Shrq_n_u32 _ | Shrq_n_u64 _ | Shrq_n_s32 _ | Shrq_n_s64 _ | Shlq_s32
-      | Shlq_s64 | Setq_lane_s32 _ | Setq_lane_s64 _ ),
+      | Getq_lane_s64 _ | Dupq_lane_s32 _ | Dupq_lane_s64 _ | Addq_s32
+      | Subq_s32 | Minq_s32 | Maxq_s32 | Minq_u32 | Maxq_u32 | Absq_s32
+      | Absq_s64 | Paddq_f64 | Paddq_s32 | Paddq_s64 | Cntq_s32 | Mvnq_s64
+      | Orrq_s64 | Andq_s64 | Eorq_s64 | Negq_s64 | Cntq_s64 | Shlq_u32
+      | Shlq_u64 | Shlq_n_u32 _ | Shlq_n_u64 _ | Shrq_n_u32 _ | Shrq_n_u64 _
+      | Shrq_n_s32 _ | Shrq_n_s64 _ | Shlq_s32 | Shlq_s64 | Setq_lane_s32 _
+      | Setq_lane_s64 _ ),
       _ ) ->
     false
 
@@ -416,12 +423,13 @@ let class_of_operation op =
   | Cvt_f64_f32 | Cvt_f32_f64 | Cvt_f64_s32 | Cvt_s32_f64 | Paddq_f32
   | Cmp_f32 _ | Cmpz_f32 _ | Cmpz_s32 _ | Cmp_f64 _ | Cmpz_f64 _ | Cmp_s32 _
   | Cmp_s64 _ | Cmpz_s64 _ | Mvnq_s32 | Orrq_s32 | Andq_s32 | Eorq_s32
-  | Negq_s32 | Getq_lane_s32 _ | Getq_lane_s64 _ | Addq_s32 | Subq_s32
-  | Minq_s32 | Maxq_s32 | Minq_u32 | Maxq_u32 | Absq_s32 | Absq_s64 | Paddq_f64
-  | Paddq_s32 | Paddq_s64 | Cntq_s32 | Mvnq_s64 | Orrq_s64 | Andq_s64 | Eorq_s64
-  | Negq_s64 | Cntq_s64 | Shlq_u32 | Shlq_u64 | Shlq_s32 | Shlq_s64
-  | Shlq_n_u32 _ | Shlq_n_u64 _ | Shrq_n_u32 _ | Shrq_n_u64 _ | Shrq_n_s32 _
-  | Shrq_n_s64 _ | Setq_lane_s32 _ | Setq_lane_s64 _ ->
+  | Negq_s32 | Getq_lane_s32 _ | Getq_lane_s64 _ | Dupq_lane_s32 _
+  | Dupq_lane_s64 _ | Addq_s32 | Subq_s32 | Minq_s32 | Maxq_s32 | Minq_u32
+  | Maxq_u32 | Absq_s32 | Absq_s64 | Paddq_f64 | Paddq_s32 | Paddq_s64
+  | Cntq_s32 | Mvnq_s64 | Orrq_s64 | Andq_s64 | Eorq_s64 | Negq_s64 | Cntq_s64
+  | Shlq_u32 | Shlq_u64 | Shlq_s32 | Shlq_s64 | Shlq_n_u32 _ | Shlq_n_u64 _
+  | Shrq_n_u32 _ | Shrq_n_u64 _ | Shrq_n_s32 _ | Shrq_n_s64 _ | Setq_lane_s32 _
+  | Setq_lane_s64 _ ->
     Pure
 
 let operation_is_pure op = match class_of_operation op with Pure -> true

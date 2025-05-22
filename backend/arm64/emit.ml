@@ -346,7 +346,8 @@ end = struct
       check_reg Vec128 i.res.(0)
     | Rs32x4_to_Rs32x4 | Rf32x2_to_Rf64x2 | Rf32x4_to_Rf32x4 | Rf32x4_to_Rs32x4
     | Rs32x4_to_Rf32x4 | Rf64x2_to_f32x2 | Rs32x2_to_Rf64x2 | Rf64x2_to_Rs32x2
-    | Ri8x16_to_Ri8x16 | Rs64x2_to_Rs64x2 | Rf64x2_to_Rs64x2 ->
+    | Ri8x16_to_Ri8x16 | Rs64x2_to_Rs64x2 | Rf64x2_to_Rs64x2
+    | Rs32x4lane_to_Rs32x4 _ | Rs64x2lane_to_Rs64x2 _ ->
       check_reg Vec128 i.arg.(0);
       check_reg Vec128 i.res.(0)
     | Rf32_Rf32_to_Rf32 ->
@@ -441,6 +442,10 @@ end = struct
       [| emit_reglane_s i.res.(0) ~lane; emit_reg_w i.arg.(1) |]
     | Rs64x2_Rs64_to_First { lane } ->
       [| emit_reglane_d i.res.(0) ~lane; emit_reg i.arg.(1) |]
+    | Rs32x4lane_to_Rs32x4 { lane } ->
+      [| emit_reg_v4s i.res.(0); emit_reglane_s i.arg.(0) ~lane |]
+    | Rs64x2lane_to_Rs64x2 { lane } ->
+      [| emit_reg_v2d i.res.(0); emit_reglane_d i.arg.(0) ~lane |]
 
   let simd_instr_size (op : Simd.operation) =
     match op with
@@ -459,7 +464,8 @@ end = struct
     | Paddq_f64 | Paddq_s32 | Paddq_s64 | Cntq_s32 | Mvnq_s64 | Orrq_s64
     | Andq_s64 | Eorq_s64 | Negq_s64 | Cntq_s64 | Shlq_u32 | Shlq_u64 | Shlq_s32
     | Shlq_s64 | Shlq_n_u32 _ | Shlq_n_u64 _ | Shrq_n_u32 _ | Shrq_n_u64 _
-    | Shrq_n_s32 _ | Shrq_n_s64 _ | Setq_lane_s32 _ | Setq_lane_s64 _ ->
+    | Shrq_n_s32 _ | Shrq_n_s64 _ | Setq_lane_s32 _ | Setq_lane_s64 _
+    | Dupq_lane_s32 _ | Dupq_lane_s64 _ ->
       1
 
   let emit_rounding_mode (rm : Simd.Rounding_mode.t) : I.Rounding_mode.t =
@@ -575,7 +581,9 @@ end = struct
       ins I.USHR (Array.append operands [| imm n |])
     | Shrq_n_s32 n | Shrq_n_s64 n ->
       ins I.SSHR (Array.append operands [| imm n |])
-    | Setq_lane_s32 _ | Setq_lane_s64 _ | Getq_lane_s64 _ -> ins I.MOV operands
+    | Setq_lane_s32 _ | Setq_lane_s64 _ | Getq_lane_s64 _ | Dupq_lane_s32 _
+    | Dupq_lane_s64 _ ->
+      ins I.MOV operands
     | Getq_lane_s32 _ ->
       (* sign-extend the result to 64-bit and place in Xn *)
       ins I.SMOV operands

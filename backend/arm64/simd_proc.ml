@@ -65,6 +65,9 @@ type register_behavior =
   (* insert *)
   | Rs32x4_Rs32_to_First of { lane : int }
   | Rs64x2_Rs64_to_First of { lane : int }
+  (* dup *)
+  | Rs32x4lane_to_Rs32x4 of { lane : int }
+  | Rs64x2lane_to_Rs64x2 of { lane : int }
 
 let register_behavior (op : Simd.operation) =
   match op with
@@ -108,10 +111,12 @@ let register_behavior (op : Simd.operation) =
   | Negq_s32 | Cmpz_s32 _ | Absq_s32 | Cntq_s32 | Shlq_u32 | Shlq_s32
   | Shlq_n_u32 _ | Shrq_n_u32 _ | Shrq_n_s32 _ ->
     Rs32x4_to_Rs32x4
-  | Getq_lane_s32 { lane } -> Rs32x4_Rs32_to_First { lane }
-  | Getq_lane_s64 { lane } -> Rs64x2_Rs64_to_First { lane }
-  | Setq_lane_s32 { lane } -> Rs32x4_to_Rs32 { lane }
-  | Setq_lane_s64 { lane } -> Rs64x2_to_Rs64 { lane }
+  | Setq_lane_s32 { lane } -> Rs32x4_Rs32_to_First { lane }
+  | Setq_lane_s64 { lane } -> Rs64x2_Rs64_to_First { lane }
+  | Getq_lane_s32 { lane } -> Rs32x4_to_Rs32 { lane }
+  | Getq_lane_s64 { lane } -> Rs64x2_to_Rs64 { lane }
+  | Dupq_lane_s32 { lane } -> Rs32x4lane_to_Rs32x4 { lane }
+  | Dupq_lane_s64 { lane } -> Rs64x2lane_to_Rs64x2 { lane }
   | Eorq_s32 | Andq_s32 | Orrq_s32 ->
     (* Bitwise operation, lane width does not matter. The only two encodings
        provided are 8B and 16B. *)
