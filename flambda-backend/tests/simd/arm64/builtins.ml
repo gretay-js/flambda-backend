@@ -92,9 +92,6 @@ module Int32x4 = struct
     = "caml_vec128_unreachable" "caml_neon_int32x4_cmpgt"
     [@@noalloc] [@@unboxed] [@@builtin]
 
-  external sll : t -> t -> t = "caml_vec128_unreachable" "caml_neon_int32x4_sll"
-    [@@noalloc] [@@unboxed] [@@builtin]
-
   external slli : (int[@untagged]) -> (t[@unboxed]) -> (t[@unboxed])
     = "caml_vec128_unreachable" "caml_neon_int32x4_slli"
     [@@noalloc] [@@builtin]
@@ -193,15 +190,34 @@ module Int32x4 = struct
     = "caml_vec128_unreachable" "caml_neon_int32x4_sshl"
     [@@noalloc] [@@unboxed] [@@builtin]
 
-  (* There seems to be no instruction for right shift (logic or arithmetic) that
-     takes count in a register (not an immediate). The operation can be
-     expressed using a negative count for the corresponding shift left
-     instructions USHL and SSHL. The sequence below assumes that count is in the
-     low byte of the 128-bit register, sign-extended. *)
+  external dup : t -> t = "caml_vec128_unreachable" "caml_neon_int32x4_dup"
+    [@@noalloc] [@@unboxed] [@@builtin]
 
-  let srl : t -> t -> t = fun arg count -> ushl arg (neg count)
+  external dup_lane : (int[@untagged]) -> (t[@unboxed]) -> (t[@unboxed])
+    = "caml_vec128_unreachable" "caml_neon_int32x4_dup_lane"
+    [@@noalloc] [@@builtin]
 
-  let sra : t -> t -> t = fun arg count -> sshl arg (neg count)
+  (* Shifts with [count] in a register.
+
+     The function below match the semantics of amd64 shift builtins for
+     instructions that operate on a register. The second argument [count] is an
+     unsigned 128-bit integer (reinterpreting the declared type [t]). All lanes
+     of the first argument [arg] are shifted by the same [count].
+
+     The corresponding arm64 instructions expects a vector of signed [count]
+     values, one per lane. If [count] is large then the bit-width of a lane, the
+     shift is 0.
+
+     There seems to be no arm64 instruction for right shift (logic or
+     arithmetic) that take [count] in a register (not an immediate). The
+     operation can be expressed using a negative count for the corresponding
+     shift left instructions USHL and SSHL. *)
+
+  let sll : t -> t -> t = fun arg count -> ushl arg (dup count)
+
+  let srl : t -> t -> t = fun arg count -> ushl arg (neg (dup count))
+
+  let sra : t -> t -> t = fun arg count -> sshl arg (neg (dup count))
 end
 
 module Float32x4 = struct
@@ -329,9 +345,6 @@ module Int64x2 = struct
     = "caml_vec128_unreachable" "caml_neon_int64x2_cmpgt"
     [@@noalloc] [@@unboxed] [@@builtin]
 
-  external sll : t -> t -> t = "caml_vec128_unreachable" "caml_neon_int64x2_sll"
-    [@@noalloc] [@@unboxed] [@@builtin]
-
   external slli : (int[@untagged]) -> (t[@unboxed]) -> (t[@unboxed])
     = "caml_vec128_unreachable" "caml_neon_int64x2_slli"
     [@@noalloc] [@@builtin]
@@ -376,6 +389,17 @@ module Int64x2 = struct
   external sshl : t -> t -> t
     = "caml_vec128_unreachable" "caml_neon_int64x2_sshl"
     [@@noalloc] [@@unboxed] [@@builtin]
+
+  external dup : t -> t = "caml_vec128_unreachable" "caml_neon_int64x2_dup"
+    [@@noalloc] [@@unboxed] [@@builtin]
+
+  external dup_lane : (int[@untagged]) -> (t[@unboxed]) -> (t[@unboxed])
+    = "caml_vec128_unreachable" "caml_neon_int64x2_dup_lane"
+    [@@noalloc] [@@builtin]
+
+  (* Shifts with [count] in a register. See comment in [Int32x4]. *)
+
+  let sll : t -> t -> t = fun arg count -> ushl arg (dup count)
 
   let srl : t -> t -> t = fun arg count -> ushl arg (neg count)
 

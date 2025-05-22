@@ -184,14 +184,12 @@ type operation =
   | Cntq_s64
   | Shlq_u32
   | Shlq_u64
+  | Shlq_s32
+  | Shlq_s64
   | Shlq_n_u32 of int
   | Shlq_n_u64 of int
-  | Shrq_u32
-  | Shrq_u64
   | Shrq_n_u32 of int
   | Shrq_n_u64 of int
-  | Shrq_s32
-  | Shrq_s64
   | Shrq_n_s32 of int
   | Shrq_n_s64 of int
   | Getq_lane_s32 of { lane : int (* 0 <= lane <= 3 *) }
@@ -268,16 +266,14 @@ let print_name op =
   | Eorq_s64 -> "Eorq_s64"
   | Negq_s64 -> "Negq_s64"
   | Cntq_s64 -> "Cntq_s64"
-  | Shlq_u32 -> "Shlq_u32"
-  | Shlq_u64 -> "Shlq_u64"
   | Shlq_n_u32 n -> "Shlq_n_u32" ^ Int.to_string n
   | Shlq_n_u64 n -> "Shlq_n_u64" ^ Int.to_string n
-  | Shrq_u32 -> "Shrq_u32"
-  | Shrq_u64 -> "Shrq_u64"
   | Shrq_n_u32 n -> "Shrq_n_u32" ^ Int.to_string n
   | Shrq_n_u64 n -> "Shrq_n_u64" ^ Int.to_string n
-  | Shrq_s32 -> "Shrq_s32"
-  | Shrq_s64 -> "Shrq_s64"
+  | Shlq_u32 -> "Ushlq_u32"
+  | Shlq_u64 -> "Ushlq_u64"
+  | Shlq_s32 -> "Sshlq_s32"
+  | Shlq_s64 -> "Sshlq_s64"
   | Shrq_n_s32 n -> "Shrq_n_s32" ^ Int.to_string n
   | Shrq_n_s64 n -> "Shrq_n_s64" ^ Int.to_string n
   | Setq_lane_s32 { lane } -> "Setq_lane_s32" ^ Int.to_string lane
@@ -355,10 +351,8 @@ let equal_operation op1 op2 =
   | Cntq_s64, Cntq_s64
   | Shlq_u32, Shlq_u32
   | Shlq_u64, Shlq_u64
-  | Shrq_u32, Shrq_u32
-  | Shrq_u64, Shrq_u64
-  | Shrq_s32, Shrq_s32
-  | Shrq_s64, Shrq_s64 ->
+  | Shlq_s32, Shlq_s32
+  | Shlq_s64, Shlq_s64 ->
     true
   | Shrq_n_s32 n1, Shrq_n_s32 n2
   | Shrq_n_s64 n1, Shrq_n_s64 n2
@@ -393,9 +387,9 @@ let equal_operation op1 op2 =
       | Minq_s32 | Maxq_s32 | Minq_u32 | Maxq_u32 | Absq_s32 | Absq_s64
       | Paddq_f64 | Paddq_s32 | Paddq_s64 | Cntq_s32 | Mvnq_s64 | Orrq_s64
       | Andq_s64 | Eorq_s64 | Negq_s64 | Cntq_s64 | Shlq_u32 | Shlq_u64
-      | Shlq_n_u32 _ | Shlq_n_u64 _ | Shrq_u32 | Shrq_u64 | Shrq_n_u32 _
-      | Shrq_n_u64 _ | Shrq_s32 | Shrq_s64 | Shrq_n_s32 _ | Shrq_n_s64 _
-      | Setq_lane_s32 _ | Setq_lane_s64 _ ),
+      | Shlq_n_u32 _ | Shlq_n_u64 _ | Shrq_n_u32 _ | Shrq_n_u64 _ | Shrq_n_s32 _
+      | Shrq_n_s64 _ | Shlq_s32 | Shlq_s64 | Setq_lane_s32 _ | Setq_lane_s64 _
+        ),
       _ ) ->
     false
 
@@ -413,9 +407,9 @@ let class_of_operation op =
   | Addq_s32 | Subq_s32 | Minq_s32 | Maxq_s32 | Minq_u32 | Maxq_u32 | Absq_s32
   | Absq_s64 | Paddq_f64 | Paddq_s32 | Paddq_s64 | Cntq_s32 | Mvnq_s64
   | Orrq_s64 | Andq_s64 | Eorq_s64 | Negq_s64 | Cntq_s64 | Shlq_u32 | Shlq_u64
-  | Shlq_n_u32 _ | Shlq_n_u64 _ | Shrq_u32 | Shrq_u64 | Shrq_n_u32 _
-  | Shrq_n_u64 _ | Shrq_s32 | Shrq_s64 | Shrq_n_s32 _ | Shrq_n_s64 _
-  | Setq_lane_s32 _ | Setq_lane_s64 _ ->
+  | Shlq_s32 | Shlq_s64 | Shlq_n_u32 _ | Shlq_n_u64 _ | Shrq_n_u32 _
+  | Shrq_n_u64 _ | Shrq_n_s32 _ | Shrq_n_s64 _ | Setq_lane_s32 _
+  | Setq_lane_s64 _ ->
     Pure
 
 let operation_is_pure op = match class_of_operation op with Pure -> true

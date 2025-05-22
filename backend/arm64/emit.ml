@@ -368,7 +368,8 @@ end = struct
       check_reg Int i.res.(0)
     | Rs32x4_to_Rs32 _ | Rs64x2_to_Rs64 _ -> check_reg Vec128 i.arg.(0)
     | Rs32x4_Rs32_to_First _ | Rs64x2_Rs64_to_First _ ->
-      check_reg Vec128 i.arg.(0)
+      check_reg Vec128 i.arg.(0);
+      assert (Reg.same_loc i.res.(0) i.arg.(0))
 
   let src_operands ops =
     (* returns a copy of [ops] without the first operand, which is assumed to be
@@ -437,9 +438,9 @@ end = struct
     | Rs64x2_to_Rs64 { lane : int } ->
       [| emit_reg i.res.(0); emit_reglane_d i.arg.(0) ~lane |]
     | Rs32x4_Rs32_to_First { lane } ->
-      [| emit_reglane_s i.res.(0) ~lane; emit_reg i.arg.(0) |]
+      [| emit_reglane_s i.res.(0) ~lane; emit_reg_w i.arg.(1) |]
     | Rs64x2_Rs64_to_First { lane } ->
-      [| emit_reglane_d i.res.(0) ~lane; emit_reg i.arg.(0) |]
+      [| emit_reglane_d i.res.(0) ~lane; emit_reg i.arg.(1) |]
 
   let simd_instr_size (op : Simd.operation) =
     match op with
@@ -456,9 +457,9 @@ end = struct
     | Getq_lane_s64 _ | Addq_s32 | Subq_s32 | Minq_s32 | Maxq_s32 | Minq_u32
     | Maxq_u32 | Absq_s32 | Absq_s64 | Paddq_f64 | Paddq_s32 | Paddq_s64
     | Cntq_s32 | Mvnq_s64 | Orrq_s64 | Andq_s64 | Eorq_s64 | Negq_s64 | Cntq_s64
-    | Shlq_u32 | Shlq_u64 | Shrq_u32 | Shrq_u64 | Shrq_s32 | Shrq_s64
-    | Shlq_n_u32 _ | Shlq_n_u64 _ | Shrq_n_u32 _ | Shrq_n_u64 _ | Shrq_n_s32 _
-    | Shrq_n_s64 _ | Setq_lane_s32 _ | Setq_lane_s64 _ ->
+    | Shlq_u32 | Shlq_u64 | Shlq_s32 | Shlq_s64 | Shlq_n_u32 _ | Shlq_n_u64 _
+    | Shrq_n_u32 _ | Shrq_n_u64 _ | Shrq_n_s32 _ | Shrq_n_s64 _
+    | Setq_lane_s32 _ | Setq_lane_s64 _ ->
       1
 
   let emit_rounding_mode (rm : Simd.Rounding_mode.t) : I.Rounding_mode.t =
@@ -567,17 +568,17 @@ end = struct
     | Negq_s32 | Negq_s64 -> ins I.NEG operands
     | Cntq_s32 | Cntq_s64 -> ins I.CNT operands
     | Shlq_u32 | Shlq_u64 -> ins I.USHL operands
-    | Shrq_u32 | Shrq_u64 -> ins I.USHR operands
-    | Shrq_s32 | Shrq_s64 -> ins I.SSHL operands
+    | Shlq_s32 | Shlq_s64 -> ins I.SSHL operands
     | Shlq_n_u32 n | Shlq_n_u64 n ->
       ins I.SHL (Array.append operands [| imm n |])
-    | Shrq_n_u32 _ | Shrq_n_u64 _ ->
+    | Shrq_n_u32 n | Shrq_n_u64 n ->
       ins I.USHR (Array.append operands [| imm n |])
-    | Shrq_n_s32 _ | Shrq_n_s64 _ ->
+    | Shrq_n_s32 n | Shrq_n_s64 n ->
       ins I.SSHR (Array.append operands [| imm n |])
-    | Setq_lane_s32 _ | Setq_lane_s64 _ -> assert false
-    | Getq_lane_s32 _ -> ins I.SMOV operands
-    | Getq_lane_s64 _ -> ins I.MOV operands
+    | Setq_lane_s32 _ | Setq_lane_s64 _ | Getq_lane_s64 _ -> ins I.MOV operands
+    | Getq_lane_s32 _ ->
+      (* sign-extend the result to 64-bit and place in Xn *)
+      ins I.SMOV operands
 end
 
 (* Record live pointers at call points *)

@@ -436,6 +436,7 @@ module Instruction_name = struct
     | FNMSUB
     | FNEG
     | FABS
+    | ABS
     | FSQRT
     | FCVT
     | FCVTZS
@@ -447,6 +448,10 @@ module Instruction_name = struct
     | FRINT64 of Rounding_mode.t
     | FMIN
     | FMAX
+    | SMIN
+    | SMAX
+    | UMIN
+    | UMAX
     | ZIP1
     | ZIP2
     | FCMP
@@ -454,6 +459,7 @@ module Instruction_name = struct
     | FRECPE
     | FRSQRTE
     | FADDP
+    | ADDP
     | FCM of Float_cond.t
     | CM of Cond.t
     | ADDV
@@ -461,6 +467,11 @@ module Instruction_name = struct
     | NEG
     | SMOV
     | LD1
+    | SHL
+    | USHL
+    | SSHL
+    | USHR
+    | SSHR
 
   (* CR gyorsh: can some of this be automatically generated from the type? *)
   let to_string t =
@@ -545,6 +556,7 @@ module Instruction_name = struct
     | FNMSUB -> "fnmsub"
     | FNEG -> "fneg"
     | FABS -> "fabs"
+    | ABS -> "abs"
     | FSQRT -> "fsqrt"
     | FCVT -> "fcvt"
     | FCVTZS -> "fcvtzs"
@@ -555,6 +567,10 @@ module Instruction_name = struct
     | FRINT64 rm -> "frint64" ^ Rounding_mode.to_string rm
     | FMIN -> "fmin"
     | FMAX -> "fmax"
+    | SMIN -> "smin"
+    | SMAX -> "smax"
+    | UMIN -> "umin"
+    | UMAX -> "umax"
     | ZIP1 -> "zip1"
     | ZIP2 -> "zip2"
     | FCMP -> "fcmp"
@@ -562,6 +578,7 @@ module Instruction_name = struct
     | FRECPE -> "frecpe"
     | FRSQRTE -> "frsqrte"
     | FADDP -> "faddp"
+    | ADDP -> "addp"
     | FCM cond -> "fcm" ^ Float_cond.to_string cond
     | CM cond -> "cm" ^ Cond.to_string cond
     | FCVTL -> "fcvtl"
@@ -570,6 +587,11 @@ module Instruction_name = struct
     | NEG -> "neg"
     | SMOV -> "smov"
     | LD1 -> "ld1"
+    | SHL -> "shl"
+    | USHL -> "ushl"
+    | SSHL -> "sshl"
+    | USHR -> "ushr"
+    | SSHR -> "ushr"
 end
 
 module Symbol = struct

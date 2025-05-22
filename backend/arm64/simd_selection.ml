@@ -148,24 +148,22 @@ let select_simd_instr op args =
   | "caml_neon_int64x2_bitwise_and" -> Some (Andq_s64, args)
   | "caml_neon_int64x2_bitwise_xor" -> Some (Eorq_s64, args)
   | "caml_neon_int64x2_neg" -> Some (Negq_s64, args)
-  | "caml_neon_int32x4_sll" -> Some (Shlq_u32, args)
-  | "caml_neon_int64x2_sll" -> Some (Shlq_u64, args)
   | "caml_neon_int32x4_slli" ->
     let n, args = extract_constant args ~max:32 op in
     Some (Shlq_n_u32 n, args)
   | "caml_neon_int64x2_slli" ->
     let n, args = extract_constant args ~max:64 op in
     Some (Shlq_n_u64 n, args)
-  | "caml_neon_int32x4_srl" -> Some (Shrq_u32, args)
-  | "caml_neon_int64x2_srl" -> Some (Shrq_u64, args)
+  | "caml_neon_int32x4_ushl" -> Some (Shlq_u32, args)
+  | "caml_neon_int64x2_ushl" -> Some (Shlq_u64, args)
   | "caml_neon_int32x4_srli" ->
     let n, args = extract_constant args ~max:32 op in
     Some (Shrq_n_u32 n, args)
   | "caml_neon_int64x2_srli" ->
     let n, args = extract_constant args ~max:64 op in
     Some (Shrq_n_u64 n, args)
-  | "caml_neon_int32x4_sra" -> Some (Shrq_s32, args)
-  | "caml_neon_int64x2_sra" -> Some (Shrq_s64, args)
+  | "caml_neon_int32x4_sshl" -> Some (Shlq_s32, args)
+  | "caml_neon_int64x2_sshl" -> Some (Shlq_s64, args)
   | "caml_neon_int32x4_srai" ->
     let n, args = extract_constant args ~max:32 op in
     Some (Shrq_n_s32 n, args)

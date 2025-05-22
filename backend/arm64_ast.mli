@@ -255,6 +255,7 @@ module Instruction_name : sig
     | FNMSUB
     | FNEG
     | FABS
+    | ABS
     | FSQRT
     | FCVT
     | FCVTZS
@@ -266,6 +267,10 @@ module Instruction_name : sig
     | FRINT64 of Rounding_mode.t
     | FMIN
     | FMAX
+    | SMIN
+    | SMAX
+    | UMIN
+    | UMAX
     | ZIP1
     | ZIP2
     | FCMP
@@ -273,6 +278,7 @@ module Instruction_name : sig
     | FRECPE
     | FRSQRTE
     | FADDP
+    | ADDP
     | FCM of Float_cond.t
     | CM of Cond.t
     | ADDV
@@ -280,6 +286,11 @@ module Instruction_name : sig
     | NEG
     | SMOV
     | LD1
+    | SHL
+    | USHL
+    | SSHL
+    | USHR
+    | SSHR
 end
 
 module DSL : sig
