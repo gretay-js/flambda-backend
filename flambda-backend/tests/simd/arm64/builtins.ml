@@ -162,24 +162,23 @@ module Int32x4 = struct
     = "caml_vec128_unreachable" "caml_neon_int32x4_insert"
     [@@noalloc] [@@builtin]
 
-  external bitwise_not : int32x4 -> int32x4
+  external bitwise_not : t -> t
     = "caml_vec128_unreachable" "caml_neon_int32x4_bitwise_not"
     [@@noalloc] [@@unboxed] [@@builtin]
 
-  external bitwise_or : int32x4 -> int32x4 -> int32x4
+  external bitwise_or : t -> t -> t
     = "caml_vec128_unreachable" "caml_neon_int32x4_bitwise_or"
     [@@noalloc] [@@unboxed] [@@builtin]
 
-  external bitwise_and : int32x4 -> int32x4
+  external bitwise_and : t -> t
     = "caml_vec128_unreachable" "caml_neon_int32x4_bitwise_and"
     [@@noalloc] [@@unboxed] [@@builtin]
 
-  external bitwise_xor : int32x4 -> int32x4 -> int32x4
+  external bitwise_xor : t -> t -> t
     = "caml_vec128_unreachable" "caml_neon_int32x4_bitwise_xor"
     [@@noalloc] [@@unboxed] [@@builtin]
 
-  external neg : int32x4 -> int32x4
-    = "caml_vec128_unreachable" "caml_neon_int32x4_neg"
+  external neg : t -> t = "caml_vec128_unreachable" "caml_neon_int32x4_neg"
     [@@noalloc] [@@unboxed] [@@builtin]
 
   external ushl : t -> t -> t
@@ -362,24 +361,23 @@ module Int64x2 = struct
     = "caml_vec128_unreachable" "caml_neon_int64x2_insert"
     [@@noalloc] [@@builtin]
 
-  external bitwise_not : int32x4 -> int32x4
-    = "caml_vec128_unreachable" "caml_neon_int32x4_bitwise_not"
+  external bitwise_not : t -> t
+    = "caml_vec128_unreachable" "caml_neon_int64x2_bitwise_not"
     [@@noalloc] [@@unboxed] [@@builtin]
 
-  external bitwise_or : int32x4 -> int32x4 -> int32x4
-    = "caml_vec128_unreachable" "caml_neon_int32x4_bitwise_or"
+  external bitwise_or : t -> t -> t
+    = "caml_vec128_unreachable" "caml_neon_int64x2_bitwise_or"
     [@@noalloc] [@@unboxed] [@@builtin]
 
-  external bitwise_and : int32x4 -> int32x4
-    = "caml_vec128_unreachable" "caml_neon_int32x4_bitwise_and"
+  external bitwise_and : t -> t
+    = "caml_vec128_unreachable" "caml_neon_int64x2_bitwise_and"
     [@@noalloc] [@@unboxed] [@@builtin]
 
-  external bitwise_xor : int32x4 -> int32x4 -> int32x4
-    = "caml_vec128_unreachable" "caml_neon_int32x4_bitwise_xor"
+  external bitwise_xor : t -> t -> t
+    = "caml_vec128_unreachable" "caml_neon_int64x2_bitwise_xor"
     [@@noalloc] [@@unboxed] [@@builtin]
 
-  external neg : int32x4 -> int32x4
-    = "caml_vec128_unreachable" "caml_neon_int32x4_neg"
+  external neg : t -> t = "caml_vec128_unreachable" "caml_neon_int64x2_neg"
     [@@noalloc] [@@unboxed] [@@builtin]
 
   external ushl : t -> t -> t
@@ -412,23 +410,23 @@ module Float64x2 = struct
   (* Math *)
 
   external cmeq : (t[@unboxed]) -> (t[@unboxed]) -> (int64x2[@unboxed])
-    = "caml_vec128_unreachable" "caml_neon_float32x4_cmeq"
+    = "caml_vec128_unreachable" "caml_neon_float64x2_cmeq"
     [@@noalloc] [@@builtin]
 
   external cmge : (t[@unboxed]) -> (t[@unboxed]) -> (int64x2[@unboxed])
-    = "caml_vec128_unreachable" "caml_neon_float32x4_cmge"
+    = "caml_vec128_unreachable" "caml_neon_float64x2_cmge"
     [@@noalloc] [@@builtin]
 
   external cmgt : (t[@unboxed]) -> (t[@unboxed]) -> (int64x2[@unboxed])
-    = "caml_vec128_unreachable" "caml_neon_float32x4_cmgt"
+    = "caml_vec128_unreachable" "caml_neon_float64x2_cmgt"
     [@@noalloc] [@@builtin]
 
   external cmle : (t[@unboxed]) -> (t[@unboxed]) -> (int64x2[@unboxed])
-    = "caml_vec128_unreachable" "caml_neon_float32x4_cmle"
+    = "caml_vec128_unreachable" "caml_neon_float64x2_cmle"
     [@@noalloc] [@@builtin]
 
   external cmlt : (t[@unboxed]) -> (t[@unboxed]) -> (int64x2[@unboxed])
-    = "caml_vec128_unreachable" "caml_neon_float32x4_cmlt"
+    = "caml_vec128_unreachable" "caml_neon_float64x2_cmlt"
     [@@noalloc] [@@builtin]
 
   let is_nan t = Int64x2.bitwise_not (cmeq t t)
@@ -482,10 +480,6 @@ module Float64x2 = struct
 
   external cvt_float32x4 : t -> float32x4
     = "caml_vec128_unreachable" "caml_neon_cvt_float64x2_to_float32x2"
-    [@@noalloc] [@@unboxed] [@@builtin]
-
-  external hadd : t -> t -> t
-    = "caml_vec128_unreachable" "caml_neon_float64x2_hadd"
     [@@noalloc] [@@unboxed] [@@builtin]
 
   external round : (int[@untagged]) -> (t[@unboxed]) -> (t[@unboxed])

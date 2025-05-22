@@ -448,18 +448,18 @@ end = struct
     | Min_scalar_f32 | Max_scalar_f32 -> 2
     | Round_f32 _ | Round_f64 _ | Round_f32x4 _ | Round_f32_s64 | Zip1_f32
     | Zip1q_f32 | Zip1q_f64 | Zip2q_f64 | Addq_f32 | Subq_f32 | Mulq_f32
-    | Divq_f32 | Minq_f32 | Maxq_f32 | Minq_f64 | Maxq_f64 | Recpeq_f32
-    | Sqrtq_f32 | Rsqrteq_f32 | Cvtq_s32_f32 | Cvtq_f32_s32 | Cvt_f64_f32
-    | Cvt_f32_f64 | Cvt_f64_s32 | Cvt_s32_f64 | Paddq_f32 | Fmin_f32 | Fmax_f32
-    | Fmin_f64 | Fmax_f64 | Addq_s64 | Subq_s64 | Cmp_f32 _ | Cmpz_f32 _
-    | Cmpz_s32 _ | Cmp_f64 _ | Cmpz_f64 _ | Cmp_s32 _ | Cmp_s64 _ | Cmpz_s64 _
-    | Mvnq_s32 | Orrq_s32 | Andq_s32 | Eorq_s32 | Negq_s32 | Getq_lane_s32 _
-    | Getq_lane_s64 _ | Addq_s32 | Subq_s32 | Minq_s32 | Maxq_s32 | Minq_u32
-    | Maxq_u32 | Absq_s32 | Absq_s64 | Paddq_f64 | Paddq_s32 | Paddq_s64
-    | Cntq_s32 | Mvnq_s64 | Orrq_s64 | Andq_s64 | Eorq_s64 | Negq_s64 | Cntq_s64
-    | Shlq_u32 | Shlq_u64 | Shlq_s32 | Shlq_s64 | Shlq_n_u32 _ | Shlq_n_u64 _
-    | Shrq_n_u32 _ | Shrq_n_u64 _ | Shrq_n_s32 _ | Shrq_n_s64 _
-    | Setq_lane_s32 _ | Setq_lane_s64 _ ->
+    | Divq_f32 | Minq_f32 | Maxq_f32 | Addq_f64 | Subq_f64 | Mulq_f64 | Divq_f64
+    | Minq_f64 | Maxq_f64 | Recpeq_f32 | Sqrtq_f32 | Rsqrteq_f32 | Cvtq_s32_f32
+    | Cvtq_f32_s32 | Cvt_f64_f32 | Cvt_f32_f64 | Cvt_f64_s32 | Cvt_s32_f64
+    | Paddq_f32 | Fmin_f32 | Fmax_f32 | Fmin_f64 | Fmax_f64 | Addq_s64
+    | Subq_s64 | Cmp_f32 _ | Cmpz_f32 _ | Cmpz_s32 _ | Cmp_f64 _ | Cmpz_f64 _
+    | Cmp_s32 _ | Cmp_s64 _ | Cmpz_s64 _ | Mvnq_s32 | Orrq_s32 | Andq_s32
+    | Eorq_s32 | Negq_s32 | Getq_lane_s32 _ | Getq_lane_s64 _ | Addq_s32
+    | Subq_s32 | Minq_s32 | Maxq_s32 | Minq_u32 | Maxq_u32 | Absq_s32 | Absq_s64
+    | Paddq_f64 | Paddq_s32 | Paddq_s64 | Cntq_s32 | Mvnq_s64 | Orrq_s64
+    | Andq_s64 | Eorq_s64 | Negq_s64 | Cntq_s64 | Shlq_u32 | Shlq_u64 | Shlq_s32
+    | Shlq_s64 | Shlq_n_u32 _ | Shlq_n_u64 _ | Shrq_n_u32 _ | Shrq_n_u64 _
+    | Shrq_n_s32 _ | Shrq_n_s64 _ | Setq_lane_s32 _ | Setq_lane_s64 _ ->
       1
 
   let emit_rounding_mode (rm : Simd.Rounding_mode.t) : I.Rounding_mode.t =
@@ -517,10 +517,10 @@ end = struct
     | Zip2q_f64 -> ins I.ZIP2 operands
     | Addq_s64 | Addq_s32 -> ins I.ADD operands
     | Subq_s64 | Subq_s32 -> ins I.SUB operands
-    | Addq_f32 -> ins I.FADD operands
-    | Subq_f32 -> ins I.FSUB operands
-    | Mulq_f32 -> ins I.FMUL operands
-    | Divq_f32 -> ins I.FDIV operands
+    | Addq_f32 | Addq_f64 -> ins I.FADD operands
+    | Subq_f32 | Subq_f64 -> ins I.FSUB operands
+    | Mulq_f32 | Mulq_f64 -> ins I.FMUL operands
+    | Divq_f32 | Divq_f64 -> ins I.FDIV operands
     | Minq_f32 -> ins I.FMIN operands
     | Maxq_f32 -> ins I.FMAX operands
     | Minq_f64 -> ins I.FMIN operands

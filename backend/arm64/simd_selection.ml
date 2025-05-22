@@ -100,6 +100,10 @@ let select_simd_instr op args =
   | "caml_neon_float32x4_sub" -> Some (Subq_f32, args)
   | "caml_neon_float32x4_mul" -> Some (Mulq_f32, args)
   | "caml_neon_float32x4_div" -> Some (Divq_f32, args)
+  | "caml_neon_float64x2_add" -> Some (Addq_f64, args)
+  | "caml_neon_float64x2_sub" -> Some (Subq_f64, args)
+  | "caml_neon_float64x2_mul" -> Some (Mulq_f64, args)
+  | "caml_neon_float64x2_div" -> Some (Divq_f64, args)
   | "caml_neon_float32x4_min" -> Some (Minq_f32, args)
   | "caml_neon_float32x4_max" -> Some (Maxq_f32, args)
   | "caml_neon_float64x2_min" -> Some (Minq_f64, args)
@@ -182,6 +186,7 @@ let select_simd_instr op args =
   | "caml_neon_int64x2_insert" ->
     let lane, args = extract_constant args ~max:1 op in
     Some (Setq_lane_s64 { lane }, args)
+  | "caml_neon_int32x4_dup" -> Some (Dupq_lane_s32 { lane = 0 })
   | _ -> None
 
 let select_operation_cfg op args =
