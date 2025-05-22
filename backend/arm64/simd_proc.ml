@@ -53,6 +53,7 @@ type register_behavior =
   | Rf64x2_to_Rs64x2
   | Rf64x2_Rf64x2_to_Rs64x2
   | Rs32x4_Rs32x4_to_Rs32x4
+  | Rf64x2_to_Rf64x2
   (* scalar *)
   | Rf32_Rf32_to_Rf32
   | Rf64_Rf64_to_Rf64
@@ -86,6 +87,7 @@ let register_behavior (op : Simd.operation) =
   | Addq_f64 | Subq_f64 | Mulq_f64 | Divq_f64 | Zip1q_f64 | Zip2q_f64 | Minq_f64
   | Maxq_f64 | Paddq_f64 ->
     Rf64x2_Rf64x2_to_Rf64x2
+  | Sqrtq_f64 | Rsqrteq_f64 -> Rf64x2_to_Rf64x2
   | Addq_s64 | Subq_s64 | Paddq_s64 | Orrq_s64 | Andq_s64 | Eorq_s64 ->
     Rs64x2_Rs64x2_to_Rs64x2
   | Cvtq_s32_f32 -> Rf32x4_to_Rs32x4
