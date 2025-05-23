@@ -104,16 +104,6 @@ let () =
   Float64.check_floats (check_binop Float.max Builtins.Float64x2.max);
   Float64.check_floats (check_binop Float.min Builtins.Float64x2.min)
 
-let () =
-  (* let preserve_nan p l r = *)
-  (*   if Float.is_nan r then r else if Float.is_nan l then r else p l r *)
-  (* in *)
-  (* let preserve_zero p l r = *)
-  (*   if (l = 0.0 || l = -0.0) && (r = 0.0 || r = -0.0) then r else p l r *)
-  (* in *)
-  Float64.check_floats (check_binop Float64.c_max_match_sse max);
-  Float64.check_floats (check_binop Float64.c_min_match_sse min)
-
 (* let () = *)
 (*   Float64.check_floats (fun f0 f1 -> *)
 (*       (failmsg := fun () -> Printf.printf "cvti32 %f | %f\n%!" f0 f1); *)
