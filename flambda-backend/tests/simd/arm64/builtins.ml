@@ -486,15 +486,23 @@ module Float64x2 = struct
     = "caml_vec128_unreachable" "caml_neon_cvt_float64x2_to_float32x2"
     [@@noalloc] [@@unboxed] [@@builtin]
 
-  (* let cvt_int32x4 : t -> int32x4 = *)
-  (*  fun t -> t |> cvt_float32x4 |> Float32x4.cvt_int32x4 *)
-
-  let cvt_int32x4 : t -> int32x4 =
-   fun t -> t |> cvt_int64x2 |> Int64x2.cvt_int32x4
-
   external round_near : (t[@unboxed]) -> (t[@unboxed])
     = "caml_vec128_unreachable" "caml_neon_float64x2_round_near"
     [@@noalloc] [@@builtin]
+
+  (* CR gyorsh: which coversion function should be used? *)
+
+  let cvt_int32x4 : t -> int32x4 =
+   fun t -> t |> round_near |> cvt_int64x2 |> Int64x2.cvt_int32x4
+
+  (* let cvt_int32x4 : t -> int32x4 = *)
+  (* fun t -> t |> cvt_float32x4 |> Float32x4.cvt_int32x4 *)
+
+  (* let cvt_int32x4 : t -> int32x4 = *)
+  (*  fun t -> t |> cvt_int64x2 |> Int64x2.cvt_int32x4 *)
+
+  (* let cvt_int32x4 : t -> int32x4 = *)
+  (*  fun t -> t |> round_near |> cvt_float32x4 |> Float32x4.cvt_int32x4 *)
 end
 
 module Int16x8 = struct

@@ -1,8 +1,10 @@
 let failmsg = ref (fun () -> ())
 
 let eq lv hv l h =
-  if l <> lv then Printf.printf "%016Lx <> %016Lx\n" lv l;
-  if h <> hv then Printf.printf "%016Lx <> %016Lx\n" hv h;
+  if l <> lv
+  then Printf.printf "low: actual = %016Lx <> %016Lx = expected\n" lv l;
+  if h <> hv
+  then Printf.printf "high: actual = %016Lx <> %016Lx = expected\n" hv h;
   if l <> lv || h <> hv then !failmsg ()
 
 let eql lv hv l h =
