@@ -134,7 +134,7 @@ let select_simd_instr op args =
   | "caml_neon_cvt_float64x2_to_float32x2" -> Some (Cvt_f32_f64, args)
   | "caml_neon_cvtsx_int32x2_to_int64x2" -> Some (Cvtq_s64_s32, args)
   | "caml_neon_cvtzx_int32x2_to_int64x2" -> Some (Cvtq_u64_u32, args)
-  | "caml_neon_cvtsx_int64x2_to_int32x2" -> Some (Cvtq_s32_s64, args)
+  | "caml_neon_cvt_int64x2_to_int32x2" -> Some (Cvtq_s32_s64, args)
   | "caml_neon_float32x4_hadd" -> Some (Paddq_f32, args)
   | "caml_neon_float64x2_hadd" -> Some (Paddq_f64, args)
   | "caml_neon_float32x4_cmeq" -> Some (Cmp_f32 EQ, args)
