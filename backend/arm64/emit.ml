@@ -347,10 +347,10 @@ end = struct
       check_reg Vec128 i.arg.(1);
       check_reg Vec128 i.res.(0)
     | Rs32x4_to_Rs32x4 | Rf32x2_to_Rf64x2 | Rf32x4_to_Rf32x4 | Rf32x4_to_Rs32x4
-    | Rs32x4_to_Rf32x4 | Rf64x2_to_f32x2 | Rs8x16_to_Rs8x16 | Rs64x2_to_Rs64x2
+    | Rs32x4_to_Rf32x4 | Rf64x2_to_Rf32x2 | Rs8x16_to_Rs8x16 | Rs64x2_to_Rs64x2
     | Rf64x2_to_Rs64x2 | Rs32x4lane_to_Rs32x4 _ | Rs64x2lane_to_Rs64x2 _
     | Rs16x8lane_to_Rs16x8 _ | Rf64x2_to_Rf64x2 | Rs64x2_to_Rf64x2
-    | Rs32x2_to_Rs64x2 | Rs16x8_to_Rs16x8 ->
+    | Rs32x2_to_Rs64x2 | Rs16x8_to_Rs16x8 | Rs64x2_to_Rs32x2 ->
       check_reg Vec128 i.arg.(0);
       check_reg Vec128 i.res.(0)
     | Rf32_Rf32_to_Rf32 ->
@@ -428,7 +428,8 @@ end = struct
       [| emit_reg_v4s i.res.(0); emit_reg_v4s i.arg.(0) |]
     | Rf32x2_to_Rf64x2 | Rs32x2_to_Rs64x2 ->
       [| emit_reg_v2d i.res.(0); emit_reg_v2s i.arg.(0) |]
-    | Rf64x2_to_f32x2 -> [| emit_reg_v2s i.res.(0); emit_reg_v2d i.arg.(0) |]
+    | Rf64x2_to_Rf32x2 | Rs64x2_to_Rs32x2 ->
+      [| emit_reg_v2s i.res.(0); emit_reg_v2d i.arg.(0) |]
     | Rs64x2_to_Rs64x2 | Rf64x2_to_Rs64x2 | Rs64x2_to_Rf64x2 ->
       [| emit_reg_v2d i.res.(0); emit_reg_v2d i.arg.(0) |]
     | Rs8x16_to_Rs8x16 -> [| emit_reg_v16b i.res.(0); emit_reg_v16b i.arg.(0) |]
@@ -483,7 +484,8 @@ end = struct
     | Qsubq_s16 | Qsubq_u16 | Absq_s16 | Minq_s16 | Maxq_s16 | Minq_u16
     | Maxq_u16 | Mvnq_s16 | Orrq_s16 | Andq_s16 | Eorq_s16 | Negq_s16 | Cntq_u16
     | Shlq_u16 | Shlq_s16 | Cmp_s16 _ | Cmpz_s16 _ | Shlq_n_u16 _ | Shrq_n_u16 _
-    | Shrq_n_s16 _ | Getq_lane_s16 _ | Setq_lane_s16 _ | Dupq_lane_s16 _ ->
+    | Shrq_n_s16 _ | Getq_lane_s16 _ | Setq_lane_s16 _ | Dupq_lane_s16 _
+    | Cvtq_s32_s64 ->
       1
 
   let emit_rounding_mode (rm : Simd.Rounding_mode.t) : I.Rounding_mode.t =
@@ -563,6 +565,7 @@ end = struct
     | Cvt_f32_f64 -> ins I.FCVTN operands
     | Cvtq_s64_s32 -> ins I.SXTL operands
     | Cvtq_u64_u32 -> ins I.UXTL operands
+    | Cvtq_s32_s64 -> ins I.XTN operands
     | Paddq_f32 | Paddq_f64 -> ins I.FADDP operands
     | Paddq_s32 | Paddq_s64 | Paddq_s16 -> ins I.ADDP operands
     | Cmp_f32 LT | Cmp_f64 LT ->

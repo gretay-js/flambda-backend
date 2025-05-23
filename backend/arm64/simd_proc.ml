@@ -44,7 +44,7 @@ type register_behavior =
   | Rf32x4_to_Rf32x4
   | Rf32x4_to_Rs32x4
   | Rf32x2_to_Rf64x2
-  | Rf64x2_to_f32x2
+  | Rf64x2_to_Rf32x2
   | Rs8x16_to_Rs8x16
   | Rs8x16_Rs8x16_to_Rs8x16
   | Rs64x2_to_Rs64x2
@@ -56,6 +56,7 @@ type register_behavior =
   | Rs32x2_to_Rs64x2
   | Rs16x8_Rs16x8_to_Rs16x8
   | Rs16x8_to_Rs16x8
+  | Rs64x2_to_Rs32x2
   (* scalar *)
   | Rf32_Rf32_to_Rf32
   | Rf64_Rf64_to_Rf64
@@ -104,11 +105,15 @@ let register_behavior (op : Simd.operation) =
   | Cvt_f32_f64 ->
     (* Output should be in Vec128 register but only the bottom f32x2 is used by
        this instruction. *)
-    Rf64x2_to_f32x2
+    Rf64x2_to_Rf32x2
   | Cvtq_s64_s32 | Cvtq_u64_u32 ->
     (* Input should be in Vec128 register but only the bottom s32x2 is used by
        this instruction. *)
     Rs32x2_to_Rs64x2
+  | Cvtq_s32_s64 ->
+    (* Output should be in Vec128 register but only the bottom s32x2 is used by
+       this instruction. *)
+    Rs64x2_to_Rs32x2
   | Cmp_f32 _ -> Rf32x4_Rf32x4_to_Rs32x4
   | Cmpz_f32 _ -> Rf32x4_to_Rs32x4
   | Cmp_f64 _ -> Rf64x2_Rf64x2_to_Rs64x2

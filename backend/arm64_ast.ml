@@ -482,6 +482,7 @@ module Instruction_name = struct
     | SSHR
     | SXTL
     | UXTL
+    | XTN
     | DUP
 
   (* CR gyorsh: can some of this be automatically generated from the type? *)
@@ -609,6 +610,7 @@ module Instruction_name = struct
     | SSHR -> "ushr"
     | SXTL -> "sxtl"
     | UXTL -> "uxtl"
+    | XTN -> "xtn"
     | DUP -> "dup"
 end
 
