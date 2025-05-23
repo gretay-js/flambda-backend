@@ -433,30 +433,60 @@ let equal_operation op1 op2 =
   | Shlq_u32, Shlq_u32
   | Shlq_u64, Shlq_u64
   | Shlq_s32, Shlq_s32
-  | Shlq_s64, Shlq_s64 ->
+  | Shlq_s64, Shlq_s64
+  | Addq_s16, Addq_s16
+  | Paddq_s16, Paddq_s16
+  | Qaddq_s16, Qaddq_s16
+  | Qaddq_u16, Qaddq_u16
+  | Subq_s16, Subq_s16
+  | Qsubq_s16, Qsubq_s16
+  | Qsubq_u16, Qsubq_u16
+  | Absq_s16, Absq_s16
+  | Minq_s16, Minq_s16
+  | Maxq_s16, Maxq_s16
+  | Minq_u16, Minq_u16
+  | Maxq_u16, Maxq_u16
+  | Mvnq_s16, Mvnq_s16
+  | Orrq_s16, Orrq_s16
+  | Andq_s16, Andq_s16
+  | Eorq_s16, Eorq_s16
+  | Negq_s16, Negq_s16
+  | Cntq_u16, Cntq_u16
+  | Shlq_u16, Shlq_u16
+  | Shlq_s16, Shlq_s16 ->
     true
   | Shrq_n_s32 n1, Shrq_n_s32 n2
   | Shrq_n_s64 n1, Shrq_n_s64 n2
   | Shlq_n_u32 n1, Shlq_n_u32 n2
   | Shlq_n_u64 n1, Shlq_n_u64 n2
   | Shrq_n_u32 n1, Shrq_n_u32 n2
-  | Shrq_n_u64 n1, Shrq_n_u64 n2 ->
+  | Shrq_n_u64 n1, Shrq_n_u64 n2
+  | Shlq_n_u16 n1, Shlq_n_u16 n2
+  | Shrq_n_u16 n1, Shrq_n_u16 n2
+  | Shrq_n_s16 n1, Shrq_n_s16 n2 ->
     Int.equal n1 n2
   | Getq_lane_s32 { lane = l }, Getq_lane_s32 { lane = l' }
   | Getq_lane_s64 { lane = l }, Getq_lane_s64 { lane = l' }
   | Setq_lane_s32 { lane = l }, Setq_lane_s32 { lane = l' }
   | Setq_lane_s64 { lane = l }, Setq_lane_s64 { lane = l' }
   | Dupq_lane_s32 { lane = l }, Dupq_lane_s32 { lane = l' }
-  | Dupq_lane_s64 { lane = l }, Dupq_lane_s64 { lane = l' } ->
+  | Dupq_lane_s64 { lane = l }, Dupq_lane_s64 { lane = l' }
+  | Getq_lane_s16 { lane = l }, Getq_lane_s16 { lane = l' }
+  | Setq_lane_s16 { lane = l }, Setq_lane_s16 { lane = l' }
+  | Dupq_lane_s16 { lane = l }, Dupq_lane_s16 { lane = l' } ->
     Int.equal l l'
-  | Cmp_f32 c, Cmp_f32 c' -> Float_cond.equal c c'
-  | Cmpz_f32 c, Cmpz_f32 c' -> Float_cond.equal c c'
-  | Cmp_s32 c, Cmp_s32 c' -> Cond.equal c c'
-  | Cmpz_s32 c, Cmpz_s32 c' -> Cond.equal c c'
-  | Cmp_f64 c, Cmp_f64 c' -> Float_cond.equal c c'
-  | Cmpz_f64 c, Cmpz_f64 c' -> Float_cond.equal c c'
-  | Cmp_s64 c, Cmp_s64 c' -> Cond.equal c c'
-  | Cmpz_s64 c, Cmpz_s64 c' -> Cond.equal c c'
+  | Cmp_s64 c, Cmp_s64 c'
+  | Cmpz_s64 c, Cmpz_s64 c'
+  | Cmp_s16 c, Cmp_s16 c'
+  | Cmpz_s16 c, Cmpz_s16 c'
+  | Cmp_s32 c, Cmp_s32 c'
+  | Cmpz_s32 c, Cmpz_s32 c' ->
+    Cond.equal c c'
+  | Cmp_f32 c, Cmp_f32 c'
+  | Cmpz_f32 c, Cmpz_f32 c'
+  | Cmp_f64 c, Cmp_f64 c'
+  | Cmpz_f64 c, Cmpz_f64 c' ->
+    Float_cond.equal c c'
   | ( ( Round_f32 _ | Round_f64 _ | Roundq_f32 _ | Roundq_f64 _ | Round_f32_s64
       | Min_scalar_f32 | Max_scalar_f32 | Min_scalar_f64 | Max_scalar_f64
       | Fmin_f32 | Fmax_f32 | Fmin_f64 | Fmax_f64 | Zip1_f32 | Zip1q_f32

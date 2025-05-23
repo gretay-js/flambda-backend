@@ -129,17 +129,16 @@ let register_behavior (op : Simd.operation) =
   | Dupq_lane_s16 { lane } -> Rs16x8lane_to_Rs16x8 { lane }
   | Dupq_lane_s32 { lane } -> Rs32x4lane_to_Rs32x4 { lane }
   | Dupq_lane_s64 { lane } -> Rs64x2lane_to_Rs64x2 { lane }
-  | Mvnq_s16 | Orrq_s16 | Andq_s16 | Eorq_s16 | Eorq_s32 | Andq_s32 | Orrq_s32
-  | Orrq_s64 | Andq_s64 | Eorq_s64 ->
+  | Orrq_s16 | Andq_s16 | Eorq_s16 | Eorq_s32 | Andq_s32 | Orrq_s32 | Orrq_s64
+  | Andq_s64 | Eorq_s64 ->
     (* Bitwise operation, lane width does not matter. The only two encodings
        provided are 8B and 16B. *)
     Rs8x16_Rs8x16_to_Rs8x16
-  | Mvnq_s32 -> Rs8x16_to_Rs8x16
+  | Mvnq_s32 | Mvnq_s64 | Mvnq_s16 -> Rs8x16_to_Rs8x16
   | Addq_s32 | Subq_s32 | Minq_s32 | Maxq_s32 | Minq_u32 | Maxq_u32 | Paddq_s32
   | Shlq_u32 | Shlq_s32 ->
     Rs32x4_Rs32x4_to_Rs32x4
-  | Absq_s64 | Mvnq_s64 | Shlq_n_u64 _ | Shrq_n_u64 _ | Shrq_n_s64 _ | Negq_s64
-    ->
+  | Absq_s64 | Shlq_n_u64 _ | Shrq_n_u64 _ | Shrq_n_s64 _ | Negq_s64 ->
     Rs64x2_to_Rs64x2
   | Addq_s16 | Paddq_s16 | Qaddq_s16 | Qaddq_u16 | Subq_s16 | Qsubq_s16
   | Qsubq_u16 | Minq_s16 | Maxq_s16 | Minq_u16 | Maxq_u16 | Shlq_u16 | Shlq_s16

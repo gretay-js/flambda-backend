@@ -482,6 +482,7 @@ module Instruction_name = struct
     | SSHR
     | SXTL
     | UXTL
+    | DUP
 
   (* CR gyorsh: can some of this be automatically generated from the type? *)
   let to_string t =
@@ -608,6 +609,7 @@ module Instruction_name = struct
     | SSHR -> "ushr"
     | SXTL -> "sxtl"
     | UXTL -> "uxtl"
+    | DUP -> "dup"
 end
 
 module Symbol = struct

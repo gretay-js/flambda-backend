@@ -297,6 +297,7 @@ module Instruction_name : sig
     | SSHR
     | SXTL
     | UXTL
+    | DUP
 end
 
 module DSL : sig

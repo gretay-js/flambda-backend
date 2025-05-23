@@ -598,12 +598,12 @@ end = struct
       ins I.USHR (Array.append operands [| imm n |])
     | Shrq_n_s32 n | Shrq_n_s64 n | Shrq_n_s16 n ->
       ins I.SSHR (Array.append operands [| imm n |])
-    | Setq_lane_s32 _ | Setq_lane_s64 _ | Setq_lane_s16 _ | Getq_lane_s64 _
-    | Dupq_lane_s32 _ | Dupq_lane_s64 _ | Dupq_lane_s16 _ ->
+    | Setq_lane_s32 _ | Setq_lane_s64 _ | Setq_lane_s16 _ | Getq_lane_s64 _ ->
       ins I.MOV operands
     | Getq_lane_s32 _ | Getq_lane_s16 _ ->
       (* sign-extend the result to 64-bit and place in Xn *)
       ins I.SMOV operands
+    | Dupq_lane_s32 _ | Dupq_lane_s64 _ | Dupq_lane_s16 _ -> ins I.DUP operands
     | Qaddq_s16 -> ins I.SQADD operands
     | Qaddq_u16 -> ins I.UQADD operands
     | Qsubq_s16 -> ins I.SQSUB operands
