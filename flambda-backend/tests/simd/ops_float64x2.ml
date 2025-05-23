@@ -155,6 +155,6 @@ let () =
   Float64.check_floats (fun f0 f1 ->
       (failmsg := fun () -> Printf.printf "roundf64 %f %f\n%!" f0 f1);
       let fv = to_float64x2 f0 f1 in
-      let result = round 0x8 fv in
+      let result = round_near fv in
       let expect = to_float64x2 (Float64.c_round f0) (Float64.c_round f1) in
       eq_float64x2 ~result ~expect)

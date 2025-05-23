@@ -113,7 +113,8 @@ end
 type operation =
   | Round_f32 of Rounding_mode.t
   | Round_f64 of Rounding_mode.t
-  | Round_f32x4 of Rounding_mode.t
+  | Roundq_f32 of Rounding_mode.t
+  | Roundq_f64 of Rounding_mode.t
   | Round_f32_s64
   (* [Min_scalar_f32/Max_scalar_f32] are emitted as a sequence of instructions
      that matches amd64 semantics of the same intrinsic
@@ -209,7 +210,8 @@ let print_name op =
   match op with
   | Round_f32 rm -> "Round_f32_" ^ Rounding_mode.instruction_suffix rm
   | Round_f64 rm -> "Round_f64_" ^ Rounding_mode.instruction_suffix rm
-  | Round_f32x4 rm -> "Round_f32x4_" ^ Rounding_mode.instruction_suffix rm
+  | Roundq_f32 rm -> "Roundq_f32_" ^ Rounding_mode.instruction_suffix rm
+  | Roundq_f64 rm -> "Roundq_f64_" ^ Rounding_mode.instruction_suffix rm
   | Round_f32_s64 -> "Round_f32_i"
   | Zip1_f32 -> "Zip1_f32"
   | Zip1q_f32 -> "Zip1q_f32"
@@ -307,7 +309,8 @@ let equal_operation op1 op2 =
   match op1, op2 with
   | Round_f32 mode, Round_f32 mode'
   | Round_f64 mode, Round_f64 mode'
-  | Round_f32x4 mode, Round_f32x4 mode' ->
+  | Roundq_f32 mode, Roundq_f32 mode'
+  | Roundq_f64 mode, Roundq_f64 mode' ->
     Rounding_mode.equal mode mode'
   | Round_f32_s64, Round_f32_s64
   | Min_scalar_f32, Min_scalar_f32
@@ -398,7 +401,7 @@ let equal_operation op1 op2 =
   | Cmpz_f64 c, Cmpz_f64 c' -> Float_cond.equal c c'
   | Cmp_s64 c, Cmp_s64 c' -> Cond.equal c c'
   | Cmpz_s64 c, Cmpz_s64 c' -> Cond.equal c c'
-  | ( ( Round_f32 _ | Round_f64 _ | Round_f32x4 _ | Round_f32_s64
+  | ( ( Round_f32 _ | Round_f64 _ | Roundq_f32 _ | Roundq_f64 _ | Round_f32_s64
       | Min_scalar_f32 | Max_scalar_f32 | Min_scalar_f64 | Max_scalar_f64
       | Fmin_f32 | Fmax_f32 | Fmin_f64 | Fmax_f64 | Zip1_f32 | Zip1q_f32
       | Zip1q_f64 | Zip2q_f64 | Addq_s64 | Subq_s64 | Addq_f32 | Subq_f32
@@ -420,12 +423,12 @@ let equal_operation op1 op2 =
 
 let class_of_operation op =
   match op with
-  | Round_f32 _ | Round_f64 _ | Round_f32x4 _ | Round_f32_s64 | Min_scalar_f32
-  | Max_scalar_f32 | Min_scalar_f64 | Max_scalar_f64 | Fmin_f32 | Fmax_f32
-  | Fmin_f64 | Fmax_f64 | Zip1_f32 | Zip1q_f32 | Zip1q_f64 | Zip2q_f64
-  | Addq_s64 | Subq_s64 | Addq_f32 | Subq_f32 | Mulq_f32 | Divq_f32 | Minq_f32
-  | Maxq_f32 | Addq_f64 | Subq_f64 | Mulq_f64 | Divq_f64 | Minq_f64 | Maxq_f64
-  | Recpeq_f32 | Sqrtq_f32 | Rsqrteq_f32 | Sqrtq_f64 | Rsqrteq_f64
+  | Round_f32 _ | Round_f64 _ | Roundq_f32 _ | Roundq_f64 _ | Round_f32_s64
+  | Min_scalar_f32 | Max_scalar_f32 | Min_scalar_f64 | Max_scalar_f64 | Fmin_f32
+  | Fmax_f32 | Fmin_f64 | Fmax_f64 | Zip1_f32 | Zip1q_f32 | Zip1q_f64
+  | Zip2q_f64 | Addq_s64 | Subq_s64 | Addq_f32 | Subq_f32 | Mulq_f32 | Divq_f32
+  | Minq_f32 | Maxq_f32 | Addq_f64 | Subq_f64 | Mulq_f64 | Divq_f64 | Minq_f64
+  | Maxq_f64 | Recpeq_f32 | Sqrtq_f32 | Rsqrteq_f32 | Sqrtq_f64 | Rsqrteq_f64
   | Cvtq_s32_f32 | Cvtq_f32_s32 | Cvt_f64_f32 | Cvt_f32_f64 | Cvt_f64_s32
   | Cvt_s32_f64 | Paddq_f32 | Cmp_f32 _ | Cmpz_f32 _ | Cmpz_s32 _ | Cmp_f64 _
   | Cmpz_f64 _ | Cmp_s32 _ | Cmp_s64 _ | Cmpz_s64 _ | Mvnq_s32 | Orrq_s32

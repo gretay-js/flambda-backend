@@ -482,8 +482,8 @@ module Float64x2 = struct
     = "caml_vec128_unreachable" "caml_neon_cvt_float64x2_to_float32x2"
     [@@noalloc] [@@unboxed] [@@builtin]
 
-  external round : (int[@untagged]) -> (t[@unboxed]) -> (t[@unboxed])
-    = "caml_vec128_unreachable" "caml_neon_float64x2_round"
+  external round_near : (t[@unboxed]) -> (t[@unboxed])
+    = "caml_vec128_unreachable" "caml_neon_float64x2_round_near"
     [@@noalloc] [@@builtin]
 end
 
