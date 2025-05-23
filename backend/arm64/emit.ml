@@ -464,6 +464,7 @@ end = struct
     match op with
     | Min_scalar_f64 | Max_scalar_f64 -> 2
     | Min_scalar_f32 | Max_scalar_f32 -> 2
+    | Minq_f64_match_sse | Maxq_f64_match_sse -> 2
     | Round_f32 _ | Round_f64 _ | Roundq_f32 _ | Roundq_f64 _ | Round_f32_s64
     | Zip1_f32 | Zip1q_f32 | Zip1q_f64 | Zip2q_f64 | Addq_f32 | Subq_f32
     | Mulq_f32 | Divq_f32 | Minq_f32 | Maxq_f32 | Addq_f64 | Subq_f64 | Mulq_f64
@@ -524,10 +525,10 @@ end = struct
     (* min/max: generate a sequence that matches the weird semantics of amd64
        instruction "minss", even when the flag [FPCR.AH] is not set. A separate
        intrinsics generates fmin/fmax arm64 instructions directly. *)
-    | Min_scalar_f32 | Min_scalar_f64 ->
+    | Min_scalar_f32 | Min_scalar_f64 | Minq_f64_match_sse ->
       ins I.FCMP (src_operands operands);
       ins_cond I.FCSEL I.Cond.MI operands
-    | Max_scalar_f32 | Max_scalar_f64 ->
+    | Max_scalar_f32 | Max_scalar_f64 | Maxq_f64_match_sse ->
       ins I.FCMP (src_operands operands);
       ins_cond I.FCSEL I.Cond.GT operands
     | Round_f32 rm | Round_f64 rm | Roundq_f32 rm | Roundq_f64 rm ->

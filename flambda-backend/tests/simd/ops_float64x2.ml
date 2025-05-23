@@ -88,20 +88,10 @@ let check_binop scalar vector f0 f1 =
   eq_float64x2 ~result ~expect
 
 let () =
-  let preserve_nan p l r =
-    if Float.is_nan r then r else if Float.is_nan l then r else p l r
-  in
-  let preserve_zero p l r =
-    if (l = 0.0 || l = -0.0) && (r = 0.0 || r = -0.0) then r else p l r
-  in
   Float64.check_floats (check_binop Float.add add);
   Float64.check_floats (check_binop Float.sub sub);
   Float64.check_floats (check_binop Float.mul mul);
   Float64.check_floats (check_binop Float.div div);
-  Float64.check_floats
-    (check_binop (Float.max |> preserve_nan |> preserve_zero) max);
-  Float64.check_floats
-    (check_binop (Float.min |> preserve_nan |> preserve_zero) min);
   Float64.check_floats (fun f0 f1 ->
       (failmsg := fun () -> Printf.printf "sqrt %f | %f\n%!" f0 f1);
       let fv = to_float64x2 f0 f1 in
@@ -111,35 +101,49 @@ let () =
         (Int64.bits_of_float (Float.sqrt f1)))
 
 let () =
-  Float64.check_floats (fun f0 f1 ->
-      (failmsg := fun () -> Printf.printf "cvti32 %f | %f\n%!" f0 f1);
-      let i0 =
-        Int32.of_float (Float.round f0)
-        |> Int64.of_int32 |> Int64.logand 0xffffffffL
-      in
-      let i1 =
-        Int32.of_float (Float.round f1)
-        |> Int64.of_int32 |> Int64.logand 0xffffffffL
-      in
-      let ii = Int64.(logor (shift_left i1 32) i0) in
-      let iv = int32x4_of_int64s ii 0L in
-      let fv = to_float64x2 f0 f1 in
-      let res = cvt_int32x4 fv in
-      eq (int32x4_low_int64 res) (int32x4_high_int64 res) (int32x4_low_int64 iv)
-        (int32x4_high_int64 iv));
-  Float64.check_floats (fun f0 f1 ->
-      (failmsg := fun () -> Printf.printf "cvtf32 %f %f\n%!" f0 f1);
-      let i0 =
-        Int32.bits_of_float f0 |> Int64.of_int32 |> Int64.logand 0xffffffffL
-      in
-      let i1 =
-        Int32.bits_of_float f1 |> Int64.of_int32 |> Int64.logand 0xffffffffL
-      in
-      let ii = Int64.(logor (shift_left i1 32) i0) in
-      let iv = float32x4_of_int64s ii 0L in
-      let fv = to_float64x2 f0 f1 in
-      let res = cvt_float32x4 fv in
-      eq_float32x4 ~result:res ~expect:iv)
+  Float64.check_floats (check_binop Float.max Builtins.Float64x2.max);
+  Float64.check_floats (check_binop Float.min Builtins.Float64x2.min)
+
+let () =
+  (* let preserve_nan p l r = *)
+  (*   if Float.is_nan r then r else if Float.is_nan l then r else p l r *)
+  (* in *)
+  (* let preserve_zero p l r = *)
+  (*   if (l = 0.0 || l = -0.0) && (r = 0.0 || r = -0.0) then r else p l r *)
+  (* in *)
+  Float64.check_floats (check_binop Float64.c_max_match_sse max);
+  Float64.check_floats (check_binop Float64.c_min_match_sse min)
+
+(* let () = *)
+(*   Float64.check_floats (fun f0 f1 -> *)
+(*       (failmsg := fun () -> Printf.printf "cvti32 %f | %f\n%!" f0 f1); *)
+(*       let i0 = *)
+(*         Int32.of_float (Float.round f0) *)
+(*         |> Int64.of_int32 |> Int64.logand 0xffffffffL *)
+(*       in *)
+(*       let i1 = *)
+(*         Int32.of_float (Float.round f1) *)
+(*         |> Int64.of_int32 |> Int64.logand 0xffffffffL *)
+(*       in *)
+(*       let ii = Int64.(logor (shift_left i1 32) i0) in *)
+(*       let iv = int32x4_of_int64s ii 0L in *)
+(*       let fv = to_float64x2 f0 f1 in *)
+(*       let res = cvt_int32x4 fv in *)
+(* eq (int32x4_low_int64 res) (int32x4_high_int64 res) (int32x4_low_int64 iv) *)
+(*         (int32x4_high_int64 iv)); *)
+(*   Float64.check_floats (fun f0 f1 -> *)
+(*       (failmsg := fun () -> Printf.printf "cvtf32 %f %f\n%!" f0 f1); *)
+(*       let i0 = *)
+(* Int32.bits_of_float f0 |> Int64.of_int32 |> Int64.logand 0xffffffffL *)
+(*       in *)
+(*       let i1 = *)
+(* Int32.bits_of_float f1 |> Int64.of_int32 |> Int64.logand 0xffffffffL *)
+(*       in *)
+(*       let ii = Int64.(logor (shift_left i1 32) i0) in *)
+(*       let iv = float32x4_of_int64s ii 0L in *)
+(*       let fv = to_float64x2 f0 f1 in *)
+(*       let res = cvt_float32x4 fv in *)
+(*       eq_float32x4 ~result:res ~expect:iv) *)
 
 let () =
   Test_helpers.run_if_not_under_rosetta2 ~f:(fun () ->

@@ -90,7 +90,7 @@ let register_behavior (op : Simd.operation) =
     Rf32x4_Rf32x4_to_Rf32x4
   | Recpeq_f32 | Sqrtq_f32 | Rsqrteq_f32 | Roundq_f32 _ -> Rf32x4_to_Rf32x4
   | Addq_f64 | Subq_f64 | Mulq_f64 | Divq_f64 | Zip1q_f64 | Zip2q_f64 | Minq_f64
-  | Maxq_f64 | Paddq_f64 ->
+  | Maxq_f64 | Minq_f64_match_sse | Maxq_f64_match_sse | Paddq_f64 ->
     Rf64x2_Rf64x2_to_Rf64x2
   | Sqrtq_f64 | Rsqrteq_f64 | Roundq_f64 _ -> Rf64x2_to_Rf64x2
   | Addq_s64 | Subq_s64 | Paddq_s64 | Shlq_u64 | Shlq_s64 ->

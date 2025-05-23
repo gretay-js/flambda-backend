@@ -74,6 +74,8 @@ let select_simd_instr op args =
   | "caml_simd_float32_max" -> Some (Max_scalar_f32, args)
   | "caml_simd_float64_min" -> Some (Min_scalar_f64, args)
   | "caml_simd_float64_max" -> Some (Max_scalar_f64, args)
+  | "caml_simd_float64x2_min" -> Some (Minq_f64_match_sse, args)
+  | "caml_simd_float64x2_max" -> Some (Maxq_f64_match_sse, args)
   (* min/max implemented as a single instruction. If FPCR.AH=1, matches amd64
      behavior. *)
   | "caml_neon_float32_min" -> Some (Fmin_f32, args)
