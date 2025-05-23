@@ -347,7 +347,7 @@ end = struct
     | Rs32x4_to_Rs32x4 | Rf32x2_to_Rf64x2 | Rf32x4_to_Rf32x4 | Rf32x4_to_Rs32x4
     | Rs32x4_to_Rf32x4 | Rf64x2_to_f32x2 | Ri8x16_to_Ri8x16 | Rs64x2_to_Rs64x2
     | Rf64x2_to_Rs64x2 | Rs32x4lane_to_Rs32x4 _ | Rs64x2lane_to_Rs64x2 _
-    | Rf64x2_to_Rf64x2 | Rs64x2_to_Rf64x2 ->
+    | Rf64x2_to_Rf64x2 | Rs64x2_to_Rf64x2 | Rs32x2_to_Rs64x2 ->
       check_reg Vec128 i.arg.(0);
       check_reg Vec128 i.res.(0)
     | Rf32_Rf32_to_Rf32 ->
@@ -421,7 +421,8 @@ end = struct
     | Rs32x4_to_Rs32x4 | Rf32x4_to_Rf32x4 | Rf32x4_to_Rs32x4 | Rs32x4_to_Rf32x4
       ->
       [| emit_reg_v4s i.res.(0); emit_reg_v4s i.arg.(0) |]
-    | Rf32x2_to_Rf64x2 -> [| emit_reg_v2d i.res.(0); emit_reg_v2s i.arg.(0) |]
+    | Rf32x2_to_Rf64x2 | Rs32x2_to_Rs64x2 ->
+      [| emit_reg_v2d i.res.(0); emit_reg_v2s i.arg.(0) |]
     | Rf64x2_to_f32x2 -> [| emit_reg_v2s i.res.(0); emit_reg_v2d i.arg.(0) |]
     | Rs64x2_to_Rs64x2 | Rf64x2_to_Rs64x2 | Rs64x2_to_Rf64x2 ->
       [| emit_reg_v2d i.res.(0); emit_reg_v2d i.arg.(0) |]
@@ -465,7 +466,7 @@ end = struct
     | Shlq_s32 | Shlq_s64 | Shlq_n_u32 _ | Shlq_n_u64 _ | Shrq_n_u32 _
     | Shrq_n_u64 _ | Shrq_n_s32 _ | Shrq_n_s64 _ | Setq_lane_s32 _
     | Setq_lane_s64 _ | Dupq_lane_s32 _ | Dupq_lane_s64 _ | Cvtq_f64_s64
-    | Cvtq_s64_f64 ->
+    | Cvtq_s64_f64 | Cvtq_s64_s32 | Cvtq_u64_u32 ->
       1
 
   let emit_rounding_mode (rm : Simd.Rounding_mode.t) : I.Rounding_mode.t =
@@ -543,6 +544,8 @@ end = struct
     | Cvtq_f32_s32 | Cvtq_f64_s64 -> ins I.SCVTF operands
     | Cvt_f64_f32 -> ins I.FCVTL operands
     | Cvt_f32_f64 -> ins I.FCVTN operands
+    | Cvtq_s64_s32 -> ins I.SXTL operands
+    | Cvtq_u64_u32 -> ins I.UXTL operands
     | Paddq_f32 | Paddq_f64 -> ins I.FADDP operands
     | Paddq_s32 | Paddq_s64 -> ins I.ADDP operands
     | Cmp_f32 LT | Cmp_f64 LT ->

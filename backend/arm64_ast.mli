@@ -291,6 +291,8 @@ module Instruction_name : sig
     | SSHL
     | USHR
     | SSHR
+    | SXTL
+    | UXTL
 end
 
 module DSL : sig
