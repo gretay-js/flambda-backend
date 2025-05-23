@@ -45,8 +45,8 @@ type register_behavior =
   | Rf32x4_to_Rs32x4
   | Rf32x2_to_Rf64x2
   | Rf64x2_to_f32x2
-  | Ri8x16_to_Ri8x16
-  | Ri8x16_Ri8x16_to_Ri8x16
+  | Rs8x16_to_Rs8x16
+  | Rs8x16_Rs8x16_to_Rs8x16
   | Rs64x2_to_Rs64x2
   | Rf64x2_to_Rs64x2
   | Rf64x2_Rf64x2_to_Rs64x2
@@ -54,6 +54,8 @@ type register_behavior =
   | Rf64x2_to_Rf64x2
   | Rs64x2_to_Rf64x2
   | Rs32x2_to_Rs64x2
+  | Rs16x8_Rs16x8_to_Rs16x8
+  | Rs16x8_to_Rs16x8
   (* scalar *)
   | Rf32_Rf32_to_Rf32
   | Rf64_Rf64_to_Rf64
@@ -61,12 +63,15 @@ type register_behavior =
   | Rf64_to_Rf64
   | Rf32_to_Rs64
   (* extract *)
+  | Rs16x8_to_Rs16 of { lane : int }
   | Rs32x4_to_Rs32 of { lane : int }
   | Rs64x2_to_Rs64 of { lane : int }
   (* insert *)
+  | Rs16x8_Rs16_to_First of { lane : int }
   | Rs32x4_Rs32_to_First of { lane : int }
   | Rs64x2_Rs64_to_First of { lane : int }
   (* dup *)
+  | Rs16x8lane_to_Rs16x8 of { lane : int }
   | Rs32x4lane_to_Rs32x4 of { lane : int }
   | Rs64x2lane_to_Rs64x2 of { lane : int }
 
@@ -88,7 +93,7 @@ let register_behavior (op : Simd.operation) =
   | Maxq_f64 | Paddq_f64 ->
     Rf64x2_Rf64x2_to_Rf64x2
   | Sqrtq_f64 | Rsqrteq_f64 | Roundq_f64 _ -> Rf64x2_to_Rf64x2
-  | Addq_s64 | Subq_s64 | Paddq_s64 | Orrq_s64 | Andq_s64 | Eorq_s64 ->
+  | Addq_s64 | Subq_s64 | Paddq_s64 | Shlq_u64 | Shlq_s64 ->
     Rs64x2_Rs64x2_to_Rs64x2
   | Cvtq_s32_f32 -> Rf32x4_to_Rs32x4
   | Cvtq_f32_s32 -> Rs32x4_to_Rf32x4
@@ -112,23 +117,34 @@ let register_behavior (op : Simd.operation) =
   | Cmp_s32 _ -> Rf32x4_Rf32x4_to_Rs32x4
   | Cmp_s64 _ -> Rs64x2_Rs64x2_to_Rs64x2
   | Cmpz_s64 _ -> Rs64x2_to_Rs64x2
-  | Negq_s32 | Cmpz_s32 _ | Absq_s32 | Cntq_s32 | Shlq_u32 | Shlq_s32
-  | Shlq_n_u32 _ | Shrq_n_u32 _ | Shrq_n_s32 _ ->
+  | Negq_s32 | Cmpz_s32 _ | Absq_s32 | Shlq_n_u32 _ | Shrq_n_u32 _
+  | Shrq_n_s32 _ ->
     Rs32x4_to_Rs32x4
+  | Setq_lane_s16 { lane } -> Rs16x8_Rs16_to_First { lane }
   | Setq_lane_s32 { lane } -> Rs32x4_Rs32_to_First { lane }
   | Setq_lane_s64 { lane } -> Rs64x2_Rs64_to_First { lane }
+  | Getq_lane_s16 { lane } -> Rs16x8_to_Rs16 { lane }
   | Getq_lane_s32 { lane } -> Rs32x4_to_Rs32 { lane }
   | Getq_lane_s64 { lane } -> Rs64x2_to_Rs64 { lane }
+  | Dupq_lane_s16 { lane } -> Rs16x8lane_to_Rs16x8 { lane }
   | Dupq_lane_s32 { lane } -> Rs32x4lane_to_Rs32x4 { lane }
   | Dupq_lane_s64 { lane } -> Rs64x2lane_to_Rs64x2 { lane }
-  | Eorq_s32 | Andq_s32 | Orrq_s32 ->
+  | Mvnq_s16 | Orrq_s16 | Andq_s16 | Eorq_s16 | Eorq_s32 | Andq_s32 | Orrq_s32
+  | Orrq_s64 | Andq_s64 | Eorq_s64 ->
     (* Bitwise operation, lane width does not matter. The only two encodings
        provided are 8B and 16B. *)
-    Ri8x16_Ri8x16_to_Ri8x16
-  | Mvnq_s32 -> Ri8x16_to_Ri8x16
+    Rs8x16_Rs8x16_to_Rs8x16
+  | Mvnq_s32 -> Rs8x16_to_Rs8x16
   | Addq_s32 | Subq_s32 | Minq_s32 | Maxq_s32 | Minq_u32 | Maxq_u32 | Paddq_s32
-    ->
+  | Shlq_u32 | Shlq_s32 ->
     Rs32x4_Rs32x4_to_Rs32x4
-  | Absq_s64 | Mvnq_s64 | Cntq_s64 | Shlq_u64 | Shlq_s64 | Shlq_n_u64 _
-  | Shrq_n_u64 _ | Shrq_n_s64 _ | Negq_s64 ->
+  | Absq_s64 | Mvnq_s64 | Shlq_n_u64 _ | Shrq_n_u64 _ | Shrq_n_s64 _ | Negq_s64
+    ->
     Rs64x2_to_Rs64x2
+  | Addq_s16 | Paddq_s16 | Qaddq_s16 | Qaddq_u16 | Subq_s16 | Qsubq_s16
+  | Qsubq_u16 | Minq_s16 | Maxq_s16 | Minq_u16 | Maxq_u16 | Shlq_u16 | Shlq_s16
+  | Cmp_s16 _ ->
+    Rs16x8_Rs16x8_to_Rs16x8
+  | Absq_s16 | Negq_s16 | Cntq_u16 | Shlq_n_u16 _ | Shrq_n_u16 _ | Shrq_n_s16 _
+  | Cmpz_s16 _ ->
+    Rs16x8_to_Rs16x8

@@ -162,9 +162,6 @@ module Int32x4 = struct
   external sub : t -> t -> t = "caml_vec128_unreachable" "caml_neon_int32x4_sub"
     [@@noalloc] [@@unboxed] [@@builtin]
 
-  external cnt : t -> t = "caml_vec128_unreachable" "caml_neon_int32x4_cnt"
-    [@@noalloc] [@@unboxed] [@@builtin]
-
   external cmpeqz : t -> t
     = "caml_vec128_unreachable" "caml_neon_int32x4_cmpeqz"
     [@@noalloc] [@@unboxed] [@@builtin]

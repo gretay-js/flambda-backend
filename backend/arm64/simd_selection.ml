@@ -151,17 +151,26 @@ let select_simd_instr op args =
   | "caml_neon_int32x4_cmpgtz" -> Some (Cmpz_s32 GT, args)
   | "caml_neon_int32x4_cmplez" -> Some (Cmpz_s32 LE, args)
   | "caml_neon_int32x4_cmpltz" -> Some (Cmpz_s32 LT, args)
+  | "caml_neon_int32x4_cmpeq" -> Some (Cmp_s32 EQ, args)
+  | "caml_neon_int32x4_cmpge" -> Some (Cmp_s32 GE, args)
+  | "caml_neon_int32x4_cmpgt" -> Some (Cmp_s32 GT, args)
+  | "caml_neon_int32x4_cmple" -> Some (Cmp_s32 LE, args)
+  | "caml_neon_int32x4_cmplt" -> Some (Cmp_s32 LT, args)
   | "caml_neon_int64x2_cmpeqz" -> Some (Cmpz_s64 EQ, args)
   | "caml_neon_int64x2_cmpgez" -> Some (Cmpz_s64 GE, args)
   | "caml_neon_int64x2_cmpgtz" -> Some (Cmpz_s64 GT, args)
   | "caml_neon_int64x2_cmplez" -> Some (Cmpz_s64 LE, args)
   | "caml_neon_int64x2_cmpltz" -> Some (Cmpz_s64 LT, args)
+  | "caml_neon_int64x2_cmpeq" -> Some (Cmp_s64 EQ, args)
+  | "caml_neon_int64x2_cmpge" -> Some (Cmp_s64 GE, args)
+  | "caml_neon_int64x2_cmpgt" -> Some (Cmp_s64 GT, args)
+  | "caml_neon_int64x2_cmple" -> Some (Cmp_s64 LE, args)
+  | "caml_neon_int64x2_cmplt" -> Some (Cmp_s64 LT, args)
   | "caml_neon_int32x4_bitwise_not" -> Some (Mvnq_s32, args)
   | "caml_neon_int32x4_bitwise_or" -> Some (Orrq_s32, args)
   | "caml_neon_int32x4_bitwise_and" -> Some (Andq_s32, args)
   | "caml_neon_int32x4_bitwise_xor" -> Some (Eorq_s32, args)
   | "caml_neon_int32x4_neg" -> Some (Negq_s32, args)
-  | "caml_neon_int32x4_cnt" -> Some (Cntq_s32, args)
   | "caml_neon_int64x2_bitwise_not" -> Some (Mvnq_s64, args)
   | "caml_neon_int64x2_bitwise_or" -> Some (Orrq_s64, args)
   | "caml_neon_int64x2_bitwise_and" -> Some (Andq_s64, args)
@@ -209,6 +218,55 @@ let select_simd_instr op args =
   | "caml_neon_int64x2_dup_lane" ->
     let lane, args = extract_constant args ~max:1 op in
     Some (Dupq_lane_s64 { lane }, args)
+  | "caml_neon_int16x8_add" -> Some (Addq_s16, args)
+  | "caml_neon_int16x8_hadd" -> Some (Paddq_s16, args)
+  | "caml_neon_int16x8_add_saturating" -> Some (Qaddq_s16, args)
+  | "caml_neon_int16x8_add_saturating_unsigned" -> Some (Qaddq_u16, args)
+  | "caml_neon_int16x8_sub" -> Some (Subq_s16, args)
+  | "caml_neon_int16x8_sub_saturating" -> Some (Qsubq_s16, args)
+  | "caml_neon_int16x8_sub_saturating_unsigned" -> Some (Qsubq_u16, args)
+  | "caml_neon_int16x8_abs" -> Some (Absq_s16, args)
+  | "caml_neon_int16x8_max" -> Some (Maxq_s16, args)
+  | "caml_neon_int16x8_min" -> Some (Minq_s16, args)
+  | "caml_neon_int16x8_max_unsigned" -> Some (Maxq_u32, args)
+  | "caml_neon_int16x8_min_unsigned" -> Some (Minq_u32, args)
+  | "caml_neon_int16x8_bitwise_not" -> Some (Mvnq_s16, args)
+  | "caml_neon_int16x8_bitwise_or" -> Some (Orrq_s16, args)
+  | "caml_neon_int16x8_bitwise_and" -> Some (Andq_s16, args)
+  | "caml_neon_int16x8_bitwise_xor" -> Some (Eorq_s16, args)
+  | "caml_neon_int16x8_neg" -> Some (Negq_s16, args)
+  | "caml_neon_int16x8_cnt" -> Some (Cntq_u16, args)
+  | "caml_neon_int16x8_cmpeqz" -> Some (Cmpz_s16 EQ, args)
+  | "caml_neon_int16x8_cmpgez" -> Some (Cmpz_s16 GE, args)
+  | "caml_neon_int16x8_cmpgtz" -> Some (Cmpz_s16 GT, args)
+  | "caml_neon_int16x8_cmplez" -> Some (Cmpz_s16 LE, args)
+  | "caml_neon_int16x8_cmpltz" -> Some (Cmpz_s16 LT, args)
+  | "caml_neon_int16x8_cmpeq" -> Some (Cmp_s16 EQ, args)
+  | "caml_neon_int16x8_cmpge" -> Some (Cmp_s16 GE, args)
+  | "caml_neon_int16x8_cmpgt" -> Some (Cmp_s16 GT, args)
+  | "caml_neon_int16x8_cmple" -> Some (Cmp_s16 LE, args)
+  | "caml_neon_int16x8_cmplt" -> Some (Cmp_s16 LT, args)
+  | "caml_neon_int16x8_slli" ->
+    let n, args = extract_constant args ~max:32 op in
+    Some (Shlq_n_u16 n, args)
+  | "caml_neon_int16x8_srli" ->
+    let n, args = extract_constant args ~max:32 op in
+    Some (Shrq_n_u16 n, args)
+  | "caml_neon_int16x8_srai" ->
+    let n, args = extract_constant args ~max:32 op in
+    Some (Shrq_n_s16 n, args)
+  | "caml_neon_int16x8_ushl" -> Some (Shlq_u16, args)
+  | "caml_neon_int16x8_sshl" -> Some (Shlq_s16, args)
+  | "caml_neon_int16x8_extract" ->
+    let lane, args = extract_constant args ~max:3 op in
+    Some (Getq_lane_s16 { lane }, args)
+  | "caml_neon_int16x8_insert" ->
+    let lane, args = extract_constant args ~max:3 op in
+    Some (Setq_lane_s16 { lane }, args)
+  | "caml_neon_int16x8_dup" -> Some (Dupq_lane_s16 { lane = 0 }, args)
+  | "caml_neon_int16x8_dup_lane" ->
+    let lane, args = extract_constant args ~max:3 op in
+    Some (Dupq_lane_s16 { lane }, args)
   | _ -> None
 
 let select_operation_cfg op args =
@@ -217,7 +275,7 @@ let select_operation_cfg op args =
 
 let pseudoregs_for_operation (simd_op : Simd.operation) arg res =
   match Simd_proc.register_behavior simd_op with
-  | Rs32x4_Rs32_to_First _ | Rs64x2_Rs64_to_First _ ->
+  | Rs32x4_Rs32_to_First _ | Rs64x2_Rs64_to_First _ | Rs16x8_Rs16_to_First _ ->
     let arg = Array.copy arg in
     let res = Array.copy res in
     assert (not (Reg.is_preassigned arg.(0)));
@@ -226,12 +284,14 @@ let pseudoregs_for_operation (simd_op : Simd.operation) arg res =
   | Rf32x2_Rf32x2_to_Rf32x2 | Rf32x4_Rf32x4_to_Rf32x4 | Rf64x2_Rf64x2_to_Rf64x2
   | Rs64x2_Rs64x2_to_Rs64x2 | Rf32x4_Rf32x4_to_Rs32x4 | Rs32x4_to_Rs32x4
   | Rs32x4_to_Rf32x4 | Rf32x4_to_Rf32x4 | Rf32x4_to_Rs32x4 | Rf32x2_to_Rf64x2
-  | Rf64x2_to_f32x2 | Ri8x16_to_Ri8x16 | Ri8x16_Ri8x16_to_Ri8x16
+  | Rf64x2_to_f32x2 | Rs8x16_to_Rs8x16 | Rs8x16_Rs8x16_to_Rs8x16
   | Rs64x2_to_Rs64x2 | Rf64x2_to_Rs64x2 | Rf64x2_Rf64x2_to_Rs64x2
   | Rs32x4_Rs32x4_to_Rs32x4 | Rf32_Rf32_to_Rf32 | Rf64_Rf64_to_Rf64
   | Rf32_to_Rf32 | Rf64_to_Rf64 | Rf32_to_Rs64 | Rs64x2_to_Rs64 _
   | Rs32x4_to_Rs32 _ | Rs32x4lane_to_Rs32x4 _ | Rs64x2lane_to_Rs64x2 _
-  | Rf64x2_to_Rf64x2 | Rs64x2_to_Rf64x2 | Rs32x2_to_Rs64x2 ->
+  | Rf64x2_to_Rf64x2 | Rs64x2_to_Rf64x2 | Rs32x2_to_Rs64x2
+  | Rs16x8_Rs16x8_to_Rs16x8 | Rs16x8_to_Rs16x8 | Rs16x8_to_Rs16 _
+  | Rs16x8lane_to_Rs16x8 _ ->
     arg, res
 
 (* See `amd64/simd_selection.ml`. *)
