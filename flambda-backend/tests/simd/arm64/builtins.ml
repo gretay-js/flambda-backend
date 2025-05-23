@@ -104,10 +104,6 @@ module Int32x4 = struct
     = "caml_vec128_unreachable" "caml_neon_int32x4_srai"
     [@@noalloc] [@@builtin]
 
-  external cvt_f64 : t -> float64x2
-    = "caml_vec128_unreachable" "caml_neon_cvt_int32x2_to_float64x2"
-    [@@noalloc] [@@unboxed] [@@builtin]
-
   external cvt_f32 : t -> float32x4
     = "caml_vec128_unreachable" "caml_neon_cvt_int32x4_to_float32x4"
     [@@noalloc] [@@unboxed] [@@builtin]
@@ -136,6 +132,8 @@ module Int32x4 = struct
   external cvtsx_i64 : t -> int64x2
     = "caml_vec128_unreachable" "caml_neon_cvtsx_int32x4_int64x2"
     [@@noalloc] [@@unboxed] [@@builtin]
+
+  let cvt_f64 : t -> float64x2 = fun t -> t |> cvtsx_i64 |> Int64x2.cvt_f64
 
   external cvtzx_i64 : t -> int64x2
     = "caml_vec128_unreachable" "caml_neon_cvtzx_int32x4_int64x2"

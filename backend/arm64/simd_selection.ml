@@ -130,8 +130,6 @@ let select_simd_instr op args =
   | "caml_neon_cvt_float32x4_to_int32x4" -> Some (Cvtq_s32_f32, args)
   | "caml_neon_cvt_float32x2_to_float64x2" -> Some (Cvt_f64_f32, args)
   | "caml_neon_cvt_float64x2_to_float32x2" -> Some (Cvt_f32_f64, args)
-  | "caml_neon_cvt_int32x2_to_float64x2" -> Some (Cvt_f64_s32, args)
-  | "caml_neon_cvt_float64x2_to_int32x2" -> Some (Cvt_s32_f64, args)
   | "caml_neon_float32x4_hadd" -> Some (Paddq_f32, args)
   | "caml_neon_float64x2_hadd" -> Some (Paddq_f64, args)
   | "caml_neon_float32x4_cmeq" -> Some (Cmp_f32 EQ, args)
@@ -224,12 +222,12 @@ let pseudoregs_for_operation (simd_op : Simd.operation) arg res =
   | Rf32x2_Rf32x2_to_Rf32x2 | Rf32x4_Rf32x4_to_Rf32x4 | Rf64x2_Rf64x2_to_Rf64x2
   | Rs64x2_Rs64x2_to_Rs64x2 | Rf32x4_Rf32x4_to_Rs32x4 | Rs32x4_to_Rs32x4
   | Rs32x4_to_Rf32x4 | Rf32x4_to_Rf32x4 | Rf32x4_to_Rs32x4 | Rf32x2_to_Rf64x2
-  | Rf64x2_to_f32x2 | Rs32x2_to_Rf64x2 | Rf64x2_to_Rs32x2 | Ri8x16_to_Ri8x16
-  | Ri8x16_Ri8x16_to_Ri8x16 | Rs64x2_to_Rs64x2 | Rf64x2_to_Rs64x2
-  | Rf64x2_Rf64x2_to_Rs64x2 | Rs32x4_Rs32x4_to_Rs32x4 | Rf32_Rf32_to_Rf32
-  | Rf64_Rf64_to_Rf64 | Rf32_to_Rf32 | Rf64_to_Rf64 | Rf32_to_Rs64
-  | Rs64x2_to_Rs64 _ | Rs32x4_to_Rs32 _ | Rs32x4lane_to_Rs32x4 _
-  | Rs64x2lane_to_Rs64x2 _ | Rf64x2_to_Rf64x2 ->
+  | Rf64x2_to_f32x2 | Ri8x16_to_Ri8x16 | Ri8x16_Ri8x16_to_Ri8x16
+  | Rs64x2_to_Rs64x2 | Rf64x2_to_Rs64x2 | Rf64x2_Rf64x2_to_Rs64x2
+  | Rs32x4_Rs32x4_to_Rs32x4 | Rf32_Rf32_to_Rf32 | Rf64_Rf64_to_Rf64
+  | Rf32_to_Rf32 | Rf64_to_Rf64 | Rf32_to_Rs64 | Rs64x2_to_Rs64 _
+  | Rs32x4_to_Rs32 _ | Rs32x4lane_to_Rs32x4 _ | Rs64x2lane_to_Rs64x2 _
+  | Rf64x2_to_Rf64x2 ->
     arg, res
 
 (* See `amd64/simd_selection.ml`. *)
