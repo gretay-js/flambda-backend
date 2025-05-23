@@ -474,13 +474,12 @@ module Float64x2 = struct
   external sqrt : t -> t = "caml_vec128_unreachable" "caml_neon_float64x2_sqrt"
     [@@noalloc] [@@unboxed] [@@builtin]
 
-  external cvt_int32x4 : t -> int32x4
-    = "caml_vec128_unreachable" "caml_neon_cvt_float64x2_to_int32x2"
-    [@@noalloc] [@@unboxed] [@@builtin]
-
   external cvt_float32x4 : t -> float32x4
     = "caml_vec128_unreachable" "caml_neon_cvt_float64x2_to_float32x2"
     [@@noalloc] [@@unboxed] [@@builtin]
+
+  let cvt_int32x4 : t -> int32x4 =
+   fun t -> t |> cvt_float32x4 |> Float32x4.cvt_int32x4
 
   external round_near : (t[@unboxed]) -> (t[@unboxed])
     = "caml_vec128_unreachable" "caml_neon_float64x2_round_near"
