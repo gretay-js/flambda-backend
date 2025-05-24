@@ -358,6 +358,29 @@
    (diff empty.expected callback.out)))
 
 (executable
+ (name test_callee_save_neon_regs)
+ (modules test_callee_save_neon_regs)
+ (enabled_if (= %{context_name} "main"))
+ (ocamlopt_flags
+  (:standard ))
+ (libraries simd_test_helpers simd_test_builtins stdlib_stable stdlib_upstream_compatible)
+ (foreign_archives stubs))
+
+(rule
+ (alias   runtest)
+ (enabled_if (= %{context_name} "main"))
+ (action
+  (with-outputs-to
+   test_callee_save_neon_regs.out
+   (run ./test_callee_save_neon_regs.exe))))
+
+(rule
+ (alias runtest)
+ (enabled_if (= %{context_name} "main"))
+ (action
+   (diff empty.expected test_callee_save_neon_regs.out)))
+
+(executable
  (name probes)
  (modules probes)
  (enabled_if
@@ -842,6 +865,35 @@
  (enabled_if (= %{context_name} "main"))
  (action
    (diff empty.expected callback_nodynlink.out)))
+
+(rule
+ (alias runtest)
+ (enabled_if (= %{context_name} "main"))
+ (action
+  (copy test_callee_save_neon_regs.ml test_callee_save_neon_regs_nodynlink.ml)))
+
+(executable
+ (name test_callee_save_neon_regs_nodynlink)
+ (modules test_callee_save_neon_regs_nodynlink)
+ (enabled_if (= %{context_name} "main"))
+ (ocamlopt_flags
+  (:standard -nodynlink))
+ (libraries simd_test_helpers simd_test_builtins stdlib_stable stdlib_upstream_compatible)
+ (foreign_archives stubs))
+
+(rule
+ (alias   runtest)
+ (enabled_if (= %{context_name} "main"))
+ (action
+  (with-outputs-to
+   test_callee_save_neon_regs_nodynlink.out
+   (run ./test_callee_save_neon_regs_nodynlink.exe))))
+
+(rule
+ (alias runtest)
+ (enabled_if (= %{context_name} "main"))
+ (action
+   (diff empty.expected test_callee_save_neon_regs_nodynlink.out)))
 
 (rule
  (alias runtest)
@@ -1457,6 +1509,47 @@
            (<> %{system} macosx)))
  (action
    (diff empty.expected callback_internal_assembler.out)))
+
+(rule
+ (alias runtest)
+ (enabled_if
+      (and (= %{context_name} "main")
+           (= %{architecture} "amd64")
+           (<> %{system} macosx)))
+ (action
+  (copy test_callee_save_neon_regs.ml test_callee_save_neon_regs_internal_assembler.ml)))
+
+(executable
+ (name test_callee_save_neon_regs_internal_assembler)
+ (modules test_callee_save_neon_regs_internal_assembler)
+ (enabled_if
+      (and (= %{context_name} "main")
+           (= %{architecture} "amd64")
+           (<> %{system} macosx)))
+ (ocamlopt_flags
+  (:standard -internal-assembler))
+ (libraries simd_test_helpers simd_test_builtins stdlib_stable stdlib_upstream_compatible)
+ (foreign_archives stubs))
+
+(rule
+ (alias   runtest)
+ (enabled_if
+      (and (= %{context_name} "main")
+           (= %{architecture} "amd64")
+           (<> %{system} macosx)))
+ (action
+  (with-outputs-to
+   test_callee_save_neon_regs_internal_assembler.out
+   (run ./test_callee_save_neon_regs_internal_assembler.exe))))
+
+(rule
+ (alias runtest)
+ (enabled_if
+      (and (= %{context_name} "main")
+           (= %{architecture} "amd64")
+           (<> %{system} macosx)))
+ (action
+   (diff empty.expected test_callee_save_neon_regs_internal_assembler.out)))
 
 (rule
  (alias runtest)

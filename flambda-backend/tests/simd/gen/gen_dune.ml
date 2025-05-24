@@ -125,6 +125,7 @@ let () =
       "consts", enabled_if_main;
       "consts_u", enabled_if_main;
       "callback", enabled_if_main;
+      "test_callee_save_neon_regs", enabled_if_main;
       "probes", enabled_if_main_amd64_not_macos ]
   in
   List.iter print_test tests;
