@@ -140,10 +140,7 @@
 (executable
  (name ops)
  (modules ops)
- (enabled_if
-      (and (= %{context_name} "main")
-           (= %{architecture} "amd64")
-           (<> %{system} macosx)))
+ (enabled_if (= %{context_name} "main"))
  (ocamlopt_flags
   (:standard ))
  (libraries simd_test_helpers simd_test_builtins stdlib_stable stdlib_upstream_compatible)
@@ -151,10 +148,7 @@
 
 (rule
  (alias   runtest)
- (enabled_if
-      (and (= %{context_name} "main")
-           (= %{architecture} "amd64")
-           (<> %{system} macosx)))
+ (enabled_if (= %{context_name} "main"))
  (action
   (with-outputs-to
    ops.out
@@ -162,10 +156,7 @@
 
 (rule
  (alias runtest)
- (enabled_if
-      (and (= %{context_name} "main")
-           (= %{architecture} "amd64")
-           (<> %{system} macosx)))
+ (enabled_if (= %{context_name} "main"))
  (action
    (diff empty.expected ops.out)))
 
@@ -570,20 +561,14 @@
 
 (rule
  (alias runtest)
- (enabled_if
-      (and (= %{context_name} "main")
-           (= %{architecture} "amd64")
-           (<> %{system} macosx)))
+ (enabled_if (= %{context_name} "main"))
  (action
   (copy ops.ml ops_nodynlink.ml)))
 
 (executable
  (name ops_nodynlink)
  (modules ops_nodynlink)
- (enabled_if
-      (and (= %{context_name} "main")
-           (= %{architecture} "amd64")
-           (<> %{system} macosx)))
+ (enabled_if (= %{context_name} "main"))
  (ocamlopt_flags
   (:standard -nodynlink))
  (libraries simd_test_helpers simd_test_builtins stdlib_stable stdlib_upstream_compatible)
@@ -591,10 +576,7 @@
 
 (rule
  (alias   runtest)
- (enabled_if
-      (and (= %{context_name} "main")
-           (= %{architecture} "amd64")
-           (<> %{system} macosx)))
+ (enabled_if (= %{context_name} "main"))
  (action
   (with-outputs-to
    ops_nodynlink.out
@@ -602,10 +584,7 @@
 
 (rule
  (alias runtest)
- (enabled_if
-      (and (= %{context_name} "main")
-           (= %{architecture} "amd64")
-           (<> %{system} macosx)))
+ (enabled_if (= %{context_name} "main"))
  (action
    (diff empty.expected ops_nodynlink.out)))
 

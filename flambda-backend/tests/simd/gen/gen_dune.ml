@@ -117,7 +117,7 @@ let () =
       "ops_float32x4_u", enabled_if_main;
       "ops_float64x2", enabled_if_main;
       "ops_float64x2_u", enabled_if_main;
-      "ops", enabled_if_main_amd64_not_macos;
+      "ops", enabled_if_main;
       "ops_u", enabled_if_main_amd64_not_macos;
       "arrays", enabled_if_main;
       "arrays_u", enabled_if_main;
