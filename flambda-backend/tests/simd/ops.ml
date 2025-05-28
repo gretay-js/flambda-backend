@@ -10,10 +10,6 @@ module SSE_Util = struct
   let make a b c d =
     Float32.to_float32x4 a b c d |> Vector_casts.int32x4_of_float32x4
 
-  let zero = 0l
-
-  let one = 1l
-
   let low = int32x4_low_int64
 
   let high = int32x4_high_int64
