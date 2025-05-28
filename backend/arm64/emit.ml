@@ -1528,7 +1528,7 @@ let emit_static_cast (cast : Cmm.static_cast) i =
     | Int8x16 -> DSL.ins I.FMOV [| DSL.emit_reg_s dst; DSL.emit_reg_w src |]
     | Int16x8 -> DSL.ins I.FMOV [| DSL.emit_reg_s dst; DSL.emit_reg_w src |]
     | Int32x4 -> DSL.ins I.FMOV [| DSL.emit_reg_s dst; DSL.emit_reg_w src |]
-    | Int64x2 -> DSL.ins I.FMOV [| DSL.emit_reg_v2d dst; DSL.emit_reg src |]
+    | Int64x2 -> DSL.ins I.FMOV [| DSL.emit_reg_d dst; DSL.emit_reg src |]
     | Float32x4 ->
       if distinct
       then (
