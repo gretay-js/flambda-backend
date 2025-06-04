@@ -268,6 +268,7 @@ let select_simd_instr op args =
   | "caml_neon_int16x8_dup_lane" ->
     let lane, args = extract_constant args ~max:3 op in
     Some (Dupq_lane_s16 { lane }, args)
+  | "caml_neon_int32x4_mul_low" -> assert false
   | _ -> None
 
 let select_operation_cfg op args =
