@@ -820,19 +820,18 @@ end
 
 module SSE2_Util = struct
   external _and : int64x2 -> int64x2 -> int64x2
-    = "caml_vec128_unreachable" "caml_neon_vec128_and"
+    = "caml_vec128_unreachable" "caml_neon_int64x2_bitwise_and"
     [@@noalloc] [@@unboxed] [@@builtin]
 
-  external andnot : int64x2 -> int64x2 -> int64x2
-    = "caml_vec128_unreachable" "caml_neon_vec128_andnot"
-    [@@noalloc] [@@unboxed] [@@builtin]
+  let andnot : int64x2 -> int64x2 -> int64x2 =
+   fun a b -> _and (Int64x2.bitwise_not a) b
 
   external _or : int64x2 -> int64x2 -> int64x2
-    = "caml_vec128_unreachable" "caml_neon_vec128_or"
+    = "caml_vec128_unreachable" "caml_neon_int64x2_bitwise_or"
     [@@noalloc] [@@unboxed] [@@builtin]
 
   external xor : int64x2 -> int64x2 -> int64x2
-    = "caml_vec128_unreachable" "caml_neon_vec128_xor"
+    = "caml_vec128_unreachable" "caml_neon_int64x2_bitwise_xor"
     [@@noalloc] [@@unboxed] [@@builtin]
 
   external movemask_8 : (int8x16[@unboxed]) -> (int[@untagged])
