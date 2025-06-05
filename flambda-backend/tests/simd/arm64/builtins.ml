@@ -756,11 +756,11 @@ module SSE_Util = struct
   type t = int32x4
 
   external high_64_to_low_64 : t -> t -> t
-    = "caml_vec128_unreachable" "caml_neon_vec128_high_64_to_low_64"
+    = "caml_vec128_unreachable" "caml_simd_vec128_high_64_to_low_64"
     [@@noalloc] [@@unboxed] [@@builtin]
 
   external low_64_to_high_64 : t -> t -> t
-    = "caml_vec128_unreachable" "caml_neon_vec128_low_64_to_high_64"
+    = "caml_vec128_unreachable" "caml_simd_vec128_low_64_to_high_64"
     [@@noalloc] [@@unboxed] [@@builtin]
 
   external interleave_high_32 : t -> t -> t

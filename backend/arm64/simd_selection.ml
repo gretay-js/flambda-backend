@@ -97,6 +97,10 @@ let select_simd_instr op args =
     Some (Zip1q_f64, args)
   | "caml_simd_vec128_interleave_high_64" | "caml_neon_float64x2_zip2" ->
     Some (Zip2q_f64, args)
+  | "caml_simd_vec128_high_64_to_low_64" ->
+    Some (Copyq_laneq_s64 { src_lane = 1; dst_lane = 0 }, args)
+  | "caml_simd_vec128_low_64_to_high_64" ->
+    Some (Copyq_laneq_s64 { src_lane = 0; dst_lane = 1 }, args)
   | "caml_simd_int64x2_add" | "caml_neon_int64x2_add" -> Some (Addq_s64, args)
   | "caml_simd_int64x2_sub" | "caml_neon_int64x2_sub" -> Some (Subq_s64, args)
   | "caml_neon_int32x4_add" -> Some (Addq_s32, args)
@@ -287,7 +291,8 @@ let select_operation_cfg op args =
 
 let pseudoregs_for_operation (simd_op : Simd.operation) arg res =
   match Simd_proc.register_behavior simd_op with
-  | Rs32x4_Rs32_to_First _ | Rs64x2_Rs64_to_First _ | Rs16x8_Rs16_to_First _ ->
+  | Rs32x4_Rs32_to_First _ | Rs64x2_Rs64_to_First _ | Rs16x8_Rs16_to_First _
+  | Rs64x2_Rs64x2_to_First _ ->
     let arg = Array.copy arg in
     let res = Array.copy res in
     assert (not (Reg.is_preassigned arg.(0)));

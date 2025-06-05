@@ -245,6 +245,10 @@ type operation =
   | Getq_lane_s16 of { lane : int (* 0 <= lane <= 7 *) }
   | Setq_lane_s16 of { lane : int (* 0 <= lane <= 7 *) }
   | Dupq_lane_s16 of { lane : int (* 0 <= lane <= 7 *) }
+  | Copyq_laneq_s64 of
+      { src_lane : int;
+        dst_lane : int
+      }
 
 let print_name op =
   match op with
@@ -363,15 +367,17 @@ let print_name op =
   | Shlq_s64 -> "Sshlq_s64"
   | Shlq_u16 -> "Ushlq_u16"
   | Shlq_s16 -> "Sshlq_s16"
-  | Setq_lane_s32 { lane } -> "Setq_lane_s32" ^ Int.to_string lane
-  | Setq_lane_s64 { lane } -> "Setq_lane_s64" ^ Int.to_string lane
+  | Setq_lane_s32 { lane } -> "Setq_lane_s32_" ^ Int.to_string lane
+  | Setq_lane_s64 { lane } -> "Setq_lane_s64_" ^ Int.to_string lane
   | Getq_lane_s32 { lane } -> "Getq_lane_s32_" ^ Int.to_string lane
   | Getq_lane_s64 { lane } -> "Getq_lane_s64_" ^ Int.to_string lane
-  | Dupq_lane_s32 { lane } -> "Dupq_lane_s32" ^ Int.to_string lane
-  | Dupq_lane_s64 { lane } -> "Dupq_lane_s64" ^ Int.to_string lane
-  | Setq_lane_s16 { lane } -> "Setq_lane_s16" ^ Int.to_string lane
-  | Getq_lane_s16 { lane } -> "Setq_lane_s16" ^ Int.to_string lane
-  | Dupq_lane_s16 { lane } -> "Setq_lane_s16" ^ Int.to_string lane
+  | Dupq_lane_s32 { lane } -> "Dupq_lane_s32_" ^ Int.to_string lane
+  | Dupq_lane_s64 { lane } -> "Dupq_lane_s64_" ^ Int.to_string lane
+  | Setq_lane_s16 { lane } -> "Setq_lane_s16_" ^ Int.to_string lane
+  | Getq_lane_s16 { lane } -> "Setq_lane_s16_" ^ Int.to_string lane
+  | Dupq_lane_s16 { lane } -> "Setq_lane_s16_" ^ Int.to_string lane
+  | Copyq_laneq_s64 { src_lane; dst_lane } ->
+    Printf.sprintf "Copyq_laneq_s64_%d_to_%d" src_lane dst_lane
 
 let print_operation printreg op ppf arg =
   (* CR gyorsh: does not support memory operands (except stack operands). *)
@@ -499,6 +505,9 @@ let equal_operation op1 op2 =
   | Setq_lane_s16 { lane = l }, Setq_lane_s16 { lane = l' }
   | Dupq_lane_s16 { lane = l }, Dupq_lane_s16 { lane = l' } ->
     Int.equal l l'
+  | ( Copyq_laneq_s64 { src_lane = src; dst_lane = dst },
+      Copyq_laneq_s64 { src_lane = src'; dst_lane = dst' } ) ->
+    Int.equal src src' && Int.equal dst dst'
   | Cmp_s64 c, Cmp_s64 c'
   | Cmpz_s64 c, Cmpz_s64 c'
   | Cmp_s16 c, Cmp_s16 c'
@@ -533,7 +542,8 @@ let equal_operation op1 op2 =
       | Absq_s16 | Minq_s16 | Maxq_s16 | Minq_u16 | Maxq_u16 | Mvnq_s16
       | Orrq_s16 | Andq_s16 | Eorq_s16 | Negq_s16 | Cntq_u16 | Shlq_u16
       | Shlq_s16 | Cmp_s16 _ | Cmpz_s16 _ | Shlq_n_u16 _ | Shrq_n_u16 _
-      | Shrq_n_s16 _ | Getq_lane_s16 _ | Setq_lane_s16 _ | Dupq_lane_s16 _ ),
+      | Shrq_n_s16 _ | Getq_lane_s16 _ | Setq_lane_s16 _ | Dupq_lane_s16 _
+      | Copyq_laneq_s64 _ ),
       _ ) ->
     false
 
@@ -560,7 +570,7 @@ let class_of_operation op =
   | Minq_s16 | Maxq_s16 | Minq_u16 | Maxq_u16 | Mvnq_s16 | Orrq_s16 | Andq_s16
   | Eorq_s16 | Negq_s16 | Cntq_u16 | Shlq_u16 | Shlq_s16 | Cmp_s16 _
   | Cmpz_s16 _ | Shlq_n_u16 _ | Shrq_n_u16 _ | Shrq_n_s16 _ | Getq_lane_s16 _
-  | Setq_lane_s16 _ | Dupq_lane_s16 _ ->
+  | Setq_lane_s16 _ | Dupq_lane_s16 _ | Copyq_laneq_s64 _ ->
     Pure
 
 let operation_is_pure op = match class_of_operation op with Pure -> true

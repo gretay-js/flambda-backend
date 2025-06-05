@@ -71,6 +71,10 @@ type register_behavior =
   | Rs16x8_Rs16_to_First of { lane : int }
   | Rs32x4_Rs32_to_First of { lane : int }
   | Rs64x2_Rs64_to_First of { lane : int }
+  | Rs64x2_Rs64x2_to_First of
+      { src_lane : int;
+        dst_lane : int
+      }
   (* dup *)
   | Rs16x8lane_to_Rs16x8 of { lane : int }
   | Rs32x4lane_to_Rs32x4 of { lane : int }
@@ -125,6 +129,8 @@ let register_behavior (op : Simd.operation) =
   | Negq_s32 | Cmpz_s32 _ | Absq_s32 | Shlq_n_u32 _ | Shrq_n_u32 _
   | Shrq_n_s32 _ ->
     Rs32x4_to_Rs32x4
+  | Copyq_laneq_s64 { src_lane; dst_lane } ->
+    Rs64x2_Rs64x2_to_First { src_lane; dst_lane }
   | Setq_lane_s16 { lane } -> Rs16x8_Rs16_to_First { lane }
   | Setq_lane_s32 { lane } -> Rs32x4_Rs32_to_First { lane }
   | Setq_lane_s64 { lane } -> Rs64x2_Rs64_to_First { lane }

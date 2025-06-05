@@ -372,6 +372,10 @@ end = struct
       check_reg Int i.res.(0)
     | Rs32x4_to_Rs32 _ | Rs64x2_to_Rs64 _ | Rs16x8_to_Rs16 _ ->
       check_reg Vec128 i.arg.(0)
+    | Rs64x2_Rs64x2_to_First _ ->
+      check_reg Vec128 i.arg.(0);
+      check_reg Vec128 i.arg.(1);
+      assert (Reg.same_loc i.res.(0) i.arg.(0))
     | Rs32x4_Rs32_to_First _ | Rs64x2_Rs64_to_First _ | Rs16x8_Rs16_to_First _
       ->
       check_reg Vec128 i.arg.(0);
@@ -454,6 +458,10 @@ end = struct
       [| emit_reglane_s i.res.(0) ~lane; emit_reg_w i.arg.(1) |]
     | Rs64x2_Rs64_to_First { lane } ->
       [| emit_reglane_d i.res.(0) ~lane; emit_reg i.arg.(1) |]
+    | Rs64x2_Rs64x2_to_First { src_lane; dst_lane } ->
+      [| emit_reglane_d i.res.(0) ~lane:dst_lane;
+         emit_reglane_d i.arg.(1) ~lane:src_lane
+      |]
     | Rs32x4lane_to_Rs32x4 { lane } ->
       [| emit_reg_v4s i.res.(0); emit_reglane_s i.arg.(0) ~lane |]
     | Rs64x2lane_to_Rs64x2 { lane } ->
@@ -486,7 +494,7 @@ end = struct
     | Maxq_u16 | Mvnq_s16 | Orrq_s16 | Andq_s16 | Eorq_s16 | Negq_s16 | Cntq_u16
     | Shlq_u16 | Shlq_s16 | Cmp_s16 _ | Cmpz_s16 _ | Shlq_n_u16 _ | Shrq_n_u16 _
     | Shrq_n_s16 _ | Getq_lane_s16 _ | Setq_lane_s16 _ | Dupq_lane_s16 _
-    | Cvtq_s32_s64 ->
+    | Cvtq_s32_s64 | Copyq_laneq_s64 _ ->
       1
 
   let emit_rounding_mode (rm : Simd.Rounding_mode.t) : I.Rounding_mode.t =
@@ -603,7 +611,8 @@ end = struct
       ins I.USHR (Array.append operands [| imm n |])
     | Shrq_n_s32 n | Shrq_n_s64 n | Shrq_n_s16 n ->
       ins I.SSHR (Array.append operands [| imm n |])
-    | Setq_lane_s32 _ | Setq_lane_s64 _ | Setq_lane_s16 _ | Getq_lane_s64 _ ->
+    | Setq_lane_s32 _ | Setq_lane_s64 _ | Setq_lane_s16 _ | Getq_lane_s64 _
+    | Copyq_laneq_s64 _ ->
       ins I.MOV operands
     | Getq_lane_s32 _ | Getq_lane_s16 _ ->
       (* sign-extend the result to 64-bit and place in Xn *)
