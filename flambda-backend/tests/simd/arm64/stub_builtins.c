@@ -96,6 +96,27 @@ BUILTIN(caml_neon_int32x4_cmplez);
 BUILTIN(caml_neon_int32x4_cmpltz);
 BUILTIN(caml_neon_int32x4_cnt);
 
+BUILTIN(caml_neon_int16x8_cmpeqz);
+BUILTIN(caml_neon_int16x8_cmpgez);
+BUILTIN(caml_neon_int16x8_cmpgtz);
+BUILTIN(caml_neon_int16x8_cmplez);
+BUILTIN(caml_neon_int16x8_cmpltz);
+
+BUILTIN(caml_neon_int8x16_cmpeqz);
+BUILTIN(caml_neon_int8x16_cmpgez);
+BUILTIN(caml_neon_int8x16_cmpgtz);
+BUILTIN(caml_neon_int8x16_cmplez);
+BUILTIN(caml_neon_int8x16_cmpltz);
+
+BUILTIN(caml_neon_int8x16_neg);
+BUILTIN(caml_neon_int8x16_sll);
+BUILTIN(caml_neon_int8x16_slli);
+BUILTIN(caml_neon_int8x16_srai);
+BUILTIN(caml_neon_int8x16_srli);
+BUILTIN(caml_neon_int8x16_sshl);
+BUILTIN(caml_neon_int8x16_ushl);
+
+
 
 BUILTIN(caml_neon_int16x8_sll);
 BUILTIN(caml_neon_int32x4_sll);
