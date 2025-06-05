@@ -771,10 +771,34 @@ module SSE_Util = struct
     = "caml_vec128_unreachable" "caml_simd_vec128_interleave_low_32"
     [@@noalloc] [@@unboxed] [@@builtin]
 
-  external shuffle_32 :
-    (int[@untagged]) -> (t[@unboxed]) -> (t[@unboxed]) -> (t[@unboxed])
-    = "caml_vec128_unreachable" "caml_neon_vec128_shuffle_32"
-    [@@noalloc] [@@builtin]
+  let shuffle_32 : int -> t -> t -> t =
+   fun ctrl a b ->
+    let open Int32x4 in
+    let dup_lane lane t =
+      match lane with
+      | 0 -> dup_lane 0 t
+      | 1 -> dup_lane 1 t
+      | 2 -> dup_lane 2 t
+      | 3 -> dup_lane 3 t
+      | _ -> assert false
+    in
+    let extract lane t =
+      match lane with
+      | 0 -> extract 0 t
+      | 1 -> extract 1 t
+      | 2 -> extract 2 t
+      | 3 -> extract 3 t
+      | _ -> assert false
+    in
+    let[@inline always] ctrl i = ctrl lsr (i * 2) in
+    let res = dup_lane (ctrl 0) a in
+    let dst1 = extract (ctrl 1) a in
+    let dst2 = extract (ctrl 2) b in
+    let dst3 = extract (ctrl 3) b in
+    let res = insert 1 res dst1 in
+    let res = insert 2 res dst2 in
+    let res = insert 3 res dst3 in
+    res
 
   (* CR gyorsh: [movemask_32] is not supported on arm64. This implementation
      uses [t < zero]. The result is in a completely different format:
