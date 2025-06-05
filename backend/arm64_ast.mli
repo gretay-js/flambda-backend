@@ -370,6 +370,10 @@ module DSL : sig
 
   val reglane_v2d : int -> lane:int -> Operand.t
 
+  val reglane_b : int -> lane:int -> Operand.t
+
+  val reglane_h : int -> lane:int -> Operand.t
+
   val reglane_s : int -> lane:int -> Operand.t
 
   val reglane_d : int -> lane:int -> Operand.t

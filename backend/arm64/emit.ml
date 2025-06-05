@@ -569,11 +569,11 @@ end = struct
     | Fmax_f32 -> ins I.FMAX operands
     | Fmin_f64 -> ins I.FMIN operands
     | Fmax_f64 -> ins I.FMAX operands
-    | Zip1q_s8 | Zip2q_s8 | Zip1_f32 | Zip1q_f32 | Zip1q_f64 ->
-      ins I.ZIP1 operands
-    | Zip1q_s16 | Zip2q_s16 | Zip2q_f32 | Zip2q_f64 -> ins I.ZIP2 operands
-    | Addq_s64 | Addq_s32 | Addq_s16 -> ins I.ADD operands
-    | Subq_s64 | Subq_s32 | Subq_s16 -> ins I.SUB operands
+    | Zip1q_s8 | Zip1_f32 | Zip1q_f32 | Zip1q_f64 -> ins I.ZIP1 operands
+    | Zip2q_s8 | Zip1q_s16 | Zip2q_s16 | Zip2q_f32 | Zip2q_f64 ->
+      ins I.ZIP2 operands
+    | Addq_s64 | Addq_s32 | Addq_s16 | Addq_s8 -> ins I.ADD operands
+    | Subq_s64 | Subq_s32 | Subq_s16 | Subq_s8 -> ins I.SUB operands
     | Addq_f32 | Addq_f64 -> ins I.FADD operands
     | Subq_f32 | Subq_f64 -> ins I.FSUB operands
     | Mulq_f32 | Mulq_f64 -> ins I.FMUL operands
@@ -582,11 +582,11 @@ end = struct
     | Maxq_f32 -> ins I.FMAX operands
     | Minq_f64 -> ins I.FMIN operands
     | Maxq_f64 -> ins I.FMAX operands
-    | Minq_s32 | Minq_s16 -> ins I.SMIN operands
-    | Maxq_s32 | Maxq_s16 -> ins I.SMAX operands
-    | Minq_u32 | Minq_u16 -> ins I.UMIN operands
-    | Maxq_u32 | Maxq_u16 -> ins I.UMAX operands
-    | Absq_s32 | Absq_s64 | Absq_s16 -> ins I.ABS operands
+    | Minq_s32 | Minq_s16 | Minq_s8 -> ins I.SMIN operands
+    | Maxq_s32 | Maxq_s16 | Maxq_s8 -> ins I.SMAX operands
+    | Minq_u32 | Minq_u16 | Minq_u8 -> ins I.UMIN operands
+    | Maxq_u32 | Maxq_u16 | Maxq_u8 -> ins I.UMAX operands
+    | Absq_s32 | Absq_s64 | Absq_s16 | Absq_s8 -> ins I.ABS operands
     | Recpeq_f32 -> ins I.FRECPE operands
     | Sqrtq_f32 | Sqrtq_f64 -> ins I.FSQRT operands
     | Rsqrteq_f32 | Rsqrteq_f64 -> ins I.FRSQRTE operands
@@ -598,7 +598,7 @@ end = struct
     | Cvtq_u64_u32 -> ins I.UXTL operands
     | Cvtq_s32_s64 -> ins I.XTN operands
     | Paddq_f32 | Paddq_f64 -> ins I.FADDP operands
-    | Paddq_s32 | Paddq_s64 | Paddq_s16 -> ins I.ADDP operands
+    | Paddq_s32 | Paddq_s64 | Paddq_s16 | Paddq_s8 -> ins I.ADDP operands
     | Cmp_f32 LT | Cmp_f64 LT ->
       (* FCMLT is only supported with ZERO. *)
       (* CR gyorsh: [LT] and [GT] have different behavior w.r.t NaN arguments:
@@ -614,23 +614,24 @@ end = struct
     | Cmp_f32 ((EQ | GT | GE | NE | CC | CS | LS | HI) as c)
     | Cmp_f64 ((EQ | GT | GE | NE | CC | CS | LS | HI) as c) ->
       ins (I.FCM (emit_float_cond c)) operands
-    | Cmp_s32 c | Cmp_s64 c | Cmp_s16 c -> ins (I.CM (emit_cond c)) operands
+    | Cmp_s32 c | Cmp_s64 c | Cmp_s16 c | Cmp_s8 c ->
+      ins (I.CM (emit_cond c)) operands
     | Cmpz_f32 c | Cmpz_f64 c ->
       ins (I.FCM (emit_float_cond c)) (Array.append operands [| imm_float 0. |])
-    | Cmpz_s32 c | Cmpz_s64 c | Cmpz_s16 c ->
+    | Cmpz_s32 c | Cmpz_s64 c | Cmpz_s16 c | Cmpz_s8 c ->
       ins (I.CM (emit_cond c)) (Array.append operands [| imm 0 |])
-    | Mvnq_s32 | Mvnq_s64 | Mvnq_s16 -> ins I.MVN operands
-    | Orrq_s32 | Orrq_s64 | Orrq_s16 -> ins I.ORR operands
-    | Andq_s32 | Andq_s64 | Andq_s16 -> ins I.AND operands
-    | Eorq_s32 | Eorq_s64 | Eorq_s16 -> ins I.EOR operands
-    | Negq_s32 | Negq_s64 | Negq_s16 -> ins I.NEG operands
-    | Shlq_u32 | Shlq_u64 | Shlq_u16 -> ins I.USHL operands
-    | Shlq_s32 | Shlq_s64 | Shlq_s16 -> ins I.SSHL operands
-    | Shlq_n_u32 n | Shlq_n_u64 n | Shlq_n_u16 n ->
+    | Mvnq_s32 | Mvnq_s64 | Mvnq_s16 | Mvnq_s8 -> ins I.MVN operands
+    | Orrq_s32 | Orrq_s64 | Orrq_s16 | Orrq_s8 -> ins I.ORR operands
+    | Andq_s32 | Andq_s64 | Andq_s16 | Andq_s8 -> ins I.AND operands
+    | Eorq_s32 | Eorq_s64 | Eorq_s16 | Eorq_s8 -> ins I.EOR operands
+    | Negq_s32 | Negq_s64 | Negq_s16 | Negq_s8 -> ins I.NEG operands
+    | Shlq_u32 | Shlq_u64 | Shlq_u16 | Shlq_u8 -> ins I.USHL operands
+    | Shlq_s32 | Shlq_s64 | Shlq_s16 | Shlq_s8 -> ins I.SSHL operands
+    | Shlq_n_u32 n | Shlq_n_u64 n | Shlq_n_u16 n | Shlq_n_u8 n ->
       ins I.SHL (Array.append operands [| imm n |])
-    | Shrq_n_u32 n | Shrq_n_u64 n | Shrq_n_u16 n ->
+    | Shrq_n_u32 n | Shrq_n_u64 n | Shrq_n_u16 n | Shrq_n_u8 n ->
       ins I.USHR (Array.append operands [| imm n |])
-    | Shrq_n_s32 n | Shrq_n_s64 n | Shrq_n_s16 n ->
+    | Shrq_n_s32 n | Shrq_n_s64 n | Shrq_n_s16 n | Shrq_n_s8 n ->
       ins I.SSHR (Array.append operands [| imm n |])
     | Setq_lane_s32 _ | Setq_lane_s64 _ | Setq_lane_s16 _ | Setq_lane_s8 _
     | Getq_lane_s64 _ | Copyq_laneq_s64 _ ->
@@ -640,11 +641,11 @@ end = struct
       ins I.SMOV operands
     | Dupq_lane_s32 _ | Dupq_lane_s64 _ | Dupq_lane_s16 _ | Dupq_lane_s8 _ ->
       ins I.DUP operands
-    | Qaddq_s16 -> ins I.SQADD operands
-    | Qaddq_u16 -> ins I.UQADD operands
-    | Qsubq_s16 -> ins I.SQSUB operands
-    | Qsubq_u16 -> ins I.UQSUB operands
-    | Cntq_u16 -> ins I.CNT operands
+    | Qaddq_s16 | Qaddq_s8 -> ins I.SQADD operands
+    | Qaddq_u16 | Qaddq_u8 -> ins I.UQADD operands
+    | Qsubq_s16 | Qsubq_s8 -> ins I.SQSUB operands
+    | Qsubq_u16 | Qsubq_u8 -> ins I.UQSUB operands
+    | Cntq_u16 | Cntq_u8 -> ins I.CNT operands
 end
 
 (* Record live pointers at call points *)
