@@ -135,7 +135,7 @@ let register_behavior (op : Simd.operation) =
   | Dupq_lane_s32 { lane } -> Rs32x4lane_to_Rs32x4 { lane }
   | Dupq_lane_s64 { lane } -> Rs64x2lane_to_Rs64x2 { lane }
   | Orrq_s16 | Andq_s16 | Eorq_s16 | Eorq_s32 | Andq_s32 | Orrq_s32 | Orrq_s64
-  | Andq_s64 | Eorq_s64 ->
+  | Andq_s64 | Eorq_s64 | Zip1q_s8 | Zip2q_s8 ->
     (* Bitwise operation, lane width does not matter. The only two encodings
        provided are 8B and 16B. *)
     Rs8x16_Rs8x16_to_Rs8x16
@@ -147,7 +147,7 @@ let register_behavior (op : Simd.operation) =
     Rs64x2_to_Rs64x2
   | Addq_s16 | Paddq_s16 | Qaddq_s16 | Qaddq_u16 | Subq_s16 | Qsubq_s16
   | Qsubq_u16 | Minq_s16 | Maxq_s16 | Minq_u16 | Maxq_u16 | Shlq_u16 | Shlq_s16
-  | Cmp_s16 _ ->
+  | Cmp_s16 _ | Zip1q_s16 | Zip2q_s16 ->
     Rs16x8_Rs16x8_to_Rs16x8
   | Absq_s16 | Negq_s16 | Cntq_u16 | Shlq_n_u16 _ | Shrq_n_u16 _ | Shrq_n_s16 _
   | Cmpz_s16 _ ->

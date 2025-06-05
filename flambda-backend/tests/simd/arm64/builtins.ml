@@ -764,11 +764,11 @@ module SSE_Util = struct
     [@@noalloc] [@@unboxed] [@@builtin]
 
   external interleave_high_32 : t -> t -> t
-    = "caml_vec128_unreachable" "caml_neon_vec128_interleave_high_32"
+    = "caml_vec128_unreachable" "caml_simd_vec128_interleave_high_32"
     [@@noalloc] [@@unboxed] [@@builtin]
 
   external interleave_low_32 : t -> t -> t
-    = "caml_vec128_unreachable" "caml_neon_vec128_interleave_low_32"
+    = "caml_vec128_unreachable" "caml_simd_vec128_interleave_low_32"
     [@@noalloc] [@@unboxed] [@@builtin]
 
   external shuffle_32 :
@@ -871,27 +871,27 @@ module SSE2_Util = struct
     [@@noalloc] [@@builtin]
 
   external interleave_high_8 : int8x16 -> int8x16 -> int8x16
-    = "caml_vec128_unreachable" "caml_neon_vec128_interleave_high_8"
+    = "caml_vec128_unreachable" "caml_simd_vec128_interleave_high_8"
     [@@noalloc] [@@unboxed] [@@builtin]
 
   external interleave_low_8 : int8x16 -> int8x16 -> int8x16
-    = "caml_vec128_unreachable" "caml_neon_vec128_interleave_low_8"
+    = "caml_vec128_unreachable" "caml_simd_vec128_interleave_low_8"
     [@@noalloc] [@@unboxed] [@@builtin]
 
   external interleave_high_16 : int16x8 -> int16x8 -> int16x8
-    = "caml_vec128_unreachable" "caml_neon_vec128_interleave_high_16"
+    = "caml_vec128_unreachable" "caml_simd_vec128_interleave_high_16"
     [@@noalloc] [@@unboxed] [@@builtin]
 
   external interleave_low_16 : int16x8 -> int16x8 -> int16x8
-    = "caml_vec128_unreachable" "caml_neon_vec128_interleave_low_16"
+    = "caml_vec128_unreachable" "caml_simd_vec128_interleave_low_16"
     [@@noalloc] [@@unboxed] [@@builtin]
 
   external interleave_high_64 : int64x2 -> int64x2 -> int64x2
-    = "caml_vec128_unreachable" "caml_neon_vec128_interleave_high_64"
+    = "caml_vec128_unreachable" "caml_simd_vec128_interleave_high_64"
     [@@noalloc] [@@unboxed] [@@builtin]
 
   external interleave_low_64 : int64x2 -> int64x2 -> int64x2
-    = "caml_vec128_unreachable" "caml_neon_vec128_interleave_low_64"
+    = "caml_vec128_unreachable" "caml_simd_vec128_interleave_low_64"
     [@@noalloc] [@@unboxed] [@@builtin]
 end
 

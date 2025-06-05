@@ -48,7 +48,7 @@ let () =
        (fun l r -> if Int64.compare l r = 1 then 0xffffffffffffffffL else 0L)
        cmpgt);
   Int64s.check_ints (fun l r ->
-      (failmsg := fun () -> Printf.printf "%016Lx << %016Lx\n%!" l r);
+      (failmsg := fun () -> Printf.printf "sll: %016Lx << %016Lx\n%!" l r);
       let v = int64x2_of_int64s l r in
       let shift = Int64.logand r 0x3fL in
       let result = sll v (int64x2_of_int64s shift 0L) in
@@ -56,7 +56,7 @@ let () =
       let expectr = Int64.shift_left r (Int64.to_int shift) in
       eq (int64x2_low_int64 result) (int64x2_high_int64 result) expectl expectr);
   Int64s.check_ints (fun l r ->
-      (failmsg := fun () -> Printf.printf "%016Lx >> %016Lx\n%!" l r);
+      (failmsg := fun () -> Printf.printf "srl: %016Lx >> %016Lx\n%!" l r);
       let v = int64x2_of_int64s l r in
       let shift = Int64.logand r 0x3fL in
       let result = srl v (int64x2_of_int64s shift 0L) in
@@ -64,14 +64,14 @@ let () =
       let expectr = Int64.shift_right_logical r (Int64.to_int shift) in
       eq (int64x2_low_int64 result) (int64x2_high_int64 result) expectl expectr);
   Int64s.check_ints (fun l r ->
-      (failmsg := fun () -> Printf.printf "%016Lx|%016Lx << 7\n%!" l r);
+      (failmsg := fun () -> Printf.printf "slli: %016Lx|%016Lx << 7\n%!" l r);
       let v = int64x2_of_int64s l r in
       let result = slli 7 v in
       let expectl = Int64.shift_left l 7 in
       let expectr = Int64.shift_left r 7 in
       eq (int64x2_low_int64 result) (int64x2_high_int64 result) expectl expectr);
   Int64s.check_ints (fun l r ->
-      (failmsg := fun () -> Printf.printf "%016Lx|%016Lx >> 7\n%!" l r);
+      (failmsg := fun () -> Printf.printf "srli: %016Lx|%016Lx >> 7\n%!" l r);
       let v = int64x2_of_int64s l r in
       let result = srli 7 v in
       let expectl = Int64.shift_right_logical l 7 in

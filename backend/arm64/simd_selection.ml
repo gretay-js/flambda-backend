@@ -81,6 +81,14 @@ let select_simd_instr op args =
   | "caml_neon_float64_min" -> Some (Fmin_f64, args)
   | "caml_neon_float64_max" -> Some (Fmax_f64, args)
   | "caml_neon_float32x2_zip1" -> Some (Zip1_f32, args)
+  | "caml_simd_vec128_interleave_low_8" | "caml_neon_int8x16_zip1" ->
+    Some (Zip1q_s8, args)
+  | "caml_simd_vec128_interleave_high_8" | "caml_neon_int8x16_zip2" ->
+    Some (Zip2q_s8, args)
+  | "caml_simd_vec128_interleave_low_16" | "caml_neon_int16x8_zip1" ->
+    Some (Zip1q_s16, args)
+  | "caml_simd_vec128_interleave_high_16" | "caml_neon_int16x8_zip2" ->
+    Some (Zip2q_s16, args)
   | "caml_simd_vec128_interleave_low_32" | "caml_neon_float32x4_zip1" ->
     Some (Zip1q_f32, args)
   | "caml_simd_vec128_interleave_high_32" | "caml_neon_float32x4_zip2" ->
