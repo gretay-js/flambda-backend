@@ -240,6 +240,10 @@ end = struct
   (* [emit_reglane_*]: Clang 17 assembler does not accept optional number of
      lanes notation of the form Vn.4S[lane], even though it is required to do so
      in ARMARM. Emit Vn.S[lane]. *)
+  let emit_reglane_b reg ~lane = reglane_b (reg_index reg) ~lane
+
+  let emit_reglane_h reg ~lane = reglane_h (reg_index reg) ~lane
+
   let emit_reglane_s reg ~lane = reglane_s (reg_index reg) ~lane
 
   let emit_reglane_d reg ~lane = reglane_d (reg_index reg) ~lane
@@ -350,7 +354,8 @@ end = struct
     | Rs32x4_to_Rf32x4 | Rf64x2_to_Rf32x2 | Rs8x16_to_Rs8x16 | Rs64x2_to_Rs64x2
     | Rf64x2_to_Rs64x2 | Rs32x4lane_to_Rs32x4 _ | Rs64x2lane_to_Rs64x2 _
     | Rs16x8lane_to_Rs16x8 _ | Rf64x2_to_Rf64x2 | Rs64x2_to_Rf64x2
-    | Rs32x2_to_Rs64x2 | Rs16x8_to_Rs16x8 | Rs64x2_to_Rs32x2 ->
+    | Rs32x2_to_Rs64x2 | Rs16x8_to_Rs16x8 | Rs64x2_to_Rs32x2
+    | Rs8x16lane_to_Rs8x16 _ ->
       check_reg Vec128 i.arg.(0);
       check_reg Vec128 i.res.(0)
     | Rf32_Rf32_to_Rf32 ->
@@ -370,14 +375,15 @@ end = struct
     | Rf32_to_Rs64 ->
       check_reg Float32 i.arg.(0);
       check_reg Int i.res.(0)
-    | Rs32x4_to_Rs32 _ | Rs64x2_to_Rs64 _ | Rs16x8_to_Rs16 _ ->
+    | Rs32x4_to_Rs32 _ | Rs64x2_to_Rs64 _ | Rs16x8_to_Rs16 _ | Rs8x16_to_Rs8 _
+      ->
       check_reg Vec128 i.arg.(0)
     | Rs64x2_Rs64x2_to_First _ ->
       check_reg Vec128 i.arg.(0);
       check_reg Vec128 i.arg.(1);
       assert (Reg.same_loc i.res.(0) i.arg.(0))
     | Rs32x4_Rs32_to_First _ | Rs64x2_Rs64_to_First _ | Rs16x8_Rs16_to_First _
-      ->
+    | Rs8x16_Rs8_to_First _ ->
       check_reg Vec128 i.arg.(0);
       assert (Reg.same_loc i.res.(0) i.arg.(0))
 
@@ -450,10 +456,18 @@ end = struct
     | Rs16x8_to_Rs16x8 -> [| emit_reg_v8h i.res.(0); emit_reg_v8h i.arg.(0) |]
     | Rf32_Rf32_to_Rf32 | Rf64_Rf64_to_Rf64 -> emit_regs_binary i
     | Rf64_to_Rf64 | Rf32_to_Rf32 | Rf32_to_Rs64 -> emit_regs_unary i
+    | Rs8x16_to_Rs8 { lane : int } ->
+      [| emit_reg i.res.(0); emit_reglane_b i.arg.(0) ~lane |]
+    | Rs16x8_to_Rs16 { lane : int } ->
+      [| emit_reg i.res.(0); emit_reglane_h i.arg.(0) ~lane |]
     | Rs32x4_to_Rs32 { lane : int } ->
       [| emit_reg i.res.(0); emit_reglane_s i.arg.(0) ~lane |]
     | Rs64x2_to_Rs64 { lane : int } ->
       [| emit_reg i.res.(0); emit_reglane_d i.arg.(0) ~lane |]
+    | Rs8x16_Rs8_to_First { lane } ->
+      [| emit_reglane_b i.res.(0) ~lane; emit_reg_w i.arg.(1) |]
+    | Rs16x8_Rs16_to_First { lane } ->
+      [| emit_reglane_h i.res.(0) ~lane; emit_reg_w i.arg.(1) |]
     | Rs32x4_Rs32_to_First { lane } ->
       [| emit_reglane_s i.res.(0) ~lane; emit_reg_w i.arg.(1) |]
     | Rs64x2_Rs64_to_First { lane } ->
@@ -462,12 +476,14 @@ end = struct
       [| emit_reglane_d i.res.(0) ~lane:dst_lane;
          emit_reglane_d i.arg.(1) ~lane:src_lane
       |]
+    | Rs8x16lane_to_Rs8x16 { lane } ->
+      [| emit_reg_v16b i.res.(0); emit_reglane_b i.arg.(0) ~lane |]
+    | Rs16x8lane_to_Rs16x8 { lane } ->
+      [| emit_reg_v8h i.res.(0); emit_reglane_h i.arg.(0) ~lane |]
     | Rs32x4lane_to_Rs32x4 { lane } ->
       [| emit_reg_v4s i.res.(0); emit_reglane_s i.arg.(0) ~lane |]
     | Rs64x2lane_to_Rs64x2 { lane } ->
       [| emit_reg_v2d i.res.(0); emit_reglane_d i.arg.(0) ~lane |]
-    | Rs16x8_to_Rs16 _ | Rs16x8_Rs16_to_First _ | Rs16x8lane_to_Rs16x8 _ ->
-      assert false
 
   let simd_instr_size (op : Simd.operation) =
     match op with
@@ -494,7 +510,12 @@ end = struct
     | Maxq_u16 | Mvnq_s16 | Orrq_s16 | Andq_s16 | Eorq_s16 | Negq_s16 | Cntq_u16
     | Shlq_u16 | Shlq_s16 | Cmp_s16 _ | Cmpz_s16 _ | Shlq_n_u16 _ | Shrq_n_u16 _
     | Shrq_n_s16 _ | Getq_lane_s16 _ | Setq_lane_s16 _ | Dupq_lane_s16 _
-    | Cvtq_s32_s64 | Copyq_laneq_s64 _ ->
+    | Cvtq_s32_s64 | Copyq_laneq_s64 _ | Addq_s8 | Paddq_s8 | Qaddq_s8
+    | Qaddq_u8 | Subq_s8 | Qsubq_s8 | Qsubq_u8 | Absq_s8 | Minq_s8 | Maxq_s8
+    | Minq_u8 | Maxq_u8 | Mvnq_s8 | Orrq_s8 | Andq_s8 | Eorq_s8 | Negq_s8
+    | Cntq_u8 | Shlq_u8 | Shlq_s8 | Cmp_s8 _ | Cmpz_s8 _ | Shlq_n_u8 _
+    | Shrq_n_u8 _ | Shrq_n_s8 _ | Getq_lane_s8 _ | Setq_lane_s8 _
+    | Dupq_lane_s8 _ ->
       1
 
   let emit_rounding_mode (rm : Simd.Rounding_mode.t) : I.Rounding_mode.t =
@@ -611,13 +632,14 @@ end = struct
       ins I.USHR (Array.append operands [| imm n |])
     | Shrq_n_s32 n | Shrq_n_s64 n | Shrq_n_s16 n ->
       ins I.SSHR (Array.append operands [| imm n |])
-    | Setq_lane_s32 _ | Setq_lane_s64 _ | Setq_lane_s16 _ | Getq_lane_s64 _
-    | Copyq_laneq_s64 _ ->
+    | Setq_lane_s32 _ | Setq_lane_s64 _ | Setq_lane_s16 _ | Setq_lane_s8 _
+    | Getq_lane_s64 _ | Copyq_laneq_s64 _ ->
       ins I.MOV operands
-    | Getq_lane_s32 _ | Getq_lane_s16 _ ->
+    | Getq_lane_s32 _ | Getq_lane_s16 _ | Getq_lane_s8 _ ->
       (* sign-extend the result to 64-bit and place in Xn *)
       ins I.SMOV operands
-    | Dupq_lane_s32 _ | Dupq_lane_s64 _ | Dupq_lane_s16 _ -> ins I.DUP operands
+    | Dupq_lane_s32 _ | Dupq_lane_s64 _ | Dupq_lane_s16 _ | Dupq_lane_s8 _ ->
+      ins I.DUP operands
     | Qaddq_s16 -> ins I.SQADD operands
     | Qaddq_u16 -> ins I.UQADD operands
     | Qsubq_s16 -> ins I.SQSUB operands

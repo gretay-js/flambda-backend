@@ -790,6 +790,36 @@ module Int8x16 = struct
     (int[@untagged]) -> (t[@unboxed]) -> (int[@untagged]) -> (t[@unboxed])
     = "caml_vec128_unreachable" "caml_neon_int8x16_insert"
     [@@noalloc] [@@builtin]
+
+  external sll : t -> t -> t = "caml_vec128_unreachable" "caml_neon_int8x16_sll"
+    [@@noalloc] [@@unboxed] [@@builtin]
+
+  external slli : (int[@untagged]) -> (t[@unboxed]) -> (t[@unboxed])
+    = "caml_vec128_unreachable" "caml_neon_int8x16_slli"
+    [@@noalloc] [@@builtin]
+
+  external srli : (int[@untagged]) -> (t[@unboxed]) -> (t[@unboxed])
+    = "caml_vec128_unreachable" "caml_neon_int8x16_srli"
+    [@@noalloc] [@@builtin]
+
+  external srai : (int[@untagged]) -> (t[@unboxed]) -> (t[@unboxed])
+    = "caml_vec128_unreachable" "caml_neon_int8x16_srai"
+    [@@noalloc] [@@builtin]
+
+  external neg : t -> t = "caml_vec128_unreachable" "caml_neon_int8x16_neg"
+    [@@noalloc] [@@unboxed] [@@builtin]
+
+  external ushl : t -> t -> t
+    = "caml_vec128_unreachable" "caml_neon_int8x16_ushl"
+    [@@noalloc] [@@unboxed] [@@builtin]
+
+  external sshl : t -> t -> t
+    = "caml_vec128_unreachable" "caml_neon_int8x16_sshl"
+    [@@noalloc] [@@unboxed] [@@builtin]
+
+  let srl : t -> t -> t = fun arg count -> ushl arg (neg count)
+
+  let sra : t -> t -> t = fun arg count -> sshl arg (neg count)
 end
 
 module SSE_Util = struct

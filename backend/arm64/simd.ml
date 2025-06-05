@@ -188,6 +188,24 @@ type operation =
   | Eorq_s16
   | Negq_s16
   | Cntq_u16
+  | Addq_s8
+  | Paddq_s8
+  | Qaddq_s8
+  | Qaddq_u8
+  | Subq_s8
+  | Qsubq_s8
+  | Qsubq_u8
+  | Absq_s8
+  | Minq_s8
+  | Maxq_s8
+  | Minq_u8
+  | Maxq_u8
+  | Mvnq_s8
+  | Orrq_s8
+  | Andq_s8
+  | Eorq_s8
+  | Negq_s8
+  | Cntq_u8
   | Cvtq_s32_f32
   | Cvtq_f32_s32
   | Cvt_f64_f32
@@ -211,6 +229,8 @@ type operation =
   | Cmpz_s64 of Cond.t
   | Cmp_s16 of Cond.t
   | Cmpz_s16 of Cond.t
+  | Cmp_s8 of Cond.t
+  | Cmpz_s8 of Cond.t
   | Mvnq_s32
   | Orrq_s32
   | Andq_s32
@@ -227,6 +247,8 @@ type operation =
   | Shlq_s64
   | Shlq_u16
   | Shlq_s16
+  | Shlq_u8
+  | Shlq_s8
   | Shlq_n_u32 of int
   | Shlq_n_u64 of int
   | Shrq_n_u32 of int
@@ -236,6 +258,9 @@ type operation =
   | Shlq_n_u16 of int
   | Shrq_n_u16 of int
   | Shrq_n_s16 of int
+  | Shlq_n_u8 of int
+  | Shrq_n_u8 of int
+  | Shrq_n_s8 of int
   | Getq_lane_s32 of { lane : int (* 0 <= lane <= 3 *) }
   | Getq_lane_s64 of { lane : int (* 0 <= lane <= 1 *) }
   | Setq_lane_s32 of { lane : int (* 0 <= lane <= 3 *) }
@@ -245,6 +270,9 @@ type operation =
   | Getq_lane_s16 of { lane : int (* 0 <= lane <= 7 *) }
   | Setq_lane_s16 of { lane : int (* 0 <= lane <= 7 *) }
   | Dupq_lane_s16 of { lane : int (* 0 <= lane <= 7 *) }
+  | Getq_lane_s8 of { lane : int (* 0 <= lane <= 15 *) }
+  | Setq_lane_s8 of { lane : int (* 0 <= lane <= 15 *) }
+  | Dupq_lane_s8 of { lane : int (* 0 <= lane <= 15 *) }
   | Copyq_laneq_s64 of
       { src_lane : int;
         dst_lane : int
@@ -314,6 +342,8 @@ let print_name op =
   | Cmpz_s64 cond -> "Cmpz_s64_" ^ Cond.to_string cond
   | Cmp_s16 cond -> "Cmp_s16_" ^ Cond.to_string cond
   | Cmpz_s16 cond -> "Cmpz_s16_" ^ Cond.to_string cond
+  | Cmp_s8 cond -> "Cmp_s8_" ^ Cond.to_string cond
+  | Cmpz_s8 cond -> "Cmpz_s8_" ^ Cond.to_string cond
   | Mvnq_s32 -> "Mvnq_s32"
   | Orrq_s32 -> "Orrq_s32"
   | Andq_s32 -> "Andq_s32"
@@ -352,6 +382,24 @@ let print_name op =
   | Eorq_s16 -> "Eorq_s16"
   | Negq_s16 -> "Negq_s16"
   | Cntq_u16 -> "Cntq_s16"
+  | Addq_s8 -> "Addq_s8"
+  | Paddq_s8 -> "Paddq_s8"
+  | Qaddq_s8 -> "Qaddq_s8"
+  | Qaddq_u8 -> "Qaddq_u8"
+  | Subq_s8 -> "Subq_s8"
+  | Qsubq_s8 -> "Qsubq_s8"
+  | Qsubq_u8 -> "Qsubq_u8"
+  | Absq_s8 -> "Absq_s8"
+  | Minq_s8 -> "Minq_s8"
+  | Maxq_s8 -> "Maxq_s8"
+  | Minq_u8 -> "Minq_u8"
+  | Maxq_u8 -> "Maxq_u8"
+  | Mvnq_s8 -> "Mvnq_s8"
+  | Orrq_s8 -> "Orrq_s8"
+  | Andq_s8 -> "Andq_s8"
+  | Eorq_s8 -> "Eorq_s8"
+  | Negq_s8 -> "Negq_s8"
+  | Cntq_u8 -> "Cntq_s8"
   | Shlq_n_u32 n -> "Shlq_n_u32" ^ Int.to_string n
   | Shlq_n_u64 n -> "Shlq_n_u64" ^ Int.to_string n
   | Shrq_n_u32 n -> "Shrq_n_u32" ^ Int.to_string n
@@ -361,12 +409,17 @@ let print_name op =
   | Shlq_n_u16 n -> "Shlq_n_u16" ^ Int.to_string n
   | Shrq_n_u16 n -> "Shrq_n_u16" ^ Int.to_string n
   | Shrq_n_s16 n -> "Shrq_n_s16" ^ Int.to_string n
+  | Shlq_n_u8 n -> "Shlq_n_u8" ^ Int.to_string n
+  | Shrq_n_u8 n -> "Shrq_n_u8" ^ Int.to_string n
+  | Shrq_n_s8 n -> "Shrq_n_s8" ^ Int.to_string n
   | Shlq_u32 -> "Ushlq_u32"
   | Shlq_u64 -> "Ushlq_u64"
   | Shlq_s32 -> "Sshlq_s32"
   | Shlq_s64 -> "Sshlq_s64"
   | Shlq_u16 -> "Ushlq_u16"
   | Shlq_s16 -> "Sshlq_s16"
+  | Shlq_u8 -> "Ushlq_u8"
+  | Shlq_s8 -> "Sshlq_s8"
   | Setq_lane_s32 { lane } -> "Setq_lane_s32_" ^ Int.to_string lane
   | Setq_lane_s64 { lane } -> "Setq_lane_s64_" ^ Int.to_string lane
   | Getq_lane_s32 { lane } -> "Getq_lane_s32_" ^ Int.to_string lane
@@ -376,6 +429,9 @@ let print_name op =
   | Setq_lane_s16 { lane } -> "Setq_lane_s16_" ^ Int.to_string lane
   | Getq_lane_s16 { lane } -> "Setq_lane_s16_" ^ Int.to_string lane
   | Dupq_lane_s16 { lane } -> "Setq_lane_s16_" ^ Int.to_string lane
+  | Setq_lane_s8 { lane } -> "Setq_lane_s8_" ^ Int.to_string lane
+  | Getq_lane_s8 { lane } -> "Setq_lane_s8_" ^ Int.to_string lane
+  | Dupq_lane_s8 { lane } -> "Setq_lane_s8_" ^ Int.to_string lane
   | Copyq_laneq_s64 { src_lane; dst_lane } ->
     Printf.sprintf "Copyq_laneq_s64_%d_to_%d" src_lane dst_lane
 
@@ -483,7 +539,27 @@ let equal_operation op1 op2 =
   | Negq_s16, Negq_s16
   | Cntq_u16, Cntq_u16
   | Shlq_u16, Shlq_u16
-  | Shlq_s16, Shlq_s16 ->
+  | Shlq_s16, Shlq_s16
+  | Addq_s8, Addq_s8
+  | Paddq_s8, Paddq_s8
+  | Qaddq_s8, Qaddq_s8
+  | Qaddq_u8, Qaddq_u8
+  | Subq_s8, Subq_s8
+  | Qsubq_s8, Qsubq_s8
+  | Qsubq_u8, Qsubq_u8
+  | Absq_s8, Absq_s8
+  | Minq_s8, Minq_s8
+  | Maxq_s8, Maxq_s8
+  | Minq_u8, Minq_u8
+  | Maxq_u8, Maxq_u8
+  | Mvnq_s8, Mvnq_s8
+  | Orrq_s8, Orrq_s8
+  | Andq_s8, Andq_s8
+  | Eorq_s8, Eorq_s8
+  | Negq_s8, Negq_s8
+  | Cntq_u8, Cntq_u8
+  | Shlq_u8, Shlq_u8
+  | Shlq_s8, Shlq_s8 ->
     true
   | Shrq_n_s32 n1, Shrq_n_s32 n2
   | Shrq_n_s64 n1, Shrq_n_s64 n2
@@ -493,7 +569,10 @@ let equal_operation op1 op2 =
   | Shrq_n_u64 n1, Shrq_n_u64 n2
   | Shlq_n_u16 n1, Shlq_n_u16 n2
   | Shrq_n_u16 n1, Shrq_n_u16 n2
-  | Shrq_n_s16 n1, Shrq_n_s16 n2 ->
+  | Shrq_n_s16 n1, Shrq_n_s16 n2
+  | Shlq_n_u8 n1, Shlq_n_u8 n2
+  | Shrq_n_u8 n1, Shrq_n_u8 n2
+  | Shrq_n_s8 n1, Shrq_n_s8 n2 ->
     Int.equal n1 n2
   | Getq_lane_s32 { lane = l }, Getq_lane_s32 { lane = l' }
   | Getq_lane_s64 { lane = l }, Getq_lane_s64 { lane = l' }
@@ -503,7 +582,10 @@ let equal_operation op1 op2 =
   | Dupq_lane_s64 { lane = l }, Dupq_lane_s64 { lane = l' }
   | Getq_lane_s16 { lane = l }, Getq_lane_s16 { lane = l' }
   | Setq_lane_s16 { lane = l }, Setq_lane_s16 { lane = l' }
-  | Dupq_lane_s16 { lane = l }, Dupq_lane_s16 { lane = l' } ->
+  | Dupq_lane_s16 { lane = l }, Dupq_lane_s16 { lane = l' }
+  | Getq_lane_s8 { lane = l }, Getq_lane_s8 { lane = l' }
+  | Setq_lane_s8 { lane = l }, Setq_lane_s8 { lane = l' }
+  | Dupq_lane_s8 { lane = l }, Dupq_lane_s8 { lane = l' } ->
     Int.equal l l'
   | ( Copyq_laneq_s64 { src_lane = src; dst_lane = dst },
       Copyq_laneq_s64 { src_lane = src'; dst_lane = dst' } ) ->
@@ -512,6 +594,8 @@ let equal_operation op1 op2 =
   | Cmpz_s64 c, Cmpz_s64 c'
   | Cmp_s16 c, Cmp_s16 c'
   | Cmpz_s16 c, Cmpz_s16 c'
+  | Cmp_s8 c, Cmp_s8 c'
+  | Cmpz_s8 c, Cmpz_s8 c'
   | Cmp_s32 c, Cmp_s32 c'
   | Cmpz_s32 c, Cmpz_s32 c' ->
     Cond.equal c c'
@@ -543,7 +627,11 @@ let equal_operation op1 op2 =
       | Orrq_s16 | Andq_s16 | Eorq_s16 | Negq_s16 | Cntq_u16 | Shlq_u16
       | Shlq_s16 | Cmp_s16 _ | Cmpz_s16 _ | Shlq_n_u16 _ | Shrq_n_u16 _
       | Shrq_n_s16 _ | Getq_lane_s16 _ | Setq_lane_s16 _ | Dupq_lane_s16 _
-      | Copyq_laneq_s64 _ ),
+      | Addq_s8 | Paddq_s8 | Qaddq_s8 | Qaddq_u8 | Subq_s8 | Qsubq_s8 | Qsubq_u8
+      | Absq_s8 | Minq_s8 | Maxq_s8 | Minq_u8 | Maxq_u8 | Mvnq_s8 | Orrq_s8
+      | Andq_s8 | Eorq_s8 | Negq_s8 | Cntq_u8 | Shlq_u8 | Shlq_s8 | Cmp_s8 _
+      | Cmpz_s8 _ | Shlq_n_u8 _ | Shrq_n_u8 _ | Shrq_n_s8 _ | Getq_lane_s8 _
+      | Setq_lane_s8 _ | Dupq_lane_s8 _ | Copyq_laneq_s64 _ ),
       _ ) ->
     false
 
@@ -570,7 +658,12 @@ let class_of_operation op =
   | Minq_s16 | Maxq_s16 | Minq_u16 | Maxq_u16 | Mvnq_s16 | Orrq_s16 | Andq_s16
   | Eorq_s16 | Negq_s16 | Cntq_u16 | Shlq_u16 | Shlq_s16 | Cmp_s16 _
   | Cmpz_s16 _ | Shlq_n_u16 _ | Shrq_n_u16 _ | Shrq_n_s16 _ | Getq_lane_s16 _
-  | Setq_lane_s16 _ | Dupq_lane_s16 _ | Copyq_laneq_s64 _ ->
+  | Setq_lane_s16 _ | Dupq_lane_s16 _ | Addq_s8 | Paddq_s8 | Qaddq_s8 | Qaddq_u8
+  | Subq_s8 | Qsubq_s8 | Qsubq_u8 | Absq_s8 | Minq_s8 | Maxq_s8 | Minq_u8
+  | Maxq_u8 | Mvnq_s8 | Orrq_s8 | Andq_s8 | Eorq_s8 | Negq_s8 | Cntq_u8
+  | Shlq_u8 | Shlq_s8 | Cmp_s8 _ | Cmpz_s8 _ | Shlq_n_u8 _ | Shrq_n_u8 _
+  | Shrq_n_s8 _ | Getq_lane_s8 _ | Setq_lane_s8 _ | Dupq_lane_s8 _
+  | Copyq_laneq_s64 _ ->
     Pure
 
 let operation_is_pure op = match class_of_operation op with Pure -> true

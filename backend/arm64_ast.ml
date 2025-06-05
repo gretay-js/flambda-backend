@@ -937,6 +937,14 @@ module DSL = struct
     let r = Neon_reg_name.(Lane.V Vector.V2D) in
     reglane index ~lane r
 
+  let reglane_b index ~lane =
+    let r = Neon_reg_name.(Lane.S Scalar.B) in
+    reglane index ~lane r
+
+  let reglane_h index ~lane =
+    let r = Neon_reg_name.(Lane.S Scalar.H) in
+    reglane index ~lane r
+
   let reglane_s index ~lane =
     let r = Neon_reg_name.(Lane.S Scalar.S) in
     reglane index ~lane r

@@ -64,10 +64,12 @@ type register_behavior =
   | Rf64_to_Rf64
   | Rf32_to_Rs64
   (* extract *)
+  | Rs8x16_to_Rs8 of { lane : int }
   | Rs16x8_to_Rs16 of { lane : int }
   | Rs32x4_to_Rs32 of { lane : int }
   | Rs64x2_to_Rs64 of { lane : int }
   (* insert *)
+  | Rs8x16_Rs8_to_First of { lane : int }
   | Rs16x8_Rs16_to_First of { lane : int }
   | Rs32x4_Rs32_to_First of { lane : int }
   | Rs64x2_Rs64_to_First of { lane : int }
@@ -76,6 +78,7 @@ type register_behavior =
         dst_lane : int
       }
   (* dup *)
+  | Rs8x16lane_to_Rs8x16 of { lane : int }
   | Rs16x8lane_to_Rs16x8 of { lane : int }
   | Rs32x4lane_to_Rs32x4 of { lane : int }
   | Rs64x2lane_to_Rs64x2 of { lane : int }
@@ -131,21 +134,24 @@ let register_behavior (op : Simd.operation) =
     Rs32x4_to_Rs32x4
   | Copyq_laneq_s64 { src_lane; dst_lane } ->
     Rs64x2_Rs64x2_to_First { src_lane; dst_lane }
+  | Setq_lane_s8 { lane } -> Rs8x16_Rs8_to_First { lane }
   | Setq_lane_s16 { lane } -> Rs16x8_Rs16_to_First { lane }
   | Setq_lane_s32 { lane } -> Rs32x4_Rs32_to_First { lane }
   | Setq_lane_s64 { lane } -> Rs64x2_Rs64_to_First { lane }
+  | Getq_lane_s8 { lane } -> Rs8x16_to_Rs8 { lane }
   | Getq_lane_s16 { lane } -> Rs16x8_to_Rs16 { lane }
   | Getq_lane_s32 { lane } -> Rs32x4_to_Rs32 { lane }
   | Getq_lane_s64 { lane } -> Rs64x2_to_Rs64 { lane }
+  | Dupq_lane_s8 { lane } -> Rs8x16lane_to_Rs8x16 { lane }
   | Dupq_lane_s16 { lane } -> Rs16x8lane_to_Rs16x8 { lane }
   | Dupq_lane_s32 { lane } -> Rs32x4lane_to_Rs32x4 { lane }
   | Dupq_lane_s64 { lane } -> Rs64x2lane_to_Rs64x2 { lane }
-  | Orrq_s16 | Andq_s16 | Eorq_s16 | Eorq_s32 | Andq_s32 | Orrq_s32 | Orrq_s64
-  | Andq_s64 | Eorq_s64 | Zip1q_s8 | Zip2q_s8 ->
+  | Orrq_s8 | Andq_s8 | Eorq_s8 | Orrq_s16 | Andq_s16 | Eorq_s16 | Eorq_s32
+  | Andq_s32 | Orrq_s32 | Orrq_s64 | Andq_s64 | Eorq_s64 ->
     (* Bitwise operation, lane width does not matter. The only two encodings
        provided are 8B and 16B. *)
     Rs8x16_Rs8x16_to_Rs8x16
-  | Mvnq_s32 | Mvnq_s64 | Mvnq_s16 -> Rs8x16_to_Rs8x16
+  | Mvnq_s32 | Mvnq_s64 | Mvnq_s16 | Mvnq_s8 -> Rs8x16_to_Rs8x16
   | Addq_s32 | Subq_s32 | Minq_s32 | Maxq_s32 | Minq_u32 | Maxq_u32 | Paddq_s32
   | Shlq_u32 | Shlq_s32 ->
     Rs32x4_Rs32x4_to_Rs32x4
@@ -158,3 +164,10 @@ let register_behavior (op : Simd.operation) =
   | Absq_s16 | Negq_s16 | Cntq_u16 | Shlq_n_u16 _ | Shrq_n_u16 _ | Shrq_n_s16 _
   | Cmpz_s16 _ ->
     Rs16x8_to_Rs16x8
+  | Addq_s8 | Paddq_s8 | Qaddq_s8 | Qaddq_u8 | Subq_s8 | Qsubq_s8 | Qsubq_u8
+  | Minq_s8 | Maxq_s8 | Minq_u8 | Maxq_u8 | Shlq_u8 | Shlq_s8 | Cmp_s8 _
+  | Zip1q_s8 | Zip2q_s8 ->
+    Rs8x16_Rs8x16_to_Rs8x16
+  | Absq_s8 | Negq_s8 | Cntq_u8 | Shlq_n_u8 _ | Shrq_n_u8 _ | Shrq_n_s8 _
+  | Cmpz_s8 _ ->
+    Rs8x16_to_Rs8x16
