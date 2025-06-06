@@ -142,6 +142,7 @@ module SSE2_Util = struct
       0x0008000700060005L
 
   let () =
+    (failmsg := fun () -> Printf.printf "interleave_8");
     let v0 = Int8.of_ints 0 1 2 3 4 5 6 7 in
     let v1 = Int8.of_ints 8 9 0xa 0xb 0xc 0xd 0xe 0xf in
     let i0 = interleave_high_8 v0 v1 in
@@ -150,6 +151,10 @@ module SSE2_Util = struct
       0x0f070e060d050c04L;
     eq (int8x16_low_int64 i1) (int8x16_high_int64 i1) 0x0b030a0209010800L
       0x0f070e060d050c04L;
+    ()
+
+  let () =
+    (failmsg := fun () -> Printf.printf "interleave_16");
     let v0 = Int16.of_ints 0 1 2 3 4 5 6 7 in
     let v1 = Int16.of_ints 8 9 0xa 0xb 0xc 0xd 0xe 0xf in
     let i0 = interleave_high_16 v0 v1 in
@@ -158,6 +163,10 @@ module SSE2_Util = struct
       0x000f_0007_000e_0006L;
     eq (int16x8_low_int64 i1) (int16x8_high_int64 i1) 0x0009_0001_0008_0000L
       0x000b_0003_000a_0002L;
+    ()
+
+  let () =
+    (failmsg := fun () -> Printf.printf "interleave_64");
     let v0 = int64x2_of_int64s 0L 1L in
     let v1 = int64x2_of_int64s 2L 3L in
     let i0 = interleave_high_64 v0 v1 in

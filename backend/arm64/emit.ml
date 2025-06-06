@@ -569,9 +569,9 @@ end = struct
     | Fmax_f32 -> ins I.FMAX operands
     | Fmin_f64 -> ins I.FMIN operands
     | Fmax_f64 -> ins I.FMAX operands
-    | Zip1q_s8 | Zip1_f32 | Zip1q_f32 | Zip1q_f64 -> ins I.ZIP1 operands
-    | Zip2q_s8 | Zip1q_s16 | Zip2q_s16 | Zip2q_f32 | Zip2q_f64 ->
-      ins I.ZIP2 operands
+    | Zip1q_s8 | Zip1q_s16 | Zip1_f32 | Zip1q_f32 | Zip1q_f64 ->
+      ins I.ZIP1 operands
+    | Zip2q_s8 | Zip2q_s16 | Zip2q_f32 | Zip2q_f64 -> ins I.ZIP2 operands
     | Addq_s64 | Addq_s32 | Addq_s16 | Addq_s8 -> ins I.ADD operands
     | Subq_s64 | Subq_s32 | Subq_s16 | Subq_s8 -> ins I.SUB operands
     | Addq_f32 | Addq_f64 -> ins I.FADD operands
