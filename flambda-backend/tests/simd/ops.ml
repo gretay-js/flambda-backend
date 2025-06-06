@@ -89,6 +89,10 @@ module SSE2_Util = struct
     let i0 = movemask_64 v0 in
     let i1 = movemask_64 v1 in
     eqi i0 i1 0b11 0b00;
+    ()
+
+  let () =
+    (failmsg := fun () -> Printf.printf "movemask_8");
     let v0 = Int8.of_ints 0xff 0x7f 0x80 0x0 0x1 0xcc 0x33 0x55 in
     let i0 = movemask_8 v0 in
     eqi i0 0 0b0010_0101_0010_0101 0
@@ -96,9 +100,13 @@ module SSE2_Util = struct
   let () =
     let v0 = Int8.of_ints 0x0 0x1 0x2 0x3 0x4 0x5 0x6 0x7 in
     let v1 = shift_left_bytes 1 v0 in
-    let v2 = shift_right_bytes 1 v0 in
     eq (int8x16_low_int64 v1) (int8x16_high_int64 v1) 0x0605040302010000L
       0x0605040302010007L;
+    ()
+
+  let () =
+    let v0 = Int8.of_ints 0x0 0x1 0x2 0x3 0x4 0x5 0x6 0x7 in
+    let v2 = shift_right_bytes 1 v0 in
     eq (int8x16_low_int64 v2) (int8x16_high_int64 v2) 0x07060504030201L
       0x0007060504030201L
 

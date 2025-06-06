@@ -13,8 +13,10 @@ let eql lv hv l h =
   if l <> lv || h <> hv then !failmsg ()
 
 let eqi lv hv l h =
-  if l <> lv then Printf.printf "%016x <> %016x\n" lv l;
-  if h <> hv then Printf.printf "%016x <> %016x\n" hv h;
+  if l <> lv
+  then Printf.printf "low:  expected = %016x <> %016x = actual\n" lv l;
+  if h <> hv
+  then Printf.printf "high: expected = %016x <> %016x = actual\n" hv h;
   if l <> lv || h <> hv then !failmsg ()
 
 let eqf lv hv l h =
