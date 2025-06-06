@@ -299,6 +299,7 @@ module Instruction_name : sig
     | UXTL
     | XTN
     | DUP
+    | EXT
 end
 
 module DSL : sig

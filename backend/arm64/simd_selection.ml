@@ -81,6 +81,9 @@ let select_simd_instr op args =
   | "caml_neon_float64_min" -> Some (Fmin_f64, args)
   | "caml_neon_float64_max" -> Some (Fmax_f64, args)
   | "caml_neon_float32x2_zip1" -> Some (Zip1_f32, args)
+  | "caml_neon_int8x16_ext" ->
+    let n, args = extract_constant args ~max:15 op in
+    Some (Extq_u8 n, args)
   | "caml_simd_vec128_interleave_low_8" | "caml_neon_int8x16_zip1" ->
     Some (Zip1q_s8, args)
   | "caml_simd_vec128_interleave_high_8" | "caml_neon_int8x16_zip2" ->

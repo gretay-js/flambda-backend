@@ -515,7 +515,7 @@ end = struct
     | Minq_u8 | Maxq_u8 | Mvnq_s8 | Orrq_s8 | Andq_s8 | Eorq_s8 | Negq_s8
     | Cntq_u8 | Shlq_u8 | Shlq_s8 | Cmp_s8 _ | Cmpz_s8 _ | Shlq_n_u8 _
     | Shrq_n_u8 _ | Shrq_n_s8 _ | Getq_lane_s8 _ | Setq_lane_s8 _
-    | Dupq_lane_s8 _ ->
+    | Dupq_lane_s8 _ | Extq_u8 _ ->
       1
 
   let emit_rounding_mode (rm : Simd.Rounding_mode.t) : I.Rounding_mode.t =
@@ -646,6 +646,7 @@ end = struct
     | Qsubq_s16 | Qsubq_s8 -> ins I.SQSUB operands
     | Qsubq_u16 | Qsubq_u8 -> ins I.UQSUB operands
     | Cntq_u16 | Cntq_u8 -> ins I.CNT operands
+    | Extq_u8 n -> ins I.EXT (Array.append operands [| imm n |])
 end
 
 (* Record live pointers at call points *)
