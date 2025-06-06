@@ -186,10 +186,7 @@
 (executable
  (name ops_int32x4)
  (modules ops_int32x4)
- (enabled_if
-      (and (= %{context_name} "main")
-           (= %{architecture} "amd64")
-           (<> %{system} macosx)))
+ (enabled_if (= %{context_name} "main"))
  (ocamlopt_flags
   (:standard ))
  (libraries simd_test_helpers simd_test_builtins stdlib_stable stdlib_upstream_compatible)
@@ -197,10 +194,7 @@
 
 (rule
  (alias   runtest)
- (enabled_if
-      (and (= %{context_name} "main")
-           (= %{architecture} "amd64")
-           (<> %{system} macosx)))
+ (enabled_if (= %{context_name} "main"))
  (action
   (with-outputs-to
    ops_int32x4.out
@@ -208,10 +202,7 @@
 
 (rule
  (alias runtest)
- (enabled_if
-      (and (= %{context_name} "main")
-           (= %{architecture} "amd64")
-           (<> %{system} macosx)))
+ (enabled_if (= %{context_name} "main"))
  (action
    (diff empty.expected ops_int32x4.out)))
 
@@ -848,20 +839,14 @@
 
 (rule
  (alias runtest)
- (enabled_if
-      (and (= %{context_name} "main")
-           (= %{architecture} "amd64")
-           (<> %{system} macosx)))
+ (enabled_if (= %{context_name} "main"))
  (action
   (copy ops_int32x4.ml ops_int32x4_nodynlink.ml)))
 
 (executable
  (name ops_int32x4_nodynlink)
  (modules ops_int32x4_nodynlink)
- (enabled_if
-      (and (= %{context_name} "main")
-           (= %{architecture} "amd64")
-           (<> %{system} macosx)))
+ (enabled_if (= %{context_name} "main"))
  (ocamlopt_flags
   (:standard -nodynlink))
  (libraries simd_test_helpers simd_test_builtins stdlib_stable stdlib_upstream_compatible)
@@ -869,10 +854,7 @@
 
 (rule
  (alias   runtest)
- (enabled_if
-      (and (= %{context_name} "main")
-           (= %{architecture} "amd64")
-           (<> %{system} macosx)))
+ (enabled_if (= %{context_name} "main"))
  (action
   (with-outputs-to
    ops_int32x4_nodynlink.out
@@ -880,10 +862,7 @@
 
 (rule
  (alias runtest)
- (enabled_if
-      (and (= %{context_name} "main")
-           (= %{architecture} "amd64")
-           (<> %{system} macosx)))
+ (enabled_if (= %{context_name} "main"))
  (action
    (diff empty.expected ops_int32x4_nodynlink.out)))
 
