@@ -77,11 +77,11 @@ module SSE2_Util = struct
       (int64x2_high_int64 expect)
 
   let () =
-    Int64s.check_ints (check_binop Int64.logand _and);
+    Int64s.check_ints (check_binop Int64.logand bitwise_and);
     Int64s.check_ints
       (check_binop (fun l r -> Int64.(logand (lognot l) r)) andnot);
-    Int64s.check_ints (check_binop Int64.logor _or);
-    Int64s.check_ints (check_binop Int64.logxor xor)
+    Int64s.check_ints (check_binop Int64.logor bitwise_or);
+    Int64s.check_ints (check_binop Int64.logxor bitwise_xor)
 
   let () =
     let v0 = int64x2_of_int64s 0xffffffffffffffffL 0x8000000000000000L in

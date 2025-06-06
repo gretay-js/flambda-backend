@@ -23,21 +23,27 @@ open! Int_replace_polymorphic_compare [@@ocaml.warning "-66"]
    reporting. *)
 type error = Bad_immediate of string
 
-exception Error of error
+exception Error of error * Debuginfo.t
 
-let bad_immediate fmt =
-  Format.kasprintf (fun msg -> raise (Error (Bad_immediate msg))) fmt
+let bad_immediate dbg fmt =
+  Format.kasprintf (fun msg -> raise (Error (Bad_immediate msg, dbg))) fmt
 
 (* Assumes untagged int *)
-let[@ocaml.warning "-4"] extract_constant args name ~max =
+let[@ocaml.warning "-4"] extract_constant args name ~max dbg =
   match args with
   | Cmm.Cconst_int (i, _) :: args ->
     if i < 0 || i > max
     then
-      bad_immediate "Immediate for %s must be in range [0,%d] (got %d)" name max
-        i;
+      bad_immediate dbg "Immediate for %s must be in range [0,%d] (got %d)" name
+        max i;
     i, args
-  | _ -> bad_immediate "Did not get integer immediate for %s" name
+  | _ -> bad_immediate dbg "Did not get integer immediate for %s" name
+
+let one_arg name args =
+  match args with
+  | [arg] -> arg
+  | _ ->
+    Misc.fatal_errorf "Cmm_builtins: expected exactly 1 argument for %s" name
 
 (* Intrinsics naming conventions:
 
@@ -55,7 +61,7 @@ let[@ocaml.warning "-4"] extract_constant args name ~max =
    Some intrinsics have both names to make it easier to correlate with both
    amd64 intrinsics and arm64 instructions, depending on context. *)
 
-let select_simd_instr op args =
+let select_simd_instr op args dbg =
   match op with
   | "caml_simd_float32_round_neg_inf" -> Some (Round_f32 Neg_inf, args)
   | "caml_simd_float64_round_neg_inf" -> Some (Round_f64 Neg_inf, args)
@@ -82,7 +88,19 @@ let select_simd_instr op args =
   | "caml_neon_float64_max" -> Some (Fmax_f64, args)
   | "caml_neon_float32x2_zip1" -> Some (Zip1_f32, args)
   | "caml_neon_int8x16_ext" ->
-    let n, args = extract_constant args ~max:15 op in
+    let n, args = extract_constant args ~max:15 op dbg in
+    Some (Extq_u8 n, args)
+  | "caml_neon_vec128_shift_left_bytes" ->
+    let n, args = extract_constant args ~max:15 op dbg in
+    let arg = one_arg op args in
+    let zero = Cmm.Cconst_int (0, dbg) in
+    let args = [zero; arg] in
+    Some (Extq_u8 n, args)
+  | "caml_neon_vec128_shift_right_bytes" ->
+    let n, args = extract_constant args ~max:15 op dbg in
+    let arg = one_arg op args in
+    let zero = Cmm.Cconst_int (0, dbg) in
+    let args = [arg; zero] in
     Some (Extq_u8 n, args)
   | "caml_simd_vec128_interleave_low_8" | "caml_neon_int8x16_zip1" ->
     Some (Zip1q_s8, args)
@@ -196,46 +214,46 @@ let select_simd_instr op args =
   | "caml_neon_int64x2_bitwise_xor" -> Some (Eorq_s64, args)
   | "caml_neon_int64x2_neg" -> Some (Negq_s64, args)
   | "caml_neon_int32x4_slli" ->
-    let n, args = extract_constant args ~max:32 op in
+    let n, args = extract_constant args ~max:32 op dbg in
     Some (Shlq_n_u32 n, args)
   | "caml_neon_int64x2_slli" ->
-    let n, args = extract_constant args ~max:64 op in
+    let n, args = extract_constant args ~max:64 op dbg in
     Some (Shlq_n_u64 n, args)
   | "caml_neon_int32x4_ushl" -> Some (Shlq_u32, args)
   | "caml_neon_int64x2_ushl" -> Some (Shlq_u64, args)
   | "caml_neon_int32x4_srli" ->
-    let n, args = extract_constant args ~max:32 op in
+    let n, args = extract_constant args ~max:32 op dbg in
     Some (Shrq_n_u32 n, args)
   | "caml_neon_int64x2_srli" ->
-    let n, args = extract_constant args ~max:64 op in
+    let n, args = extract_constant args ~max:64 op dbg in
     Some (Shrq_n_u64 n, args)
   | "caml_neon_int32x4_sshl" -> Some (Shlq_s32, args)
   | "caml_neon_int64x2_sshl" -> Some (Shlq_s64, args)
   | "caml_neon_int32x4_srai" ->
-    let n, args = extract_constant args ~max:32 op in
+    let n, args = extract_constant args ~max:32 op dbg in
     Some (Shrq_n_s32 n, args)
   | "caml_neon_int64x2_srai" ->
-    let n, args = extract_constant args ~max:64 op in
+    let n, args = extract_constant args ~max:64 op dbg in
     Some (Shrq_n_s64 n, args)
   | "caml_neon_int32x4_extract" ->
-    let lane, args = extract_constant args ~max:3 op in
+    let lane, args = extract_constant args ~max:3 op dbg in
     Some (Getq_lane_s32 { lane }, args)
   | "caml_neon_int64x2_extract" ->
-    let lane, args = extract_constant args ~max:1 op in
+    let lane, args = extract_constant args ~max:1 op dbg in
     Some (Getq_lane_s64 { lane }, args)
   | "caml_neon_int32x4_insert" ->
-    let lane, args = extract_constant args ~max:3 op in
+    let lane, args = extract_constant args ~max:3 op dbg in
     Some (Setq_lane_s32 { lane }, args)
   | "caml_neon_int64x2_insert" ->
-    let lane, args = extract_constant args ~max:1 op in
+    let lane, args = extract_constant args ~max:1 op dbg in
     Some (Setq_lane_s64 { lane }, args)
   | "caml_neon_int32x4_dup" -> Some (Dupq_lane_s32 { lane = 0 }, args)
   | "caml_neon_int32x4_dup_lane" ->
-    let lane, args = extract_constant args ~max:3 op in
+    let lane, args = extract_constant args ~max:3 op dbg in
     Some (Dupq_lane_s32 { lane }, args)
   | "caml_neon_int64x2_dup" -> Some (Dupq_lane_s64 { lane = 0 }, args)
   | "caml_neon_int64x2_dup_lane" ->
-    let lane, args = extract_constant args ~max:1 op in
+    let lane, args = extract_constant args ~max:1 op dbg in
     Some (Dupq_lane_s64 { lane }, args)
   | "caml_neon_int8x16_add" -> Some (Addq_s8, args)
   | "caml_neon_int8x16_hadd" -> Some (Paddq_s8, args)
@@ -266,25 +284,25 @@ let select_simd_instr op args =
   | "caml_neon_int8x16_cmple" -> Some (Cmp_s8 LE, args)
   | "caml_neon_int8x16_cmplt" -> Some (Cmp_s8 LT, args)
   | "caml_neon_int8x16_slli" ->
-    let n, args = extract_constant args ~max:8 op in
+    let n, args = extract_constant args ~max:8 op dbg in
     Some (Shlq_n_u8 n, args)
   | "caml_neon_int8x16_srli" ->
-    let n, args = extract_constant args ~max:8 op in
+    let n, args = extract_constant args ~max:8 op dbg in
     Some (Shrq_n_u8 n, args)
   | "caml_neon_int8x16_srai" ->
-    let n, args = extract_constant args ~max:8 op in
+    let n, args = extract_constant args ~max:8 op dbg in
     Some (Shrq_n_s8 n, args)
   | "caml_neon_int8x16_ushl" -> Some (Shlq_u8, args)
   | "caml_neon_int8x16_sshl" -> Some (Shlq_s8, args)
   | "caml_neon_int8x16_extract" ->
-    let lane, args = extract_constant args ~max:15 op in
+    let lane, args = extract_constant args ~max:15 op dbg in
     Some (Getq_lane_s8 { lane }, args)
   | "caml_neon_int8x16_insert" ->
-    let lane, args = extract_constant args ~max:15 op in
+    let lane, args = extract_constant args ~max:15 op dbg in
     Some (Setq_lane_s8 { lane }, args)
   | "caml_neon_int8x16_dup" -> Some (Dupq_lane_s8 { lane = 0 }, args)
   | "caml_neon_int8x16_dup_lane" ->
-    let lane, args = extract_constant args ~max:15 op in
+    let lane, args = extract_constant args ~max:15 op dbg in
     Some (Dupq_lane_s8 { lane }, args)
   | "caml_neon_int16x8_add" -> Some (Addq_s16, args)
   | "caml_neon_int16x8_hadd" -> Some (Paddq_s16, args)
@@ -315,30 +333,30 @@ let select_simd_instr op args =
   | "caml_neon_int16x8_cmple" -> Some (Cmp_s16 LE, args)
   | "caml_neon_int16x8_cmplt" -> Some (Cmp_s16 LT, args)
   | "caml_neon_int16x8_slli" ->
-    let n, args = extract_constant args ~max:16 op in
+    let n, args = extract_constant args ~max:16 op dbg in
     Some (Shlq_n_u16 n, args)
   | "caml_neon_int16x8_srli" ->
-    let n, args = extract_constant args ~max:16 op in
+    let n, args = extract_constant args ~max:16 op dbg in
     Some (Shrq_n_u16 n, args)
   | "caml_neon_int16x8_srai" ->
-    let n, args = extract_constant args ~max:16 op in
+    let n, args = extract_constant args ~max:16 op dbg in
     Some (Shrq_n_s16 n, args)
   | "caml_neon_int16x8_ushl" -> Some (Shlq_u16, args)
   | "caml_neon_int16x8_sshl" -> Some (Shlq_s16, args)
   | "caml_neon_int16x8_extract" ->
-    let lane, args = extract_constant args ~max:7 op in
+    let lane, args = extract_constant args ~max:7 op dbg in
     Some (Getq_lane_s16 { lane }, args)
   | "caml_neon_int16x8_insert" ->
-    let lane, args = extract_constant args ~max:7 op in
+    let lane, args = extract_constant args ~max:7 op dbg in
     Some (Setq_lane_s16 { lane }, args)
   | "caml_neon_int16x8_dup" -> Some (Dupq_lane_s16 { lane = 0 }, args)
   | "caml_neon_int16x8_dup_lane" ->
-    let lane, args = extract_constant args ~max:7 op in
+    let lane, args = extract_constant args ~max:7 op dbg in
     Some (Dupq_lane_s16 { lane }, args)
   | _ -> None
 
-let select_operation_cfg op args =
-  select_simd_instr op args
+let select_operation_cfg op args dbg =
+  select_simd_instr op args dbg
   |> Option.map (fun (op, args) -> Operation.Specific (Isimd op), args)
 
 let pseudoregs_for_operation (simd_op : Simd.operation) arg res =
@@ -380,5 +398,7 @@ let report_error ppf = function
 
 let () =
   Location.register_error_of_exn (function
-    | Error err -> Some (Location.error_of_printer_file report_error err)
+    | Error (err, dbg) ->
+      let loc = Debuginfo.to_location dbg in
+      Some (Location.error_of_printer ~loc report_error err)
     | _ -> None)

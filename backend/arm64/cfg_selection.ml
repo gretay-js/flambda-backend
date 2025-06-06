@@ -111,7 +111,7 @@ let select_addressing chunk (expr : Cmm.expression) :
   | arg -> Iindexed 0, arg
 
 let select_operation ~generic_select_condition:_ (op : Cmm.operation)
-    (args : Cmm.expression list) _dbg ~label_after:_ :
+    (args : Cmm.expression list) dbg ~label_after:_ :
     Cfg_selectgen_target_intf.select_operation_result =
   let[@inline] rewrite_multiply_add_or_sub shift_op mul_op ~arg1 ~args2 dbg :
       Cfg_selectgen_target_intf.select_operation_result =
@@ -199,7 +199,7 @@ let select_operation ~generic_select_condition:_ (op : Cmm.operation)
   | Cextcall { func = "sqrt" | "sqrtf" | "caml_neon_float64_sqrt"; _ } ->
     Rewritten (specific Isqrtf, args)
   | Cextcall { func; builtin = true; _ } -> (
-    match Simd_selection.select_operation_cfg func args with
+    match Simd_selection.select_operation_cfg func args dbg with
     | Some (op, args) -> Rewritten (Basic (Op op), args)
     | None -> Use_default)
   (* Recognize bswap instructions *)

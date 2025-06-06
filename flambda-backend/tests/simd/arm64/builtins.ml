@@ -114,7 +114,7 @@ module Int64x2 = struct
     = "caml_vec128_unreachable" "caml_neon_int64x2_bitwise_or"
     [@@noalloc] [@@unboxed] [@@builtin]
 
-  external bitwise_and : t -> t
+  external bitwise_and : t -> t -> t
     = "caml_vec128_unreachable" "caml_neon_int64x2_bitwise_and"
     [@@noalloc] [@@unboxed] [@@builtin]
 
@@ -271,7 +271,7 @@ module Int32x4 = struct
     = "caml_vec128_unreachable" "caml_neon_int32x4_bitwise_or"
     [@@noalloc] [@@unboxed] [@@builtin]
 
-  external bitwise_and : t -> t
+  external bitwise_and : t -> t -> t
     = "caml_vec128_unreachable" "caml_neon_int32x4_bitwise_and"
     [@@noalloc] [@@unboxed] [@@builtin]
 
@@ -789,6 +789,18 @@ module Int8x16 = struct
     = "caml_vec128_unreachable" "caml_neon_int8x16_mul_unsigned_hadd_saturating_int16x8"
     [@@noalloc] [@@unboxed] [@@builtin]
 
+  external bitwise_or : t -> t -> t
+    = "caml_vec128_unreachable" "caml_neon_int8x16_bitwise_or"
+    [@@noalloc] [@@unboxed] [@@builtin]
+
+  external bitwise_and : t -> t -> t
+    = "caml_vec128_unreachable" "caml_neon_int8x16_bitwise_and"
+    [@@noalloc] [@@unboxed] [@@builtin]
+
+  external bitwise_xor : t -> t -> t
+    = "caml_vec128_unreachable" "caml_neon_int8x16_bitwise_xor"
+    [@@noalloc] [@@unboxed] [@@builtin]
+
   external extract : (int[@untagged]) -> (t[@unboxed]) -> (int[@untagged])
     = "caml_vec128_unreachable" "caml_neon_int8x16_extract"
     [@@noalloc] [@@builtin]
@@ -911,10 +923,14 @@ module SSE_Util = struct
 end
 
 module SSE2_Util = struct
+  let bitwise_and : int64x2 -> int64x2 -> int64x2 = Int64x2.bitwise_and
+
+  let bitwise_or : int64x2 -> int64x2 -> int64x2 = Int64x2.bitwise_or
+
   let andnot : int64x2 -> int64x2 -> int64x2 =
    fun a b -> Int64x2.bitwise_and (Int64x2.bitwise_not a) b
 
-  let xor : int64x2 -> int64x2 -> int64x2 = Int64x2.bitwise_xor
+  let bitwise_xor : int64x2 -> int64x2 -> int64x2 = Int64x2.bitwise_xor
 
   (* See [movemask_32]. *)
   let movemask_8 (t : int8x16) : int =
@@ -957,19 +973,15 @@ module SSE2_Util = struct
     let res = Int64.logor res (Int64.shift_left lane_mask i) in
     Int64.to_int res
 
-  let shift_left_bytes : int -> int8x16 -> int8x16 =
-   fun count a ->
-    let zero = Int8x16.bitwise_xor a a in
-    if count > 15 || count < 0
-    then zero
-    else Int8x16.ext count ~low:zero ~high:a
+  external shift_left_bytes :
+    (int[@untagged]) -> (int8x16[@unboxed]) -> (int8x16[@unboxed])
+    = "caml_vec128_unreachable" "caml_neon_vec128_shift_left_bytes"
+    [@@noalloc] [@@builtin]
 
-  let shift_right_bytes : int -> int8x16 -> int8x16 =
-   fun count a ->
-    let zero = Int8x16.bitwise_xor a a in
-    if count > 15 || count < 0
-    then zero
-    else Int8x16.ext count ~low:a ~high:zero
+  external shift_right_bytes :
+    (int[@untagged]) -> (int8x16[@unboxed]) -> (int8x16[@unboxed])
+    = "caml_vec128_unreachable" "caml_neon_vec128_shift_right_bytes"
+    [@@noalloc] [@@builtin]
 
   let shuffle_64 : int -> int64x2 -> int64x2 -> int64x2 =
    fun ctrl a b ->
@@ -983,9 +995,9 @@ module SSE2_Util = struct
     let extract lane t =
       match lane with 0 -> extract 0 t | 1 -> extract 1 t | _ -> assert false
     in
-    let[@inline always] ctrl i = (ctrl lsr i) && 1 in
+    let[@inline always] ctrl i = (ctrl lsr i) land 1 in
     let res = dup_lane (ctrl 0) a in
-    let dst1 = extract (ctrl 1) a in
+    let dst1 = extract (ctrl 1) b in
     let res = insert 1 res dst1 in
     res
 

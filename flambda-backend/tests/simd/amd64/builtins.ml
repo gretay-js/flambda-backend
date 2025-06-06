@@ -569,7 +569,7 @@ module SSE_Util = struct
 end
 
 module SSE2_Util = struct
-  external _and : int64x2 -> int64x2 -> int64x2
+  external bitwise_and : int64x2 -> int64x2 -> int64x2
     = "caml_vec128_unreachable" "caml_sse2_vec128_and"
     [@@noalloc] [@@unboxed] [@@builtin]
 
@@ -577,11 +577,11 @@ module SSE2_Util = struct
     = "caml_vec128_unreachable" "caml_sse2_vec128_andnot"
     [@@noalloc] [@@unboxed] [@@builtin]
 
-  external _or : int64x2 -> int64x2 -> int64x2
+  external bitwise_or : int64x2 -> int64x2 -> int64x2
     = "caml_vec128_unreachable" "caml_sse2_vec128_or"
     [@@noalloc] [@@unboxed] [@@builtin]
 
-  external xor : int64x2 -> int64x2 -> int64x2
+  external bitwise_xor : int64x2 -> int64x2 -> int64x2
     = "caml_vec128_unreachable" "caml_sse2_vec128_xor"
     [@@noalloc] [@@unboxed] [@@builtin]
 
@@ -590,7 +590,10 @@ module SSE2_Util = struct
     [@@noalloc] [@@builtin]
 
   external movemask_64 : (int64x2[@unboxed]) -> (int[@untagged])
-    = "caml_vec128_unreachable" "caml_sse2_vec128_movemask_64"
+    = "caml_vec128_unreachable" {|caml_sse2_vec128_let foo x = x + 1
+
+let[@zero_alloc] bar = foo
+movemask_64|}
     [@@noalloc] [@@builtin]
 
   external shift_left_bytes :
