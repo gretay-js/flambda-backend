@@ -1118,7 +1118,7 @@ module SSE3_Util = struct
     let i = 0 in
     let lane = extract i a in
     let res = insert (i + 1) res lane in
-    let i = 1 in
+    let i = 2 in
     let lane = extract i a in
     let res = insert (i + 1) res lane in
     res
