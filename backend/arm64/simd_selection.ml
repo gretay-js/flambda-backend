@@ -92,10 +92,11 @@ let select_simd_instr op args dbg =
     Some (Extq_u8 n, args)
   | "caml_neon_vec128_shift_left_bytes" ->
     let n, args = extract_constant args ~max:15 op dbg in
+    let n' = 16 - n in
     let arg = one_arg op args in
     let zero = Cmm.Cconst_int (0, dbg) in
     let args = [zero; arg] in
-    Some (Extq_u8 n, args)
+    Some (Extq_u8 n', args)
   | "caml_neon_vec128_shift_right_bytes" ->
     let n, args = extract_constant args ~max:15 op dbg in
     let arg = one_arg op args in
