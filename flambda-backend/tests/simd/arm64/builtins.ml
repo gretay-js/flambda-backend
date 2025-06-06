@@ -1001,15 +1001,59 @@ module SSE2_Util = struct
     let res = insert 1 res dst1 in
     res
 
-  external shuffle_high_16 :
-    (int[@untagged]) -> (int16x8[@unboxed]) -> (int16x8[@unboxed])
-    = "caml_vec128_unreachable" "caml_neon_vec128_shuffle_high_16"
-    [@@noalloc] [@@builtin]
+  let shuffle_low_16 : int -> int16x8 -> int16x8 =
+   fun ctrl a ->
+    let open Int16x8 in
+    let extract lane t =
+      match lane with
+      | 0 -> extract 0 t
+      | 1 -> extract 1 t
+      | 2 -> extract 2 t
+      | 3 -> extract 3 t
+      | _ -> assert false
+    in
+    let[@inline always] ctrl i = (ctrl lsr (i * 2)) land 3 in
+    let res = a in
+    let i = 0 in
+    let lane = extract (ctrl i) a in
+    let res = insert i res lane in
+    let i = 1 in
+    let lane = extract (ctrl i) a in
+    let res = insert i res lane in
+    let i = 2 in
+    let lane = extract (ctrl i) a in
+    let res = insert i res lane in
+    let i = 3 in
+    let lane = extract (ctrl i) a in
+    let res = insert i res lane in
+    res
 
-  external shuffle_low_16 :
-    (int[@untagged]) -> (int16x8[@unboxed]) -> (int16x8[@unboxed])
-    = "caml_vec128_unreachable" "caml_neon_vec128_shuffle_low_16"
-    [@@noalloc] [@@builtin]
+  let shuffle_high_16 : int -> int16x8 -> int16x8 =
+   fun ctrl a ->
+    let open Int16x8 in
+    let extract lane t =
+      match lane with
+      | 4 -> extract 4 t
+      | 5 -> extract 5 t
+      | 6 -> extract 6 t
+      | 7 -> extract 7 t
+      | _ -> assert false
+    in
+    let[@inline always] ctrl i = ((ctrl lsr (i * 2)) land 3) + 4 in
+    let res = a in
+    let i = 0 in
+    let lane = extract (ctrl i) a in
+    let res = insert (i + 4) res lane in
+    let i = 1 in
+    let lane = extract (ctrl i) a in
+    let res = insert (i + 4) res lane in
+    let i = 2 in
+    let lane = extract (ctrl i) a in
+    let res = insert (i + 4) res lane in
+    let i = 3 in
+    let lane = extract (ctrl i) a in
+    let res = insert (i + 4) res lane in
+    res
 
   external interleave_high_8 : int8x16 -> int8x16 -> int8x16
     = "caml_vec128_unreachable" "caml_simd_vec128_interleave_high_8"
@@ -1037,17 +1081,47 @@ module SSE2_Util = struct
 end
 
 module SSE3_Util = struct
-  external dup_low_64 : int64x2 -> int64x2
-    = "caml_vec128_unreachable" "caml_neon_vec128_dup_low_64"
-    [@@noalloc] [@@unboxed] [@@builtin]
+  let dup_low_64 a = Int64x2.dup a
 
-  external dup_odd_32 : int32x4 -> int32x4
-    = "caml_vec128_unreachable" "caml_neon_vec128_dup_odd_32"
-    [@@noalloc] [@@unboxed] [@@builtin]
+  let dup_odd_32 : int32x4 -> int32x4 =
+   fun a ->
+    let open Int32x4 in
+    let extract lane t =
+      match lane with
+      | 0 -> extract 0 t
+      | 1 -> extract 1 t
+      | 2 -> extract 2 t
+      | 3 -> extract 3 t
+      | _ -> assert false
+    in
+    let res = a in
+    let i = 1 in
+    let lane = extract i a in
+    let res = insert (i - 1) res lane in
+    let i = 3 in
+    let lane = extract i a in
+    let res = insert (i - 1) res lane in
+    res
 
-  external dup_even_32 : int32x4 -> int32x4
-    = "caml_vec128_unreachable" "caml_neon_vec128_dup_even_32"
-    [@@noalloc] [@@unboxed] [@@builtin]
+  let dup_even_32 : int32x4 -> int32x4 =
+   fun a ->
+    let open Int32x4 in
+    let extract lane t =
+      match lane with
+      | 0 -> extract 0 t
+      | 1 -> extract 1 t
+      | 2 -> extract 2 t
+      | 3 -> extract 3 t
+      | _ -> assert false
+    in
+    let res = a in
+    let i = 0 in
+    let lane = extract i a in
+    let res = insert (i + 1) res lane in
+    let i = 1 in
+    let lane = extract i a in
+    let res = insert (i + 1) res lane in
+    res
 end
 
 module SSSE3_Util = struct
