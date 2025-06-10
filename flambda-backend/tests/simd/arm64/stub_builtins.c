@@ -270,3 +270,14 @@ BUILTIN(caml_neon_int8x16_bitwise_not)
 BUILTIN(caml_neon_int8x16_bitwise_or)
 BUILTIN(caml_neon_int8x16_bitwise_xor)
 BUILTIN(caml_neon_int8x16_ext)
+
+
+BUILTIN(caml_neon_cvt_int32x4_to_int16x8_high_saturating);
+BUILTIN(caml_neon_cvt_int32x4_to_int16x8_high_saturating_unsigned);
+BUILTIN(caml_neon_cvt_int32x4_to_int16x8_low_saturating);
+BUILTIN(caml_neon_cvt_int32x4_to_int16x8_low_saturating_unsigned);
+
+BUILTIN(caml_neon_cvt_int16x8_to_int8x16_high_saturating);
+BUILTIN(caml_neon_cvt_int16x8_to_int8x16_high_saturating_unsigned);
+BUILTIN(caml_neon_cvt_int16x8_to_int8x16_low_saturating);
+BUILTIN(caml_neon_cvt_int16x8_to_int8x16_low_saturating_unsigned);

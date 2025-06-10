@@ -58,7 +58,9 @@ type register_behavior =
   | Rs16x8_to_Rs16x8
   | Rs64x2_to_Rs32x2
   | Rs32x4_to_Rs16x4
+  | Rs16x8_to_Rs8x8
   | Rs32x4_Rs16x8_to_First
+  | Rs16x8_Rs8x16_to_First
   (* scalar *)
   | Rf32_Rf32_to_Rf32
   | Rf64_Rf64_to_Rf64
@@ -175,3 +177,5 @@ let register_behavior (op : Simd.operation) =
     Rs8x16_to_Rs8x16
   | Qmovn_u32 | Qmovn_s32 -> Rs32x4_to_Rs16x4
   | Qmovn_high_s32 | Qmovn_high_u32 -> Rs32x4_Rs16x8_to_First
+  | Qmovn_u16 | Qmovn_s16 -> Rs16x8_to_Rs8x8
+  | Qmovn_high_s16 | Qmovn_high_u16 -> Rs16x8_Rs8x16_to_First
