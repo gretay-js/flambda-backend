@@ -120,11 +120,11 @@ let () =
       "ops_int64x2", enabled_if_main;
       "ops_int64x2_u", enabled_if_main;
       "ops_int32x4", enabled_if_main;
-      "ops_int32x4_u", enabled_if_main_amd64_not_macos;
-      "ops_int16x8", enabled_if_main_amd64_not_macos;
-      "ops_int16x8_u", enabled_if_main_amd64_not_macos;
-      "ops_int8x16", enabled_if_main_amd64_not_macos;
-      "ops_int8x16_u", enabled_if_main_amd64_not_macos;
+      "ops_int32x4_u", enabled_if_main;
+      "ops_int16x8", enabled_if_main;
+      "ops_int16x8_u", enabled_if_main;
+      "ops_int8x16", enabled_if_main;
+      "ops_int8x16_u", enabled_if_main;
       "ops", enabled_if_main;
       "ops_u", enabled_if_main;
       "arrays", enabled_if_main;
