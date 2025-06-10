@@ -57,6 +57,8 @@ type register_behavior =
   | Rs16x8_Rs16x8_to_Rs16x8
   | Rs16x8_to_Rs16x8
   | Rs64x2_to_Rs32x2
+  | Rs32x4_to_Rs16x4
+  | Rs32x4_Rs16x8_to_First
   (* scalar *)
   | Rf32_Rf32_to_Rf32
   | Rf64_Rf64_to_Rf64
@@ -153,13 +155,13 @@ let register_behavior (op : Simd.operation) =
     Rs8x16_Rs8x16_to_Rs8x16
   | Mvnq_s32 | Mvnq_s64 | Mvnq_s16 | Mvnq_s8 -> Rs8x16_to_Rs8x16
   | Addq_s32 | Subq_s32 | Minq_s32 | Maxq_s32 | Minq_u32 | Maxq_u32 | Paddq_s32
-  | Shlq_u32 | Shlq_s32 ->
+  | Shlq_u32 | Shlq_s32 | Mulq_s32 ->
     Rs32x4_Rs32x4_to_Rs32x4
   | Absq_s64 | Shlq_n_u64 _ | Shrq_n_u64 _ | Shrq_n_s64 _ | Negq_s64 ->
     Rs64x2_to_Rs64x2
   | Addq_s16 | Paddq_s16 | Qaddq_s16 | Qaddq_u16 | Subq_s16 | Qsubq_s16
   | Qsubq_u16 | Minq_s16 | Maxq_s16 | Minq_u16 | Maxq_u16 | Shlq_u16 | Shlq_s16
-  | Cmp_s16 _ | Zip1q_s16 | Zip2q_s16 ->
+  | Cmp_s16 _ | Zip1q_s16 | Zip2q_s16 | Mulq_s16 ->
     Rs16x8_Rs16x8_to_Rs16x8
   | Absq_s16 | Negq_s16 | Cntq_u16 | Shlq_n_u16 _ | Shrq_n_u16 _ | Shrq_n_s16 _
   | Cmpz_s16 _ ->
@@ -171,3 +173,5 @@ let register_behavior (op : Simd.operation) =
   | Absq_s8 | Negq_s8 | Cntq_u8 | Shlq_n_u8 _ | Shrq_n_u8 _ | Shrq_n_s8 _
   | Cmpz_s8 _ ->
     Rs8x16_to_Rs8x16
+  | Qmovn_u32 | Qmovn_s32 -> Rs32x4_to_Rs16x4
+  | Qmovn_high_s32 | Qmovn_high_u32 -> Rs32x4_Rs16x8_to_First

@@ -260,6 +260,8 @@ end = struct
 
   let emit_reg_v8h reg = reg_v8h (reg_index reg)
 
+  let emit_reg_v4h reg = reg_v4h (reg_index reg)
+
   let emit_reg_w reg = reg_w (reg_index reg)
 
   let emit_reg_s reg = reg_s (reg_index reg)
@@ -355,7 +357,7 @@ end = struct
     | Rf64x2_to_Rs64x2 | Rs32x4lane_to_Rs32x4 _ | Rs64x2lane_to_Rs64x2 _
     | Rs16x8lane_to_Rs16x8 _ | Rf64x2_to_Rf64x2 | Rs64x2_to_Rf64x2
     | Rs32x2_to_Rs64x2 | Rs16x8_to_Rs16x8 | Rs64x2_to_Rs32x2
-    | Rs8x16lane_to_Rs8x16 _ ->
+    | Rs8x16lane_to_Rs8x16 _ | Rs32x4_to_Rs16x4 ->
       check_reg Vec128 i.arg.(0);
       check_reg Vec128 i.res.(0)
     | Rf32_Rf32_to_Rf32 ->
@@ -378,7 +380,7 @@ end = struct
     | Rs32x4_to_Rs32 _ | Rs64x2_to_Rs64 _ | Rs16x8_to_Rs16 _ | Rs8x16_to_Rs8 _
       ->
       check_reg Vec128 i.arg.(0)
-    | Rs64x2_Rs64x2_to_First _ ->
+    | Rs32x4_Rs16x8_to_First | Rs64x2_Rs64x2_to_First _ ->
       check_reg Vec128 i.arg.(0);
       check_reg Vec128 i.arg.(1);
       assert (Reg.same_loc i.res.(0) i.arg.(0))
@@ -476,6 +478,9 @@ end = struct
       [| emit_reglane_d i.res.(0) ~lane:dst_lane;
          emit_reglane_d i.arg.(1) ~lane:src_lane
       |]
+    | Rs32x4_Rs16x8_to_First ->
+      [| emit_reg_v8h i.res.(0); emit_reg_v4s i.arg.(1) |]
+    | Rs32x4_to_Rs16x4 -> [| emit_reg_v4h i.res.(0); emit_reg_v4s i.arg.(1) |]
     | Rs8x16lane_to_Rs8x16 { lane } ->
       [| emit_reg_v16b i.res.(0); emit_reglane_b i.arg.(0) ~lane |]
     | Rs16x8lane_to_Rs16x8 { lane } ->
@@ -498,24 +503,25 @@ end = struct
     | Paddq_f32 | Fmin_f32 | Fmax_f32 | Fmin_f64 | Fmax_f64 | Addq_s64
     | Subq_s64 | Cmp_f32 _ | Cmpz_f32 _ | Cmpz_s32 _ | Cmp_f64 _ | Cmpz_f64 _
     | Cmp_s32 _ | Cmp_s64 _ | Cmpz_s64 _ | Mvnq_s32 | Orrq_s32 | Andq_s32
-    | Eorq_s32 | Negq_s32 | Getq_lane_s32 _ | Getq_lane_s64 _ | Addq_s32
-    | Subq_s32 | Minq_s32 | Maxq_s32 | Minq_u32 | Maxq_u32 | Absq_s32 | Absq_s64
-    | Paddq_f64 | Paddq_s32 | Paddq_s64 | Mvnq_s64 | Orrq_s64 | Andq_s64
-    | Eorq_s64 | Negq_s64 | Shlq_u32 | Shlq_u64 | Shlq_s32 | Shlq_s64
-    | Shlq_n_u32 _ | Shlq_n_u64 _ | Shrq_n_u32 _ | Shrq_n_u64 _ | Shrq_n_s32 _
-    | Shrq_n_s64 _ | Setq_lane_s32 _ | Setq_lane_s64 _ | Dupq_lane_s32 _
-    | Dupq_lane_s64 _ | Cvtq_f64_s64 | Cvtq_s64_f64 | Cvtq_s64_s32
-    | Cvtq_u64_u32 | Addq_s16 | Paddq_s16 | Qaddq_s16 | Qaddq_u16 | Subq_s16
-    | Qsubq_s16 | Qsubq_u16 | Absq_s16 | Minq_s16 | Maxq_s16 | Minq_u16
-    | Maxq_u16 | Mvnq_s16 | Orrq_s16 | Andq_s16 | Eorq_s16 | Negq_s16 | Cntq_u16
-    | Shlq_u16 | Shlq_s16 | Cmp_s16 _ | Cmpz_s16 _ | Shlq_n_u16 _ | Shrq_n_u16 _
-    | Shrq_n_s16 _ | Getq_lane_s16 _ | Setq_lane_s16 _ | Dupq_lane_s16 _
-    | Cvtq_s32_s64 | Copyq_laneq_s64 _ | Addq_s8 | Paddq_s8 | Qaddq_s8
-    | Qaddq_u8 | Subq_s8 | Qsubq_s8 | Qsubq_u8 | Absq_s8 | Minq_s8 | Maxq_s8
-    | Minq_u8 | Maxq_u8 | Mvnq_s8 | Orrq_s8 | Andq_s8 | Eorq_s8 | Negq_s8
-    | Cntq_u8 | Shlq_u8 | Shlq_s8 | Cmp_s8 _ | Cmpz_s8 _ | Shlq_n_u8 _
+    | Eorq_s32 | Negq_s32 | Getq_lane_s32 _ | Getq_lane_s64 _ | Mulq_s32
+    | Mulq_s16 | Addq_s32 | Subq_s32 | Minq_s32 | Maxq_s32 | Minq_u32 | Maxq_u32
+    | Absq_s32 | Absq_s64 | Paddq_f64 | Paddq_s32 | Paddq_s64 | Mvnq_s64
+    | Orrq_s64 | Andq_s64 | Eorq_s64 | Negq_s64 | Shlq_u32 | Shlq_u64 | Shlq_s32
+    | Shlq_s64 | Shlq_n_u32 _ | Shlq_n_u64 _ | Shrq_n_u32 _ | Shrq_n_u64 _
+    | Shrq_n_s32 _ | Shrq_n_s64 _ | Setq_lane_s32 _ | Setq_lane_s64 _
+    | Dupq_lane_s32 _ | Dupq_lane_s64 _ | Cvtq_f64_s64 | Cvtq_s64_f64
+    | Cvtq_s64_s32 | Cvtq_u64_u32 | Addq_s16 | Paddq_s16 | Qaddq_s16 | Qaddq_u16
+    | Subq_s16 | Qsubq_s16 | Qsubq_u16 | Absq_s16 | Minq_s16 | Maxq_s16
+    | Minq_u16 | Maxq_u16 | Mvnq_s16 | Orrq_s16 | Andq_s16 | Eorq_s16 | Negq_s16
+    | Cntq_u16 | Shlq_u16 | Shlq_s16 | Cmp_s16 _ | Cmpz_s16 _ | Shlq_n_u16 _
+    | Shrq_n_u16 _ | Shrq_n_s16 _ | Getq_lane_s16 _ | Setq_lane_s16 _
+    | Dupq_lane_s16 _ | Cvtq_s32_s64 | Copyq_laneq_s64 _ | Addq_s8 | Paddq_s8
+    | Qaddq_s8 | Qaddq_u8 | Subq_s8 | Qsubq_s8 | Qsubq_u8 | Absq_s8 | Minq_s8
+    | Maxq_s8 | Minq_u8 | Maxq_u8 | Mvnq_s8 | Orrq_s8 | Andq_s8 | Eorq_s8
+    | Negq_s8 | Cntq_u8 | Shlq_u8 | Shlq_s8 | Cmp_s8 _ | Cmpz_s8 _ | Shlq_n_u8 _
     | Shrq_n_u8 _ | Shrq_n_s8 _ | Getq_lane_s8 _ | Setq_lane_s8 _
-    | Dupq_lane_s8 _ | Extq_u8 _ ->
+    | Dupq_lane_s8 _ | Extq_u8 _ | Qmovn_high_s32 | Qmovn_s32 | Qmovn_high_u32
+    | Qmovn_u32 ->
       1
 
   let emit_rounding_mode (rm : Simd.Rounding_mode.t) : I.Rounding_mode.t =
@@ -574,6 +580,7 @@ end = struct
     | Zip2q_s8 | Zip2q_s16 | Zip2q_f32 | Zip2q_f64 -> ins I.ZIP2 operands
     | Addq_s64 | Addq_s32 | Addq_s16 | Addq_s8 -> ins I.ADD operands
     | Subq_s64 | Subq_s32 | Subq_s16 | Subq_s8 -> ins I.SUB operands
+    | Mulq_s32 | Mulq_s16 -> ins I.MUL operands
     | Addq_f32 | Addq_f64 -> ins I.FADD operands
     | Subq_f32 | Subq_f64 -> ins I.FSUB operands
     | Mulq_f32 | Mulq_f64 -> ins I.FMUL operands
@@ -647,6 +654,10 @@ end = struct
     | Qsubq_u16 | Qsubq_u8 -> ins I.UQSUB operands
     | Cntq_u16 | Cntq_u8 -> ins I.CNT operands
     | Extq_u8 n -> ins I.EXT (Array.append operands [| imm n |])
+    | Qmovn_high_s32 -> ins I.SQXTN2 operands
+    | Qmovn_s32 -> ins I.SQXTN operands
+    | Qmovn_high_u32 -> ins I.UQXTN2 operands
+    | Qmovn_u32 -> ins I.UQXTN operands
 end
 
 (* Record live pointers at call points *)

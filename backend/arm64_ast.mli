@@ -298,6 +298,10 @@ module Instruction_name : sig
     | SXTL
     | UXTL
     | XTN
+    | UQXTN
+    | UQXTN2
+    | SQXTN
+    | SQXTN2
     | DUP
     | EXT
 end
@@ -348,6 +352,8 @@ module DSL : sig
   val reg_v16b : int -> Operand.t
 
   val reg_v8h : int -> Operand.t
+
+  val reg_v4h : int -> Operand.t
 
   val reg_b : int -> Operand.t
 
