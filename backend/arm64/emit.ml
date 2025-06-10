@@ -480,7 +480,7 @@ end = struct
       |]
     | Rs32x4_Rs16x8_to_First ->
       [| emit_reg_v8h i.res.(0); emit_reg_v4s i.arg.(1) |]
-    | Rs32x4_to_Rs16x4 -> [| emit_reg_v4h i.res.(0); emit_reg_v4s i.arg.(1) |]
+    | Rs32x4_to_Rs16x4 -> [| emit_reg_v4h i.res.(0); emit_reg_v4s i.arg.(0) |]
     | Rs8x16lane_to_Rs8x16 { lane } ->
       [| emit_reg_v16b i.res.(0); emit_reglane_b i.arg.(0) ~lane |]
     | Rs16x8lane_to_Rs16x8 { lane } ->
