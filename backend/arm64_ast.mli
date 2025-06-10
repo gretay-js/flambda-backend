@@ -298,6 +298,7 @@ module Instruction_name : sig
     | SXTL
     | UXTL
     | XTN
+    | XTN2
     | UQXTN
     | UQXTN2
     | SQXTN

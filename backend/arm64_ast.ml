@@ -487,6 +487,7 @@ module Instruction_name = struct
     | SXTL
     | UXTL
     | XTN
+    | XTN2
     | UQXTN
     | UQXTN2
     | SQXTN
@@ -620,6 +621,7 @@ module Instruction_name = struct
     | SXTL -> "sxtl"
     | UXTL -> "uxtl"
     | XTN -> "xtn"
+    | XTN2 -> "xtn2"
     | UQXTN -> "uqxtn"
     | UQXTN2 -> "uqxtn2"
     | SQXTN -> "sqxtn"

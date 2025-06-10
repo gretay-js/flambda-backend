@@ -137,6 +137,10 @@ let select_simd_instr op args dbg =
   | "caml_neon_int32x4_min_unsigned" -> Some (Minq_u32, args)
   | "caml_neon_int32x4_mul_low" -> Some (Mulq_s32, args)
   | "caml_neon_int16x8_mul_low" -> Some (Mulq_s16, args)
+  | "caml_neon_int16x8_mul_low_long" -> Some (Smullq_s16, args)
+  | "caml_neon_int16x8_mul_high_long" -> Some (Smullq_high_s16, args)
+  | "caml_neon_int16x8_mul_low_long_unsigned" -> Some (Smullq_u16, args)
+  | "caml_neon_int16x8_mul_high_long_unsigned" -> Some (Smullq_high_u16, args)
   | "caml_neon_cvt_int32x4_to_int16x8_high_saturating" ->
     Some (Qmovn_high_s32, args)
   | "caml_neon_cvt_int32x4_to_int16x8_low_saturating" -> Some (Qmovn_s32, args)
@@ -144,6 +148,10 @@ let select_simd_instr op args dbg =
     Some (Qmovn_high_u32, args)
   | "caml_neon_cvt_int32x4_to_int16x8_low_saturating_unsigned" ->
     Some (Qmovn_u32, args)
+  | "caml_neon_cvt_int16x8_to_int8x16_high" -> Some (Movn_high_s16, args)
+  | "caml_neon_cvt_int16x8_to_int8x16_low" -> Some (Movn_s16, args)
+  | "caml_neon_cvt_int32x4_to_int16x8_high" -> Some (Movn_high_s32, args)
+  | "caml_neon_cvt_int32x4_to_int16x8_low" -> Some (Movn_s32, args)
   | "caml_neon_cvt_int16x8_to_int8x16_high_saturating" ->
     Some (Qmovn_high_s16, args)
   | "caml_neon_cvt_int16x8_to_int8x16_low_saturating" -> Some (Qmovn_s16, args)

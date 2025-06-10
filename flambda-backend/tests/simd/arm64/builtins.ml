@@ -243,6 +243,16 @@ module Int32x4 = struct
     [@@noalloc] [@@unboxed] [@@builtin]
 
   (* zeros upper bits *)
+  external to_int16x8_low : t -> int16x8
+    = "caml_vec128_unreachable" "caml_neon_cvt_int32x4_to_int16x8_low"
+    [@@noalloc] [@@unboxed] [@@builtin]
+
+  (* preserves low bits *)
+  external to_int16x8_high : t -> int16x8 -> int16x8
+    = "caml_vec128_unreachable" "caml_neon_cvt_int32x4_to_int16x8_high"
+    [@@noalloc] [@@unboxed] [@@builtin]
+
+  (* zeros upper bits *)
   external to_int16x8_low_saturating : t -> int16x8
     = "caml_vec128_unreachable" "caml_neon_cvt_int32x4_to_int16x8_low_saturating"
     [@@noalloc] [@@unboxed] [@@builtin]
@@ -595,6 +605,16 @@ module Int16x8 = struct
     [@@noalloc] [@@unboxed] [@@builtin]
 
   (* zeros upper bits *)
+  external to_int8x16_low : t -> int8x16
+    = "caml_vec128_unreachable" "caml_neon_cvt_int16x8_to_int8x16_low"
+    [@@noalloc] [@@unboxed] [@@builtin]
+
+  (* preserves low bits *)
+  external to_int8x16_high : t -> int8x16 -> int8x16
+    = "caml_vec128_unreachable" "caml_neon_cvt_int16x8_to_int8x16_high"
+    [@@noalloc] [@@unboxed] [@@builtin]
+
+  (* zeros upper bits *)
   external to_int8x16_low_saturating : t -> int8x16
     = "caml_vec128_unreachable" "caml_neon_cvt_int16x8_to_int8x16_low_saturating"
     [@@noalloc] [@@unboxed] [@@builtin]
@@ -659,13 +679,39 @@ module Int16x8 = struct
     = "caml_vec128_unreachable" "caml_neon_int16x8_minpos_unsigned"
     [@@noalloc] [@@unboxed] [@@builtin]
 
-  external mul_high : t -> t -> t
-    = "caml_vec128_unreachable" "caml_neon_int16x8_mul_high"
+  (* multiply the low halfs and write the wide result *)
+  external mul_low_long : t -> t -> int32x4
+    = "caml_vec128_unreachable" "caml_neon_int16x8_mul_low_long"
     [@@noalloc] [@@unboxed] [@@builtin]
 
-  external mul_high_unsigned : t -> t -> t
-    = "caml_vec128_unreachable" "caml_neon_int16x8_mul_high_unsigned"
+  (* multiply the high halfs and write the wide result *)
+  external mul_high_long : t -> t -> int32x4
+    = "caml_vec128_unreachable" "caml_neon_int16x8_mul_high_long"
     [@@noalloc] [@@unboxed] [@@builtin]
+
+  (* unsigned multiply the low halfs and write the wide result *)
+  external mul_low_long_unsigned : t -> t -> int32x4
+    = "caml_vec128_unreachable" "caml_neon_int16x8_mul_low_long_unsigned"
+    [@@noalloc] [@@unboxed] [@@builtin]
+
+  (* multiply the high halfs and write the wide result *)
+  external mul_high_long_unsigned : t -> t -> int32x4
+    = "caml_vec128_unreachable" "caml_neon_int16x8_mul_high_long_unsigned"
+    [@@noalloc] [@@unboxed] [@@builtin]
+
+  let mul_high : t -> t -> t =
+   fun a b ->
+    let low = mul_low_long a b in
+    let high = mul_high_long a b in
+    let low = Int32x4.to_int16x8_low low in
+    Int32x4.to_int16x8_high high low
+
+  let mul_high_unsigned : t -> t -> t =
+   fun a b ->
+    let low = mul_low_long_unsigned a b in
+    let high = mul_high_long_unsigned a b in
+    let low = Int32x4.to_int16x8_low low in
+    Int32x4.to_int16x8_high high low
 
   external mul_low : t -> t -> t
     = "caml_vec128_unreachable" "caml_neon_int16x8_mul_low"
