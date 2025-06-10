@@ -288,6 +288,10 @@ type operation =
   | Qmovn_s16
   | Qmovn_high_u16
   | Qmovn_u16
+  | Movn_high_s32
+  | Movn_s32
+  | Movn_high_s16
+  | Movn_s16
 
 let print_name op =
   match op with
@@ -456,6 +460,10 @@ let print_name op =
   | Qmovn_s16 -> "Qmovn_s16"
   | Qmovn_high_u16 -> "Qmovn_high_u16"
   | Qmovn_u16 -> "Qmovn_u16"
+  | Movn_high_s32 -> "Movn_high_s32"
+  | Movn_s32 -> "Movn_s32"
+  | Movn_high_s16 -> "Movn_high_s16"
+  | Movn_s16 -> "Movn_s16"
 
 let print_operation printreg op ppf arg =
   (* CR gyorsh: does not support memory operands (except stack operands). *)
@@ -591,7 +599,11 @@ let equal_operation op1 op2 =
   | Qmovn_high_s16, Qmovn_high_s16
   | Qmovn_s16, Qmovn_s16
   | Qmovn_high_u16, Qmovn_high_u16
-  | Qmovn_u16, Qmovn_u16 ->
+  | Qmovn_u16, Qmovn_u16
+  | Movn_high_s32, Movn_high_s32
+  | Movn_s32, Movn_s32
+  | Movn_high_s16, Movn_high_s16
+  | Movn_s16, Movn_s16 ->
     true
   | Extq_u8 n1, Extq_u8 n2
   | Shrq_n_s32 n1, Shrq_n_s32 n2
@@ -667,7 +679,7 @@ let equal_operation op1 op2 =
       | Shrq_n_u8 _ | Shrq_n_s8 _ | Getq_lane_s8 _ | Setq_lane_s8 _
       | Dupq_lane_s8 _ | Copyq_laneq_s64 _ | Qmovn_high_s32 | Qmovn_s32
       | Qmovn_high_u32 | Qmovn_u32 | Qmovn_high_s16 | Qmovn_s16 | Qmovn_high_u16
-      | Qmovn_u16 ),
+      | Qmovn_u16 | Movn_high_s32 | Movn_s32 | Movn_high_s16 | Movn_s16 ),
       _ ) ->
     false
 
@@ -701,7 +713,7 @@ let class_of_operation op =
   | Shlq_n_u8 _ | Shrq_n_u8 _ | Shrq_n_s8 _ | Getq_lane_s8 _ | Setq_lane_s8 _
   | Dupq_lane_s8 _ | Copyq_laneq_s64 _ | Qmovn_high_s32 | Qmovn_s32
   | Qmovn_high_u32 | Qmovn_u32 | Qmovn_high_s16 | Qmovn_s16 | Qmovn_high_u16
-  | Qmovn_u16 ->
+  | Qmovn_u16 | Movn_high_s32 | Movn_s32 | Movn_high_s16 | Movn_s16 ->
     Pure
 
 let operation_is_pure op = match class_of_operation op with Pure -> true

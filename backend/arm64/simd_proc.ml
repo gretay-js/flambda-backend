@@ -175,7 +175,7 @@ let register_behavior (op : Simd.operation) =
   | Absq_s8 | Negq_s8 | Cntq_u8 | Shlq_n_u8 _ | Shrq_n_u8 _ | Shrq_n_s8 _
   | Cmpz_s8 _ ->
     Rs8x16_to_Rs8x16
-  | Qmovn_u32 | Qmovn_s32 -> Rs32x4_to_Rs16x4
-  | Qmovn_high_s32 | Qmovn_high_u32 -> Rs32x4_Rs16x8_to_First
-  | Qmovn_u16 | Qmovn_s16 -> Rs16x8_to_Rs8x8
-  | Qmovn_high_s16 | Qmovn_high_u16 -> Rs16x8_Rs8x16_to_First
+  | Qmovn_u32 | Qmovn_s32 | Movn_s32 -> Rs32x4_to_Rs16x4
+  | Qmovn_high_s32 | Qmovn_high_u32 | Movn_high_s32 -> Rs32x4_Rs16x8_to_First
+  | Qmovn_u16 | Qmovn_s16 | Movn_s16 -> Rs16x8_to_Rs8x8
+  | Qmovn_high_s16 | Qmovn_high_u16 | Movn_high_s16 -> Rs16x8_Rs8x16_to_First

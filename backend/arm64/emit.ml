@@ -527,7 +527,8 @@ end = struct
     | Negq_s8 | Cntq_u8 | Shlq_u8 | Shlq_s8 | Cmp_s8 _ | Cmpz_s8 _ | Shlq_n_u8 _
     | Shrq_n_u8 _ | Shrq_n_s8 _ | Getq_lane_s8 _ | Setq_lane_s8 _
     | Dupq_lane_s8 _ | Extq_u8 _ | Qmovn_high_s32 | Qmovn_s32 | Qmovn_high_u32
-    | Qmovn_u32 | Qmovn_high_s16 | Qmovn_s16 | Qmovn_high_u16 | Qmovn_u16 ->
+    | Qmovn_u32 | Qmovn_high_s16 | Qmovn_s16 | Qmovn_high_u16 | Qmovn_u16
+    | Movn_high_s32 | Movn_s32 | Movn_high_s16 | Movn_s16 ->
       1
 
   let emit_rounding_mode (rm : Simd.Rounding_mode.t) : I.Rounding_mode.t =
@@ -664,6 +665,8 @@ end = struct
     | Qmovn_s32 | Qmovn_s16 -> ins I.SQXTN operands
     | Qmovn_high_u32 | Qmovn_high_u16 -> ins I.UQXTN2 operands
     | Qmovn_u32 | Qmovn_u16 -> ins I.UQXTN operands
+    | Movn_s32 | Movn_s16 -> ins I.XTN operands
+    | Movn_high_s32 | Movn_high_s16 -> ins I.XTN2 operands
 end
 
 (* Record live pointers at call points *)
