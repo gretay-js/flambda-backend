@@ -350,7 +350,8 @@ end = struct
     | Rs8x16_Rs8x16_to_Rs8x16 | Rf32x4_Rf32x4_to_Rs32x4
     | Rs32x4_Rs32x4_to_Rs32x4 | Rf32x4_Rf32x4_to_Rf32x4
     | Rf64x2_Rf64x2_to_Rf64x2 | Rs64x2_Rs64x2_to_Rs64x2
-    | Rf64x2_Rf64x2_to_Rs64x2 | Rs16x8_Rs16x8_to_Rs16x8 ->
+    | Rf64x2_Rf64x2_to_Rs64x2 | Rs16x8_Rs16x8_to_Rs16x8
+    | Rs16x8_Rs16x8_to_Rs32x4 ->
       check_reg Vec128 i.arg.(0);
       check_reg Vec128 i.arg.(1);
       check_reg Vec128 i.res.(0)
@@ -458,6 +459,11 @@ end = struct
          emit_reg_v8h i.arg.(0);
          emit_reg_v8h i.arg.(1)
       |]
+    | Rs16x8_Rs16x8_to_Rs32x4 ->
+      [| emit_reg_v4s i.res.(0);
+         emit_reg_v8h i.arg.(0);
+         emit_reg_v8h i.arg.(1)
+      |]
     | Rs16x8_to_Rs16x8 -> [| emit_reg_v8h i.res.(0); emit_reg_v8h i.arg.(0) |]
     | Rf32_Rf32_to_Rf32 | Rf64_Rf64_to_Rf64 -> emit_regs_binary i
     | Rf64_to_Rf64 | Rf32_to_Rf32 | Rf32_to_Rs64 -> emit_regs_unary i
@@ -528,7 +534,8 @@ end = struct
     | Shrq_n_u8 _ | Shrq_n_s8 _ | Getq_lane_s8 _ | Setq_lane_s8 _
     | Dupq_lane_s8 _ | Extq_u8 _ | Qmovn_high_s32 | Qmovn_s32 | Qmovn_high_u32
     | Qmovn_u32 | Qmovn_high_s16 | Qmovn_s16 | Qmovn_high_u16 | Qmovn_u16
-    | Movn_high_s32 | Movn_s32 | Movn_high_s16 | Movn_s16 ->
+    | Movn_high_s32 | Movn_s32 | Movn_high_s16 | Movn_s16 | Mullq_s16
+    | Mullq_u16 | Mullq_high_s16 | Mullq_high_u16 ->
       1
 
   let emit_rounding_mode (rm : Simd.Rounding_mode.t) : I.Rounding_mode.t =
@@ -667,6 +674,10 @@ end = struct
     | Qmovn_u32 | Qmovn_u16 -> ins I.UQXTN operands
     | Movn_s32 | Movn_s16 -> ins I.XTN operands
     | Movn_high_s32 | Movn_high_s16 -> ins I.XTN2 operands
+    | Mullq_s16 -> ins I.SMULL operands
+    | Mullq_u16 -> ins I.UMULL operands
+    | Mullq_high_s16 -> ins I.SMULL2 operands
+    | Mullq_high_u16 -> ins I.UMULL2 operands
 end
 
 (* Record live pointers at call points *)

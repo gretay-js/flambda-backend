@@ -494,6 +494,10 @@ module Instruction_name = struct
     | SQXTN2
     | DUP
     | EXT
+    | SMULL
+    | SMULL2
+    | UMULL
+    | UMULL2
 
   (* CR gyorsh: can some of this be automatically generated from the type? *)
   let to_string t =
@@ -628,6 +632,10 @@ module Instruction_name = struct
     | SQXTN2 -> "sqxtn2"
     | DUP -> "dup"
     | EXT -> "ext"
+    | SMULL -> "smull"
+    | SMULL2 -> "smull2"
+    | UMULL -> "umull"
+    | UMULL2 -> "umull2"
 end
 
 module Symbol = struct

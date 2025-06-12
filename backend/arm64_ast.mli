@@ -305,6 +305,10 @@ module Instruction_name : sig
     | SQXTN2
     | DUP
     | EXT
+    | SMULL
+    | SMULL2
+    | UMULL
+    | UMULL2
 end
 
 module DSL : sig

@@ -137,10 +137,10 @@ let select_simd_instr op args dbg =
   | "caml_neon_int32x4_min_unsigned" -> Some (Minq_u32, args)
   | "caml_neon_int32x4_mul_low" -> Some (Mulq_s32, args)
   | "caml_neon_int16x8_mul_low" -> Some (Mulq_s16, args)
-  | "caml_neon_int16x8_mul_low_long" -> Some (Smullq_s16, args)
-  | "caml_neon_int16x8_mul_high_long" -> Some (Smullq_high_s16, args)
-  | "caml_neon_int16x8_mul_low_long_unsigned" -> Some (Smullq_u16, args)
-  | "caml_neon_int16x8_mul_high_long_unsigned" -> Some (Smullq_high_u16, args)
+  | "caml_neon_int16x8_mul_low_long" -> Some (Mullq_s16, args)
+  | "caml_neon_int16x8_mul_high_long" -> Some (Mullq_high_s16, args)
+  | "caml_neon_int16x8_mul_low_long_unsigned" -> Some (Mullq_u16, args)
+  | "caml_neon_int16x8_mul_high_long_unsigned" -> Some (Mullq_high_u16, args)
   | "caml_neon_cvt_int32x4_to_int16x8_high_saturating" ->
     Some (Qmovn_high_s32, args)
   | "caml_neon_cvt_int32x4_to_int16x8_low_saturating" -> Some (Qmovn_s32, args)
@@ -404,7 +404,8 @@ let pseudoregs_for_operation (simd_op : Simd.operation) arg res =
   | Rf64x2_to_Rf64x2 | Rs64x2_to_Rf64x2 | Rs32x2_to_Rs64x2
   | Rs16x8_Rs16x8_to_Rs16x8 | Rs16x8_to_Rs16x8 | Rs16x8_to_Rs16 _
   | Rs16x8lane_to_Rs16x8 _ | Rs64x2_to_Rs32x2 | Rs8x16lane_to_Rs8x16 _
-  | Rs8x16_to_Rs8 _ | Rs32x4_to_Rs16x4 | Rs16x8_to_Rs8x8 ->
+  | Rs8x16_to_Rs8 _ | Rs32x4_to_Rs16x4 | Rs16x8_to_Rs8x8
+  | Rs16x8_Rs16x8_to_Rs32x4 ->
     arg, res
 
 (* See `amd64/simd_selection.ml`. *)
