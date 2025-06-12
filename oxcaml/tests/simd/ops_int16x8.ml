@@ -84,20 +84,20 @@ let () =
         (int8x16_low_int64 expect)
         (int8x16_high_int64 expect));
   (* CR gyorsh: fix and re-enable the test *)
-  (* Int16.check_ints (fun l r -> *)
-  (*     (failmsg := fun () -> Printf.printf "%04x|%04x cvt_su8\n%!" l r); *)
-  (*     let v = Int16.of_ints l r l r l r l r in *)
-  (*     let result = cvt_su8 v v in *)
-  (*     let expectl = Int16.cvt_su8 l in *)
-  (*     let expectr = Int16.cvt_su8 r in *)
-  (*     let expect = *)
-  (*       Int8.of_ints expectl expectr expectl expectr expectl expectr expectl *)
-  (*         expectr *)
-  (*     in *)
-  (*     eq (int8x16_low_int64 result) *)
-  (*       (int8x16_high_int64 result) *)
-  (*       (int8x16_low_int64 expect) *)
-  (*       (int8x16_high_int64 expect)); *)
+  Int16.check_ints (fun l r ->
+      (failmsg := fun () -> Printf.printf "%04x|%04x cvt_su8\n%!" l r);
+      let v = Int16.of_ints l r l r l r l r in
+      let result = cvt_su8 v v in
+      let expectl = Int16.cvt_su8 l in
+      let expectr = Int16.cvt_su8 r in
+      let expect =
+        Int8.of_ints expectl expectr expectl expectr expectl expectr expectl
+          expectr
+      in
+      eq (int8x16_low_int64 result)
+        (int8x16_high_int64 result)
+        (int8x16_low_int64 expect)
+        (int8x16_high_int64 expect));
   Int16.check_ints (fun l r ->
       (failmsg := fun () -> Printf.printf "%04x|%04x cvt_sx_i32\n%!" l r);
       let v = Int16.of_ints l r l r 0 0 0 0 in

@@ -282,6 +282,11 @@ module Int32x4 = struct
     let low = to_int16x8_low_saturating_unsigned low in
     to_int16x8_high_saturating_unsigned low high
 
+  (* The meaning of PACKUSDW on amd64 is not exactly the same as UQXTN on arm64:
+     amd64 treats the input as signed int32, whereas arm64 treats the input as
+     unsigned int32, therefore negative input results in 0H on amd64 and FFFFH
+     on arm64. *)
+
   external mul_low : t -> t -> t
     = "caml_vec128_unreachable" "caml_neon_int32x4_mul_low"
     [@@noalloc] [@@unboxed] [@@builtin]
