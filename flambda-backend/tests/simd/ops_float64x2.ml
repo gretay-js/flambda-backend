@@ -101,8 +101,8 @@ let () =
         (Int64.bits_of_float (Float.sqrt f1)))
 
 let () =
-  Float64.check_floats (check_binop Float.max Builtins.Float64x2.max);
-  Float64.check_floats (check_binop Float.min Builtins.Float64x2.min)
+  Float64.check_floats (check_binop Float64.c_max Builtins.Float64x2.max);
+  Float64.check_floats (check_binop Float64.c_min Builtins.Float64x2.min)
 
 (* CR gyorsh: which coversion function should be used? *)
 

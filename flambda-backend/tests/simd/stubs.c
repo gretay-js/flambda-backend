@@ -93,6 +93,21 @@ int64x2_t vec128_of_int64s(int64_t low, int64_t high)
   return vcombine_s64(vcreate_s64(low), vcreate_s64(high));
 }
 
+
+/* The meaning of PACKUSDW on amd64 is not exactly the same as UQXTN
+   on arm64: amd64 treats the input as signed int32, whereas arm64
+   treats the input as unsigned int32, therefore negative input
+   results in 0H on amd64 and FFFFH on arm64. */
+int64_t int32_su16(int64_t i) {
+  uint32_t x = (uint32_t)i;
+  return x > UINT16_MAX ? UINT16_MAX : (x < 0 ? 0 : x);
+}
+
+int64_t int16_su8(int64_t i) {
+  uint16_t x = (uint16_t)i;
+  return x > UINT8_MAX ? UINT8_MAX : (x < 0 ? 0 : x);
+}
+
 #else /* __ARM_NEON */
 #if defined(__SSE4_2__)
 #include <smmintrin.h>
@@ -152,6 +167,16 @@ int32_t test_simd_vec128_extract_ps(simd_float32x4_t a, intnat i) {
     case 3: return (simd_extract_float32x4(a, 3));
     default: assert(0);
   }
+}
+
+int64_t int32_su16(int64_t i) {
+  int32_t x = (int32_t)i;
+  return x > UINT16_MAX ? UINT16_MAX : (x < 0 ? 0 : x);
+}
+
+int64_t int16_su8(int64_t i) {
+  int16_t x = (int16_t)i;
+  return x > UINT8_MAX ? UINT8_MAX : (x < 0 ? 0 : x);
 }
 
 #else /* __SSE4_2__ */
@@ -325,10 +350,6 @@ int64_t int32_si16(int64_t i) {
   int32_t x = (int32_t)i;
   return x > INT16_MAX ? INT16_MAX : (x < INT16_MIN ? INT16_MIN : x);
 }
-int64_t int32_su16(int64_t i) {
-  int32_t x = (int32_t)i;
-  return x > UINT16_MAX ? UINT16_MAX : (x < 0 ? 0 : x);
-}
 int32_t int32_mul_low(int32_t l, int32_t r) {
   return (int32_t)(((int64_t)l * (int64_t)r) & 0xffffffff);
 }
@@ -437,10 +458,6 @@ int64_t int16_avgu(int64_t l, int64_t r) {
 int64_t int16_si8(int64_t i) {
   int16_t x = (int16_t)i;
   return x > INT8_MAX ? INT8_MAX : (x < INT8_MIN ? INT8_MIN : x);
-}
-int64_t int16_su8(int64_t i) {
-  int16_t x = (int16_t)i;
-  return x > UINT8_MAX ? UINT8_MAX : (x < 0 ? 0 : x);
 }
 int32_t int16_mul_i32(int64_t l_, int64_t r_) {
   int32_t l = (int32_t)(int16_t)l_;

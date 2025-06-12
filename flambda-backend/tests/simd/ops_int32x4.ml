@@ -194,21 +194,22 @@ let () =
         (int16x8_high_int64 result)
         (int16x8_low_int64 expect)
         (int16x8_high_int64 expect));
-  (* CR gyorsh: fix and re-enable the test *)
-  (* Int32s.check_ints (fun l r -> *)
-  (*     (failmsg := fun () -> Printf.printf "%08lx|%08lx cvt_su16\n%!" l r); *)
-  (*     let v = Int32s.of_int32s l r l r in *)
-  (*     let result = cvt_su16 v v in *)
-  (*     let expectl = Int32s.cvt_su16 l in *)
-  (*     let expectr = Int32s.cvt_su16 r in *)
-  (*     let expect = *)
-  (*       Int16.of_ints expectl expectr expectl expectr expectl expectr expectl *)
-  (*         expectr *)
-  (*     in *)
-  (*     eq (int16x8_low_int64 result) *)
-  (*       (int16x8_high_int64 result) *)
-  (*       (int16x8_low_int64 expect) *)
-  (*       (int16x8_high_int64 expect)); *)
+  (* CR gyorsh: the C stub [int32_su16] was buggy, how did it pass amd64? does
+     it still pass on amd64? *)
+  Int32s.check_ints (fun l r ->
+      (failmsg := fun () -> Printf.printf "%08lx|%08lx cvt_su16\n%!" l r);
+      let v = Int32s.of_int32s l r l r in
+      let result = cvt_su16 v v in
+      let expectl = Int32s.cvt_su16 l in
+      let expectr = Int32s.cvt_su16 r in
+      let expect =
+        Int16.of_ints expectl expectr expectl expectr expectl expectr expectl
+          expectr
+      in
+      eq (int16x8_low_int64 result)
+        (int16x8_high_int64 result)
+        (int16x8_low_int64 expect)
+        (int16x8_high_int64 expect));
   ()
 
 let () =
