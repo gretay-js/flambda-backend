@@ -737,6 +737,9 @@ module Int16x8 = struct
     = "caml_vec128_unreachable" "caml_neon_int16x8_sshl"
     [@@noalloc] [@@unboxed] [@@builtin]
 
+  external dup : t -> t = "caml_vec128_unreachable" "caml_neon_int16x8_dup"
+    [@@noalloc] [@@unboxed] [@@builtin]
+
   external dup_lane : (int[@untagged]) -> (t[@unboxed]) -> (t[@unboxed])
     = "caml_vec128_unreachable" "caml_neon_int16x8_dup_lane"
     [@@noalloc] [@@builtin]
@@ -885,6 +888,9 @@ module Int8x16 = struct
 
   external sshl : t -> t -> t
     = "caml_vec128_unreachable" "caml_neon_int8x16_sshl"
+    [@@noalloc] [@@unboxed] [@@builtin]
+
+  external dup : t -> t = "caml_vec128_unreachable" "caml_neon_int8x16_dup"
     [@@noalloc] [@@unboxed] [@@builtin]
 
   external dup_lane : (int[@untagged]) -> (t[@unboxed]) -> (t[@unboxed])
