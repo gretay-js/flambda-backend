@@ -130,7 +130,7 @@ module Int64x2 = struct
     [@@noalloc] [@@unboxed] [@@builtin]
 
   external cvt_int32x4 : t -> int32x4
-    = "caml_vec128_unreachable" "caml_neon_cvt_int64x2_to_int32x2"
+    = "caml_vec128_unreachable" "caml_neon_cvt_int64x2_to_int32x4"
     [@@noalloc] [@@unboxed] [@@builtin]
 
   external ushl : t -> t -> t
@@ -232,14 +232,14 @@ module Int32x4 = struct
     [@@noalloc] [@@unboxed] [@@builtin]
 
   external cvtsx_i64 : t -> int64x2
-    = "caml_vec128_unreachable" "caml_neon_cvtsx_int32x2_to_int64x2"
+    = "caml_vec128_unreachable" "caml_neon_cvtsx_int32x4_to_int64x2"
     [@@noalloc] [@@unboxed] [@@builtin]
 
   let cvt_f64 : t -> float64x2 =
    fun t -> t |> cvtsx_i64 |> Int64x2.cvt_float64x2
 
   external cvtzx_i64 : t -> int64x2
-    = "caml_vec128_unreachable" "caml_neon_cvtzx_int32x2_to_int64x2"
+    = "caml_vec128_unreachable" "caml_neon_cvtzx_int32x4_to_int64x2"
     [@@noalloc] [@@unboxed] [@@builtin]
 
   (* zeros upper bits *)
@@ -248,7 +248,7 @@ module Int32x4 = struct
     [@@noalloc] [@@unboxed] [@@builtin]
 
   (* preserves low bits *)
-  external to_int16x8_high : t -> int16x8 -> int16x8
+  external to_int16x8_high : int16x8 -> t -> int16x8
     = "caml_vec128_unreachable" "caml_neon_cvt_int32x4_to_int16x8_high"
     [@@noalloc] [@@unboxed] [@@builtin]
 
@@ -258,14 +258,14 @@ module Int32x4 = struct
     [@@noalloc] [@@unboxed] [@@builtin]
 
   (* preserves low bits *)
-  external to_int16x8_high_saturating : t -> int16x8 -> int16x8
+  external to_int16x8_high_saturating : int16x8 -> t -> int16x8
     = "caml_vec128_unreachable" "caml_neon_cvt_int32x4_to_int16x8_high_saturating"
     [@@noalloc] [@@unboxed] [@@builtin]
 
   let cvt_si16 : t -> t -> int16x8 =
    fun low high ->
     let low = to_int16x8_low_saturating low in
-    to_int16x8_high_saturating high low
+    to_int16x8_high_saturating low high
 
   (* zeros upper bits *)
   external to_int16x8_low_saturating_unsigned : t -> int16x8
@@ -273,14 +273,14 @@ module Int32x4 = struct
     [@@noalloc] [@@unboxed] [@@builtin]
 
   (* preserves low bits *)
-  external to_int16x8_high_saturating_unsigned : t -> int16x8 -> int16x8
+  external to_int16x8_high_saturating_unsigned : int16x8 -> t -> int16x8
     = "caml_vec128_unreachable" "caml_neon_cvt_int32x4_to_int16x8_high_saturating_unsigned"
     [@@noalloc] [@@unboxed] [@@builtin]
 
   let cvt_su16 : t -> t -> int16x8 =
    fun low high ->
     let low = to_int16x8_low_saturating_unsigned low in
-    to_int16x8_high_saturating_unsigned high low
+    to_int16x8_high_saturating_unsigned low high
 
   external mul_low : t -> t -> t
     = "caml_vec128_unreachable" "caml_neon_int32x4_mul_low"
@@ -610,7 +610,7 @@ module Int16x8 = struct
     [@@noalloc] [@@unboxed] [@@builtin]
 
   (* preserves low bits *)
-  external to_int8x16_high : t -> int8x16 -> int8x16
+  external to_int8x16_high : int8x16 -> t -> int8x16
     = "caml_vec128_unreachable" "caml_neon_cvt_int16x8_to_int8x16_high"
     [@@noalloc] [@@unboxed] [@@builtin]
 
@@ -620,14 +620,14 @@ module Int16x8 = struct
     [@@noalloc] [@@unboxed] [@@builtin]
 
   (* preserves low bits *)
-  external to_int8x16_high_saturating : t -> int8x16 -> int8x16
+  external to_int8x16_high_saturating : int8x16 -> t -> int8x16
     = "caml_vec128_unreachable" "caml_neon_cvt_int16x8_to_int8x16_high_saturating"
     [@@noalloc] [@@unboxed] [@@builtin]
 
   let cvt_si8 : t -> t -> int8x16 =
    fun low high ->
     let low = to_int8x16_low_saturating low in
-    to_int8x16_high_saturating high low
+    to_int8x16_high_saturating low high
 
   (* zeros upper bits *)
   external to_int8x16_low_saturating_unsigned : t -> int8x16
@@ -635,30 +635,26 @@ module Int16x8 = struct
     [@@noalloc] [@@unboxed] [@@builtin]
 
   (* preserves low bits *)
-  external to_int8x16_high_saturating_unsigned : t -> int8x16 -> int8x16
+  external to_int8x16_high_saturating_unsigned : int8x16 -> t -> int8x16
     = "caml_vec128_unreachable" "caml_neon_cvt_int16x8_to_int8x16_high_saturating_unsigned"
     [@@noalloc] [@@unboxed] [@@builtin]
 
   let cvt_su8 : t -> t -> int8x16 =
    fun low high ->
     let low = to_int8x16_low_saturating_unsigned low in
-    to_int8x16_high_saturating_unsigned high low
+    to_int8x16_high_saturating_unsigned low high
 
   external cvtsx_i32 : t -> int32x4
-    = "caml_vec128_unreachable" "caml_neon_cvtsx_int16x8_int32x4"
+    = "caml_vec128_unreachable" "caml_neon_cvtsx_int16x8_to_int32x4"
     [@@noalloc] [@@unboxed] [@@builtin]
 
-  external cvtsx_i64 : t -> int64x2
-    = "caml_vec128_unreachable" "caml_neon_cvtsx_int16x8_int64x2"
-    [@@noalloc] [@@unboxed] [@@builtin]
+  let cvtsx_i64 : t -> int64x2 = fun t -> t |> cvtsx_i32 |> Int32x4.cvtsx_i64
 
   external cvtzx_i32 : t -> int32x4
-    = "caml_vec128_unreachable" "caml_neon_cvtzx_int16x8_int32x4"
+    = "caml_vec128_unreachable" "caml_neon_cvtzx_int16x8_to_int32x4"
     [@@noalloc] [@@unboxed] [@@builtin]
 
-  external cvtzx_i64 : t -> int64x2
-    = "caml_vec128_unreachable" "caml_neon_cvtzx_int16x8_int64x2"
-    [@@noalloc] [@@unboxed] [@@builtin]
+  let cvtzx_i64 : t -> int64x2 = fun t -> t |> cvtzx_i32 |> Int32x4.cvtzx_i64
 
   external abs : t -> t = "caml_vec128_unreachable" "caml_neon_int16x8_abs"
     [@@noalloc] [@@unboxed] [@@builtin]
@@ -704,14 +700,14 @@ module Int16x8 = struct
     let low = mul_low_long a b in
     let high = mul_high_long a b in
     let low = Int32x4.to_int16x8_low low in
-    Int32x4.to_int16x8_high high low
+    Int32x4.to_int16x8_high low high
 
   let mul_high_unsigned : t -> t -> t =
    fun a b ->
     let low = mul_low_long_unsigned a b in
     let high = mul_high_long_unsigned a b in
     let low = Int32x4.to_int16x8_low low in
-    Int32x4.to_int16x8_high high low
+    Int32x4.to_int16x8_high low high
 
   external mul_low : t -> t -> t
     = "caml_vec128_unreachable" "caml_neon_int16x8_mul_low"
@@ -836,28 +832,20 @@ module Int8x16 = struct
     [@@noalloc] [@@unboxed] [@@builtin]
 
   external cvtsx_i16 : t -> int16x8
-    = "caml_vec128_unreachable" "caml_neon_cvtsx_int8x16_int16x8"
+    = "caml_vec128_unreachable" "caml_neon_cvtsx_int8x16_to_int16x8"
     [@@noalloc] [@@unboxed] [@@builtin]
 
-  external cvtsx_i32 : t -> int32x4
-    = "caml_vec128_unreachable" "caml_neon_cvtsx_int8x16_int32x4"
-    [@@noalloc] [@@unboxed] [@@builtin]
+  let cvtsx_i32 : t -> int32x4 = fun t -> t |> cvtsx_i16 |> Int16x8.cvtsx_i32
 
-  external cvtsx_i64 : t -> int64x2
-    = "caml_vec128_unreachable" "caml_neon_cvtsx_int8x16_int64x2"
-    [@@noalloc] [@@unboxed] [@@builtin]
+  let cvtsx_i64 : t -> int64x2 = fun t -> t |> cvtsx_i16 |> Int16x8.cvtsx_i64
 
   external cvtzx_i16 : t -> int16x8
-    = "caml_vec128_unreachable" "caml_neon_cvtzx_int8x16_int16x8"
+    = "caml_vec128_unreachable" "caml_neon_cvtzx_int8x16_to_int16x8"
     [@@noalloc] [@@unboxed] [@@builtin]
 
-  external cvtzx_i32 : t -> int32x4
-    = "caml_vec128_unreachable" "caml_neon_cvtzx_int8x16_int32x4"
-    [@@noalloc] [@@unboxed] [@@builtin]
+  let cvtzx_i32 : t -> int32x4 = fun t -> t |> cvtzx_i16 |> Int16x8.cvtzx_i32
 
-  external cvtzx_i64 : t -> int64x2
-    = "caml_vec128_unreachable" "caml_neon_cvtzx_int8x16_int64x2"
-    [@@noalloc] [@@unboxed] [@@builtin]
+  let cvtzx_i64 : t -> int64x2 = fun t -> t |> cvtzx_i16 |> Int16x8.cvtzx_i64
 
   external abs : t -> t = "caml_vec128_unreachable" "caml_neon_int8x16_abs"
     [@@noalloc] [@@unboxed] [@@builtin]

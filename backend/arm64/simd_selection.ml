@@ -192,9 +192,13 @@ let select_simd_instr op args dbg =
   | "caml_neon_cvt_float64x2_to_int64x2" -> Some (Cvtq_s64_f64, args)
   | "caml_neon_cvt_float32x2_to_float64x2" -> Some (Cvt_f64_f32, args)
   | "caml_neon_cvt_float64x2_to_float32x2" -> Some (Cvt_f32_f64, args)
-  | "caml_neon_cvtsx_int32x2_to_int64x2" -> Some (Cvtq_s64_s32, args)
-  | "caml_neon_cvtzx_int32x2_to_int64x2" -> Some (Cvtq_u64_u32, args)
-  | "caml_neon_cvt_int64x2_to_int32x2" -> Some (Cvtq_s32_s64, args)
+  | "caml_neon_cvtsx_int32x4_to_int64x2" -> Some (Movl_s32, args)
+  | "caml_neon_cvtzx_int32x4_to_int64x2" -> Some (Movl_u32, args)
+  | "caml_neon_cvtsx_int16x8_to_int32x4" -> Some (Movl_s16, args)
+  | "caml_neon_cvtzx_int16x8_to_int32x4" -> Some (Movl_u16, args)
+  | "caml_neon_cvtsx_int8x16_to_int16x8" -> Some (Movl_s8, args)
+  | "caml_neon_cvtzx_int8x16_to_int16x8" -> Some (Movl_u8, args)
+  | "caml_neon_cvt_int64x2_to_int32x4" -> Some (Movn_s64, args)
   | "caml_neon_float32x4_hadd" -> Some (Paddq_f32, args)
   | "caml_neon_float64x2_hadd" -> Some (Paddq_f64, args)
   | "caml_neon_float32x4_cmeq" -> Some (Cmp_f32 EQ, args)
@@ -386,8 +390,8 @@ let select_operation_cfg op args dbg =
 let pseudoregs_for_operation (simd_op : Simd.operation) arg res =
   match Simd_proc.register_behavior simd_op with
   | Rs32x4_Rs32_to_First _ | Rs64x2_Rs64_to_First _ | Rs16x8_Rs16_to_First _
-  | Rs8x16_Rs8_to_First _ | Rs64x2_Rs64x2_to_First _ | Rs32x4_Rs16x8_to_First
-  | Rs16x8_Rs8x16_to_First ->
+  | Rs8x16_Rs8_to_First _ | Rs64x2_Rs64x2_to_First _ | Rs16x8_Rs32x4_to_First
+  | Rs8x16_Rs16x8_to_First | Rs32x4_Rs64x2_to_First ->
     let arg = Array.copy arg in
     let res = Array.copy res in
     assert (not (Reg.is_preassigned arg.(0)));
@@ -405,7 +409,8 @@ let pseudoregs_for_operation (simd_op : Simd.operation) arg res =
   | Rs16x8_Rs16x8_to_Rs16x8 | Rs16x8_to_Rs16x8 | Rs16x8_to_Rs16 _
   | Rs16x8lane_to_Rs16x8 _ | Rs64x2_to_Rs32x2 | Rs8x16lane_to_Rs8x16 _
   | Rs8x16_to_Rs8 _ | Rs32x4_to_Rs16x4 | Rs16x8_to_Rs8x8
-  | Rs16x8_Rs16x8_to_Rs32x4 ->
+  | Rs16x8_Rs16x8_to_Rs32x4 | Rs16x4_Rs16x4_to_Rs32x4 | Rs16x4_to_Rs32x4
+  | Rs8x8_to_Rs16x8 ->
     arg, res
 
 (* See `amd64/simd_selection.ml`. *)

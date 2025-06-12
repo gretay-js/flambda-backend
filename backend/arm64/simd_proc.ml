@@ -56,12 +56,16 @@ type register_behavior =
   | Rs32x2_to_Rs64x2
   | Rs16x8_Rs16x8_to_Rs16x8
   | Rs16x8_Rs16x8_to_Rs32x4
+  | Rs16x4_Rs16x4_to_Rs32x4
   | Rs16x8_to_Rs16x8
   | Rs64x2_to_Rs32x2
   | Rs32x4_to_Rs16x4
   | Rs16x8_to_Rs8x8
-  | Rs32x4_Rs16x8_to_First
-  | Rs16x8_Rs8x16_to_First
+  | Rs32x4_Rs64x2_to_First
+  | Rs16x8_Rs32x4_to_First
+  | Rs8x16_Rs16x8_to_First
+  | Rs16x4_to_Rs32x4
+  | Rs8x8_to_Rs16x8
   (* scalar *)
   | Rf32_Rf32_to_Rf32
   | Rf64_Rf64_to_Rf64
@@ -118,14 +122,21 @@ let register_behavior (op : Simd.operation) =
     (* Output should be in Vec128 register but only the bottom f32x2 is used by
        this instruction. *)
     Rf64x2_to_Rf32x2
-  | Cvtq_s64_s32 | Cvtq_u64_u32 ->
+  | Movl_s32 | Movl_u32 ->
     (* Input should be in Vec128 register but only the bottom s32x2 is used by
        this instruction. *)
     Rs32x2_to_Rs64x2
-  | Cvtq_s32_s64 ->
+  | Movl_s16 | Movl_u16 -> Rs16x4_to_Rs32x4
+  | Movl_s8 | Movl_u8 -> Rs8x8_to_Rs16x8
+  | Movn_s64 ->
     (* Output should be in Vec128 register but only the bottom s32x2 is used by
        this instruction. *)
     Rs64x2_to_Rs32x2
+  | Movn_high_s64 -> Rs32x4_Rs64x2_to_First
+  | Qmovn_u32 | Qmovn_s32 | Movn_s32 -> Rs32x4_to_Rs16x4
+  | Qmovn_high_s32 | Qmovn_high_u32 | Movn_high_s32 -> Rs16x8_Rs32x4_to_First
+  | Qmovn_u16 | Qmovn_s16 | Movn_s16 -> Rs16x8_to_Rs8x8
+  | Qmovn_high_s16 | Qmovn_high_u16 | Movn_high_s16 -> Rs8x16_Rs16x8_to_First
   | Cmp_f32 _ -> Rf32x4_Rf32x4_to_Rs32x4
   | Cmpz_f32 _ -> Rf32x4_to_Rs32x4
   | Cmp_f64 _ -> Rf64x2_Rf64x2_to_Rs64x2
@@ -176,9 +187,5 @@ let register_behavior (op : Simd.operation) =
   | Absq_s8 | Negq_s8 | Cntq_u8 | Shlq_n_u8 _ | Shrq_n_u8 _ | Shrq_n_s8 _
   | Cmpz_s8 _ ->
     Rs8x16_to_Rs8x16
-  | Qmovn_u32 | Qmovn_s32 | Movn_s32 -> Rs32x4_to_Rs16x4
-  | Qmovn_high_s32 | Qmovn_high_u32 | Movn_high_s32 -> Rs32x4_Rs16x8_to_First
-  | Qmovn_u16 | Qmovn_s16 | Movn_s16 -> Rs16x8_to_Rs8x8
-  | Qmovn_high_s16 | Qmovn_high_u16 | Movn_high_s16 -> Rs16x8_Rs8x16_to_First
-  | Mullq_s16 | Mullq_u16 | Mullq_high_s16 | Mullq_high_u16 ->
-    Rs16x8_Rs16x8_to_Rs32x4
+  | Mullq_s16 | Mullq_u16 -> Rs16x4_Rs16x4_to_Rs32x4
+  | Mullq_high_s16 | Mullq_high_u16 -> Rs16x8_Rs16x8_to_Rs32x4

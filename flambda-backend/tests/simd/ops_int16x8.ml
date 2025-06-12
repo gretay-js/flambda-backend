@@ -142,20 +142,6 @@ let () =
         (int16x8_low_int64 expect)
         (int16x8_high_int64 expect));
   Int16.check_ints (fun l r ->
-      (failmsg := fun () -> Printf.printf "%04x|%04x hadds\n%!" l r);
-      let v0 = Int16.of_ints l l r r l l r r in
-      let v1 = Int16.of_ints r r l l r r l l in
-      let result = hadd_saturating v0 v1 in
-      let expect =
-        Int16.of_ints (Int16.adds l l) (Int16.adds r r) (Int16.adds l l)
-          (Int16.adds r r) (Int16.adds r r) (Int16.adds l l) (Int16.adds r r)
-          (Int16.adds l l)
-      in
-      eq (int16x8_low_int64 result)
-        (int16x8_high_int64 result)
-        (int16x8_low_int64 expect)
-        (int16x8_high_int64 expect));
-  Int16.check_ints (fun l r ->
       (failmsg := fun () -> Printf.printf "%04x|%04x avgu\n%!" l r);
       let v0 = Int16.of_ints l l r r l l r r in
       let v1 = Int16.of_ints l r l r l r l r in
