@@ -47,13 +47,14 @@ let () =
   (* Int16.check_ints (check_binop "min" Int16.min min); *)
   (* Int16.check_ints (check_binop "maxu" Int16.maxu maxu); *)
   (* Int16.check_ints (check_binop "minu" Int16.minu minu); *)
-  (* Int16.check_ints (check_binop "cmpeq" Int16.cmpeq cmpeq); *)
-  (* Int16.check_ints (check_binop "cmpgt" Int16.cmpgt cmpgt); *)
+  Int16.check_ints (check_binop "cmpeq" Int16.cmpeq cmpeq);
+  Int16.check_ints (check_binop "cmpgt" Int16.cmpgt cmpgt);
+  (* CR gyorsh: fix and re-enable the test *)
   (* Int16.check_ints (check_binop "mul_high" Int16.mul_high mul_high); *)
   (* Int16.check_ints *)
   (* (check_binop "mul_high_unsigned" Int16.mul_high_unsigned
      mul_high_unsigned); *)
-  (* Int16.check_ints (check_binop "mul_low" Int16.mul_low mul_low); *)
+  Int16.check_ints (check_binop "mul_low" Int16.mul_low mul_low);
   Int16.check_ints (fun l r ->
       (failmsg := fun () -> Printf.printf "%04x|%04x cvt_sx_i64\n%!" l r);
       let v = Int16.of_ints l r 0 0 0 0 0 0 in
