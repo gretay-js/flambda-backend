@@ -663,10 +663,6 @@ module Int16x8 = struct
     = "caml_vec128_unreachable" "caml_neon_int16x8_hadd"
     [@@noalloc] [@@unboxed] [@@builtin]
 
-  external hadd_saturating : t -> t -> t
-    = "caml_vec128_unreachable" "caml_neon_int16x8_hadd_saturating"
-    [@@noalloc] [@@unboxed] [@@builtin]
-
   external avgu : t -> t -> t
     = "caml_vec128_unreachable" "caml_neon_int16x8_avg_unsigned"
     [@@noalloc] [@@unboxed] [@@builtin]
@@ -711,10 +707,6 @@ module Int16x8 = struct
 
   external mul_low : t -> t -> t
     = "caml_vec128_unreachable" "caml_neon_int16x8_mul_low"
-    [@@noalloc] [@@unboxed] [@@builtin]
-
-  external mul_hadd_i32 : t -> t -> int32x4
-    = "caml_vec128_unreachable" "caml_neon_int16x8_mul_hadd_int32x4"
     [@@noalloc] [@@unboxed] [@@builtin]
 
   external extract : (int[@untagged]) -> (t[@unboxed]) -> (int[@untagged])
@@ -862,10 +854,6 @@ module Int8x16 = struct
     (int[@untagged]) -> (t[@unboxed]) -> (t[@unboxed]) -> (int16x8[@unboxed])
     = "caml_vec128_unreachable" "caml_neon_int8x16_multi_sad_unsigned"
     [@@noalloc] [@@builtin]
-
-  external mul_unsigned_hadd_saturating_i16 : t -> t -> int16x8
-    = "caml_vec128_unreachable" "caml_neon_int8x16_mul_unsigned_hadd_saturating_int16x8"
-    [@@noalloc] [@@unboxed] [@@builtin]
 
   external bitwise_or : t -> t -> t
     = "caml_vec128_unreachable" "caml_neon_int8x16_bitwise_or"

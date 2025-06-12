@@ -222,7 +222,32 @@ module Int16x8 = struct
         eq (int16x8_low_int64 result)
           (int16x8_high_int64 result)
           (int16x8_low_int64 expect)
-          (int16x8_high_int64 expect))
+          (int16x8_high_int64 expect));
+    Int16.check_ints (fun l r ->
+        (failmsg := fun () -> Printf.printf "%04x|%04x hadds\n%!" l r);
+        let v0 = Int16.of_ints l l r r l l r r in
+        let v1 = Int16.of_ints r r l l r r l l in
+        let result = hadd_saturating v0 v1 in
+        let expect =
+          Int16.of_ints (Int16.adds l l) (Int16.adds r r) (Int16.adds l l)
+            (Int16.adds r r) (Int16.adds r r) (Int16.adds l l) (Int16.adds r r)
+            (Int16.adds l l)
+        in
+        eq (int16x8_low_int64 result)
+          (int16x8_high_int64 result)
+          (int16x8_low_int64 expect)
+          (int16x8_high_int64 expect));
+    Int16.check_ints (fun l r ->
+        (failmsg := fun () -> Printf.printf "%04x|%04x mul_hadd_i32\n%!" l r);
+        let v0 = Int16.of_ints l l r r l l r r in
+        let v1 = Int16.of_ints r r l l r r l l in
+        let result = mul_hadd_i32 v0 v1 in
+        let sum = Int32.add (Int16.mul_i32 l r) (Int16.mul_i32 l r) in
+        let expect = Int32s.of_int32s sum sum sum sum in
+        eq (int32x4_low_int64 result)
+          (int32x4_high_int64 result)
+          (int32x4_low_int64 expect)
+          (int32x4_high_int64 expect))
 end
 
 module Int8x16 = struct
@@ -240,7 +265,22 @@ module Int8x16 = struct
         eq (int8x16_low_int64 result)
           (int8x16_high_int64 result)
           (int8x16_low_int64 expect)
-          (int8x16_high_int64 expect))
+          (int8x16_high_int64 expect));
+    Int16.check_ints (fun l r ->
+        (failmsg
+           := fun () ->
+                Printf.printf "%04x|%04x mul_unsigned_hadd_saturating_i16\n%!" l
+                  r);
+        let v0 = Int8.of_ints l l r r l l r r in
+        let v1 = Int8.of_ints l r l r l r l r in
+        let result = mul_unsigned_hadd_saturating_i16 v0 v1 in
+        let sum0 = Int16.adds (Int8.mulu_i16 l l) (Int8.mulu_i16 l r) in
+        let sum1 = Int16.adds (Int8.mulu_i16 r l) (Int8.mulu_i16 r r) in
+        let expect = Int16.of_ints sum0 sum1 sum0 sum1 sum0 sum1 sum0 sum1 in
+        eq (int16x8_low_int64 result)
+          (int16x8_high_int64 result)
+          (int16x8_low_int64 expect)
+          (int16x8_high_int64 expect))
 end
 
 module SSSE3_Util = struct

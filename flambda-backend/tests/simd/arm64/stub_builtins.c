@@ -152,7 +152,7 @@ BUILTIN(caml_neon_cvt_int32x4_int16x8_saturating_unsigned);
 BUILTIN(caml_neon_int16x8_mul_high);
 BUILTIN(caml_neon_int16x8_mul_high_unsigned);
 BUILTIN(caml_neon_int16x8_mul_low);
-BUILTIN(caml_neon_int16x8_mul_hadd_int32x4);
+
 
 BUILTIN(caml_neon_float32x4_hadd);
 BUILTIN(caml_neon_float64x2_hadd);
@@ -167,7 +167,7 @@ BUILTIN(caml_neon_int16x8_abs);
 BUILTIN(caml_neon_int32x4_abs);
 BUILTIN(caml_neon_int16x8_hadd);
 BUILTIN(caml_neon_int32x4_hadd);
-BUILTIN(caml_neon_int16x8_hadd_saturating);
+
 BUILTIN(caml_neon_int16x8_hsub);
 BUILTIN(caml_neon_int32x4_hsub);
 BUILTIN(caml_neon_int16x8_hsub_saturating);
@@ -176,7 +176,7 @@ BUILTIN(caml_neon_int16x8_mulsign);
 BUILTIN(caml_neon_int32x4_mulsign);
 BUILTIN(caml_neon_vec128_shuffle_8);
 BUILTIN(caml_neon_vec128_align_right_bytes);
-BUILTIN(caml_neon_int8x16_mul_unsigned_hadd_saturating_int16x8);
+
 
 BUILTIN(caml_neon_vec128_blend_16);
 BUILTIN(caml_neon_vec128_blend_32);

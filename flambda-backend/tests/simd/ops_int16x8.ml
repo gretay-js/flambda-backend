@@ -164,18 +164,7 @@ let () =
             (shift_left (of_int idx |> logand 0x3L) 16)
             (of_int min_v |> logand 0xffffL))
       in
-      eq (int16x8_low_int64 result) (int16x8_high_int64 result) expect 0L);
-  Int16.check_ints (fun l r ->
-      (failmsg := fun () -> Printf.printf "%04x|%04x mul_hadd_i32\n%!" l r);
-      let v0 = Int16.of_ints l l r r l l r r in
-      let v1 = Int16.of_ints r r l l r r l l in
-      let result = mul_hadd_i32 v0 v1 in
-      let sum = Int32.add (Int16.mul_i32 l r) (Int16.mul_i32 l r) in
-      let expect = Int32s.of_int32s sum sum sum sum in
-      eq (int32x4_low_int64 result)
-        (int32x4_high_int64 result)
-        (int32x4_low_int64 expect)
-        (int32x4_high_int64 expect))
+      eq (int16x8_low_int64 result) (int16x8_high_int64 result) expect 0L)
 
 let () =
   let v0 = low_of 0 in

@@ -152,20 +152,6 @@ let () =
       let expect = Int16.of_ints lr lr lr lr lr lr lr lr in
       eq (int16x8_low_int64 result) (int16x8_low_int64 result)
         (int16x8_low_int64 expect)
-        (int16x8_high_int64 expect));
-  Int16.check_ints (fun l r ->
-      (failmsg
-         := fun () ->
-              Printf.printf "%04x|%04x mul_unsigned_hadd_saturating_i16\n%!" l r);
-      let v0 = Int8.of_ints l l r r l l r r in
-      let v1 = Int8.of_ints l r l r l r l r in
-      let result = mul_unsigned_hadd_saturating_i16 v0 v1 in
-      let sum0 = Int16.adds (Int8.mulu_i16 l l) (Int8.mulu_i16 l r) in
-      let sum1 = Int16.adds (Int8.mulu_i16 r l) (Int8.mulu_i16 r r) in
-      let expect = Int16.of_ints sum0 sum1 sum0 sum1 sum0 sum1 sum0 sum1 in
-      eq (int16x8_low_int64 result)
-        (int16x8_high_int64 result)
-        (int16x8_low_int64 expect)
         (int16x8_high_int64 expect))
 
 let () =
