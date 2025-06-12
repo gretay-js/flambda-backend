@@ -55,6 +55,7 @@ let () =
       let expectl = Int64.shift_left l (Int64.to_int shift) in
       let expectr = Int64.shift_left r (Int64.to_int shift) in
       eq (int64x2_low_int64 result) (int64x2_high_int64 result) expectl expectr);
+  (* CR gyorsh: fix right shifts and re-enable the test *)
   (* Int64s.check_ints (fun l r -> *)
   (*     (failmsg := fun () -> Printf.printf "srl: %016Lx >> %016Lx\n%!" l r); *)
   (*     let v = int64x2_of_int64s l r in *)
