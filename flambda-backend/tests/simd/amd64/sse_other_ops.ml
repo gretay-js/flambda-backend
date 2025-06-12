@@ -1,5 +1,9 @@
 open Utils
 
+(* CR gyorsh: Move these tests to the parent directory after adding arm64
+   support. This file tests amd64 intrinsics that don't have an equivalent arm64
+   neon intrinsic. They can be implemented using a very short sequence of arm64
+   instructons. *)
 let eqi lv hv l h =
   if l <> lv then Printf.printf "%016x <> %016x\n" lv l;
   if h <> hv then Printf.printf "%016x <> %016x\n" hv h;
@@ -247,7 +251,31 @@ module Int16x8 = struct
         eq (int32x4_low_int64 result)
           (int32x4_high_int64 result)
           (int32x4_low_int64 expect)
-          (int32x4_high_int64 expect))
+          (int32x4_high_int64 expect));
+    Int16.check_ints (fun l r ->
+        (failmsg := fun () -> Printf.printf "%04x|%04x minposu\n%!" l r);
+        let v0 = Int16.of_ints l r l r l r l r in
+        let result = minposu v0 in
+        let min_v = Int16.minu l r in
+        let idx = if min_v = l then 0 else 1 in
+        let expect =
+          Int64.(
+            logor
+              (shift_left (of_int idx |> logand 0x3L) 16)
+              (of_int min_v |> logand 0xffffL))
+        in
+        eq (int16x8_low_int64 result) (int16x8_high_int64 result) expect 0L);
+    Int16.check_ints (fun l r ->
+        (failmsg := fun () -> Printf.printf "%04x|%04x avgu\n%!" l r);
+        let v0 = Int16.of_ints l l r r l l r r in
+        let v1 = Int16.of_ints l r l r l r l r in
+        let result = avgu v0 v1 in
+        let lr = Int16.avgu l r in
+        let expect = Int16.of_ints l lr lr r l lr lr r in
+        eq (int16x8_low_int64 result)
+          (int16x8_high_int64 result)
+          (int16x8_low_int64 expect)
+          (int16x8_high_int64 expect))
 end
 
 module Int8x16 = struct
@@ -279,6 +307,35 @@ module Int8x16 = struct
         let expect = Int16.of_ints sum0 sum1 sum0 sum1 sum0 sum1 sum0 sum1 in
         eq (int16x8_low_int64 result)
           (int16x8_high_int64 result)
+          (int16x8_low_int64 expect)
+          (int16x8_high_int64 expect));
+    Int8.check_ints (fun l r ->
+        (failmsg := fun () -> Printf.printf "%02x|%02x avgu\n%!" l r);
+        let v0 = Int8.of_ints l l r r l l r r in
+        let v1 = Int8.of_ints l r l r l r l r in
+        let result = avgu v0 v1 in
+        let lr = Int8.avgu l r in
+        let expect = Int8.of_ints l lr lr r l lr lr r in
+        eq (int8x16_low_int64 result)
+          (int8x16_high_int64 result)
+          (int8x16_low_int64 expect)
+          (int8x16_high_int64 expect));
+    Int8.check_ints (fun l r ->
+        (failmsg := fun () -> Printf.printf "%02x|%02x sadu\n%!" l r);
+        let v0 = Int8.of_ints l l r r l l r r in
+        let v1 = Int8.of_ints l r l r l r l r in
+        let result = sadu v0 v1 in
+        let lr = Int8.diffu l r in
+        let expect = Int64.of_int (4 * lr) in
+        eq (int64x2_low_int64 result) (int64x2_high_int64 result) expect expect);
+    Int8.check_ints (fun l r ->
+        (failmsg := fun () -> Printf.printf "%02x|%02x msadu\n%!" l r);
+        let v0 = Int8.of_ints l l r r l l r r in
+        let v1 = Int8.of_ints l r l r l r l r in
+        let result = msadu 0 v0 v1 in
+        let lr = 2 * Int8.diffu l r in
+        let expect = Int16.of_ints lr lr lr lr lr lr lr lr in
+        eq (int16x8_low_int64 result) (int16x8_low_int64 result)
           (int16x8_low_int64 expect)
           (int16x8_high_int64 expect))
 end

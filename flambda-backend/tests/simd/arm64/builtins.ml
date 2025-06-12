@@ -663,10 +663,6 @@ module Int16x8 = struct
     = "caml_vec128_unreachable" "caml_neon_int16x8_hadd"
     [@@noalloc] [@@unboxed] [@@builtin]
 
-  external avgu : t -> t -> t
-    = "caml_vec128_unreachable" "caml_neon_int16x8_avg_unsigned"
-    [@@noalloc] [@@unboxed] [@@builtin]
-
   external minposu : t -> t
     = "caml_vec128_unreachable" "caml_neon_int16x8_minpos_unsigned"
     [@@noalloc] [@@unboxed] [@@builtin]
@@ -718,9 +714,6 @@ module Int16x8 = struct
     = "caml_vec128_unreachable" "caml_neon_int16x8_insert"
     [@@noalloc] [@@builtin]
 
-  external sll : t -> t -> t = "caml_vec128_unreachable" "caml_neon_int16x8_sll"
-    [@@noalloc] [@@unboxed] [@@builtin]
-
   external slli : (int[@untagged]) -> (t[@unboxed]) -> (t[@unboxed])
     = "caml_vec128_unreachable" "caml_neon_int16x8_slli"
     [@@noalloc] [@@builtin]
@@ -743,6 +736,14 @@ module Int16x8 = struct
   external sshl : t -> t -> t
     = "caml_vec128_unreachable" "caml_neon_int16x8_sshl"
     [@@noalloc] [@@unboxed] [@@builtin]
+
+  external dup_lane : (int[@untagged]) -> (t[@unboxed]) -> (t[@unboxed])
+    = "caml_vec128_unreachable" "caml_neon_int16x8_dup_lane"
+    [@@noalloc] [@@builtin]
+
+  (* Shifts with [count] in a register. See comment in [Int32x4]. *)
+
+  let sll : t -> t -> t = fun arg count -> ushl arg (dup count)
 
   let srl : t -> t -> t = fun arg count -> ushl arg (neg count)
 
@@ -842,19 +843,6 @@ module Int8x16 = struct
   external abs : t -> t = "caml_vec128_unreachable" "caml_neon_int8x16_abs"
     [@@noalloc] [@@unboxed] [@@builtin]
 
-  external avgu : t -> t -> t
-    = "caml_vec128_unreachable" "caml_neon_int8x16_avg_unsigned"
-    [@@noalloc] [@@unboxed] [@@builtin]
-
-  external sadu : t -> t -> int64x2
-    = "caml_vec128_unreachable" "caml_neon_int8x16_sad_unsigned"
-    [@@noalloc] [@@unboxed] [@@builtin]
-
-  external msadu :
-    (int[@untagged]) -> (t[@unboxed]) -> (t[@unboxed]) -> (int16x8[@unboxed])
-    = "caml_vec128_unreachable" "caml_neon_int8x16_multi_sad_unsigned"
-    [@@noalloc] [@@builtin]
-
   external bitwise_or : t -> t -> t
     = "caml_vec128_unreachable" "caml_neon_int8x16_bitwise_or"
     [@@noalloc] [@@unboxed] [@@builtin]
@@ -875,9 +863,6 @@ module Int8x16 = struct
     (int[@untagged]) -> (t[@unboxed]) -> (int[@untagged]) -> (t[@unboxed])
     = "caml_vec128_unreachable" "caml_neon_int8x16_insert"
     [@@noalloc] [@@builtin]
-
-  external sll : t -> t -> t = "caml_vec128_unreachable" "caml_neon_int8x16_sll"
-    [@@noalloc] [@@unboxed] [@@builtin]
 
   external slli : (int[@untagged]) -> (t[@unboxed]) -> (t[@unboxed])
     = "caml_vec128_unreachable" "caml_neon_int8x16_slli"
@@ -901,6 +886,14 @@ module Int8x16 = struct
   external sshl : t -> t -> t
     = "caml_vec128_unreachable" "caml_neon_int8x16_sshl"
     [@@noalloc] [@@unboxed] [@@builtin]
+
+  external dup_lane : (int[@untagged]) -> (t[@unboxed]) -> (t[@unboxed])
+    = "caml_vec128_unreachable" "caml_neon_int8x16_dup_lane"
+    [@@noalloc] [@@builtin]
+
+  (* Shifts with [count] in a register. See comment in [Int32x4]. *)
+
+  let sll : t -> t -> t = fun arg count -> ushl arg (dup count)
 
   let srl : t -> t -> t = fun arg count -> ushl arg (neg count)
 

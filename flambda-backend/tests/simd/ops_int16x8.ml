@@ -140,31 +140,7 @@ let () =
       eq (int16x8_low_int64 result)
         (int16x8_high_int64 result)
         (int16x8_low_int64 expect)
-        (int16x8_high_int64 expect));
-  Int16.check_ints (fun l r ->
-      (failmsg := fun () -> Printf.printf "%04x|%04x avgu\n%!" l r);
-      let v0 = Int16.of_ints l l r r l l r r in
-      let v1 = Int16.of_ints l r l r l r l r in
-      let result = avgu v0 v1 in
-      let lr = Int16.avgu l r in
-      let expect = Int16.of_ints l lr lr r l lr lr r in
-      eq (int16x8_low_int64 result)
-        (int16x8_high_int64 result)
-        (int16x8_low_int64 expect)
-        (int16x8_high_int64 expect));
-  Int16.check_ints (fun l r ->
-      (failmsg := fun () -> Printf.printf "%04x|%04x minposu\n%!" l r);
-      let v0 = Int16.of_ints l r l r l r l r in
-      let result = minposu v0 in
-      let min_v = Int16.minu l r in
-      let idx = if min_v = l then 0 else 1 in
-      let expect =
-        Int64.(
-          logor
-            (shift_left (of_int idx |> logand 0x3L) 16)
-            (of_int min_v |> logand 0xffffL))
-      in
-      eq (int16x8_low_int64 result) (int16x8_high_int64 result) expect 0L)
+        (int16x8_high_int64 expect))
 
 let () =
   let v0 = low_of 0 in

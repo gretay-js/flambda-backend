@@ -123,36 +123,7 @@ let () =
       eq (int8x16_low_int64 result)
         (int8x16_high_int64 result)
         (int8x16_low_int64 expect)
-        (int8x16_high_int64 expect));
-  Int8.check_ints (fun l r ->
-      (failmsg := fun () -> Printf.printf "%02x|%02x avgu\n%!" l r);
-      let v0 = Int8.of_ints l l r r l l r r in
-      let v1 = Int8.of_ints l r l r l r l r in
-      let result = avgu v0 v1 in
-      let lr = Int8.avgu l r in
-      let expect = Int8.of_ints l lr lr r l lr lr r in
-      eq (int8x16_low_int64 result)
-        (int8x16_high_int64 result)
-        (int8x16_low_int64 expect)
-        (int8x16_high_int64 expect));
-  Int8.check_ints (fun l r ->
-      (failmsg := fun () -> Printf.printf "%02x|%02x sadu\n%!" l r);
-      let v0 = Int8.of_ints l l r r l l r r in
-      let v1 = Int8.of_ints l r l r l r l r in
-      let result = sadu v0 v1 in
-      let lr = Int8.diffu l r in
-      let expect = Int64.of_int (4 * lr) in
-      eq (int64x2_low_int64 result) (int64x2_high_int64 result) expect expect);
-  Int8.check_ints (fun l r ->
-      (failmsg := fun () -> Printf.printf "%02x|%02x msadu\n%!" l r);
-      let v0 = Int8.of_ints l l r r l l r r in
-      let v1 = Int8.of_ints l r l r l r l r in
-      let result = msadu 0 v0 v1 in
-      let lr = 2 * Int8.diffu l r in
-      let expect = Int16.of_ints lr lr lr lr lr lr lr lr in
-      eq (int16x8_low_int64 result) (int16x8_low_int64 result)
-        (int16x8_low_int64 expect)
-        (int16x8_high_int64 expect))
+        (int8x16_high_int64 expect))
 
 let () =
   let v0 = low_of 0 in
