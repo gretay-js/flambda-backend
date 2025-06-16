@@ -73,19 +73,18 @@ let () =
         (int32x4_high_int64 result)
         (int32x4_low_int64 expect)
         (int32x4_high_int64 expect));
-  (* CR gyorsh: fix right shifts and re-enable the test *)
-  (* Int32s.check_ints (fun l r -> *)
-  (*     (failmsg := fun () -> Printf.printf "%08lx >>a %08lx\n%!" l r); *)
-  (*     let v = Int32s.of_int32s l r l r in *)
-  (*     let shift = Int32.logand r 0x1fl in *)
-  (*     let result = sra v (Int32s.of_int32s shift 0l 0l 0l) in *)
-  (*     let expectl = Int32.shift_right l (Int32.to_int shift) in *)
-  (*     let expectr = Int32.shift_right r (Int32.to_int shift) in *)
-  (*     let expect = Int32s.of_int32s expectl expectr expectl expectr in *)
-  (*     eq (int32x4_low_int64 result) *)
-  (*       (int32x4_high_int64 result) *)
-  (*       (int32x4_low_int64 expect) *)
-  (*       (int32x4_high_int64 expect)); *)
+  Int32s.check_ints (fun l r ->
+      (failmsg := fun () -> Printf.printf "%08lx >>a %08lx\n%!" l r);
+      let v = Int32s.of_int32s l r l r in
+      let shift = Int32.logand r 0x1fl in
+      let result = sra v (Int32s.of_int32s shift 0l 0l 0l) in
+      let expectl = Int32.shift_right l (Int32.to_int shift) in
+      let expectr = Int32.shift_right r (Int32.to_int shift) in
+      let expect = Int32s.of_int32s expectl expectr expectl expectr in
+      eq (int32x4_low_int64 result)
+        (int32x4_high_int64 result)
+        (int32x4_low_int64 expect)
+        (int32x4_high_int64 expect));
   Int32s.check_ints (fun l r ->
       (failmsg := fun () -> Printf.printf "%08lx|%08lx << 7\n%!" l r);
       let v = Int32s.of_int32s l r l r in
@@ -108,18 +107,17 @@ let () =
         (int32x4_high_int64 result)
         (int32x4_low_int64 expect)
         (int32x4_high_int64 expect));
-  (* CR gyorsh: fix right shifts and re-enable the test *)
-  (* Int32s.check_ints (fun l r -> *)
-  (*     (failmsg := fun () -> Printf.printf "%08lx|%08lx >>a 7\n%!" l r); *)
-  (*     let v = Int32s.of_int32s l r l r in *)
-  (*     let result = srai 7 v in *)
-  (*     let expectl = Int32.shift_right l 7 in *)
-  (*     let expectr = Int32.shift_right r 7 in *)
-  (*     let expect = Int32s.of_int32s expectl expectr expectl expectr in *)
-  (*     eq (int32x4_low_int64 result) *)
-  (*       (int32x4_high_int64 result) *)
-  (*       (int32x4_low_int64 expect) *)
-  (*       (int32x4_high_int64 expect)); *)
+  Int32s.check_ints (fun l r ->
+      (failmsg := fun () -> Printf.printf "%08lx|%08lx >>a 7\n%!" l r);
+      let v = Int32s.of_int32s l r l r in
+      let result = srai 7 v in
+      let expectl = Int32.shift_right l 7 in
+      let expectr = Int32.shift_right r 7 in
+      let expect = Int32s.of_int32s expectl expectr expectl expectr in
+      eq (int32x4_low_int64 result)
+        (int32x4_high_int64 result)
+        (int32x4_low_int64 expect)
+        (int32x4_high_int64 expect));
   Int32s.check_ints (fun l r ->
       (failmsg := fun () -> Printf.printf "%08lx|%08lx cvt_f32\n%!" l r);
       let v = Int32s.of_int32s l r l r in
@@ -194,8 +192,6 @@ let () =
         (int16x8_high_int64 result)
         (int16x8_low_int64 expect)
         (int16x8_high_int64 expect));
-  (* CR gyorsh: the C stub [int32_su16] was buggy, how did it pass amd64? does
-     it still pass on amd64? *)
   Int32s.check_ints (fun l r ->
       (failmsg := fun () -> Printf.printf "%08lx|%08lx cvt_su16\n%!" l r);
       let v = Int32s.of_int32s l r l r in

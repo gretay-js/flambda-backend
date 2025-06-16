@@ -184,38 +184,36 @@ let () =
         (int16x8_high_int64 result)
         (int16x8_low_int64 expect)
         (int16x8_high_int64 expect));
-  (* CR gyorsh: fix right shifts and re-enable the test *)
-  (* Int16.check_ints (fun l r -> *)
-  (*     (failmsg := fun () -> Printf.printf "%08x >> %08x\n%!" l r); *)
-  (*     let v = Int16.of_ints l r l r l r l r in *)
-  (*     let shift = Int16.logand r 0xf in *)
-  (*     let result = srl v (Int16.of_ints shift 0 0 0 0 0 0 0) in *)
-  (*     let expectl = Int16.shift_right_logical l shift in *)
-  (*     let expectr = Int16.shift_right_logical r shift in *)
-  (*     let expect = *)
-  (*       Int16.of_ints expectl expectr expectl expectr expectl expectr expectl *)
-  (*         expectr *)
-  (*     in *)
-  (*     eq (int16x8_low_int64 result) *)
-  (*       (int16x8_high_int64 result) *)
-  (*       (int16x8_low_int64 expect) *)
-  (*       (int16x8_high_int64 expect)); *)
-  (* CR gyorsh: fix right shifts and re-enable the test *)
-  (* Int16.check_ints (fun l r -> *)
-  (*     (failmsg := fun () -> Printf.printf "%08x >>a %08x\n%!" l r); *)
-  (*     let v = Int16.of_ints l r l r l r l r in *)
-  (*     let shift = Int16.logand r 0xf in *)
-  (*     let result = sra v (Int16.of_ints shift 0 0 0 0 0 0 0) in *)
-  (*     let expectl = Int16.shift_right l shift in *)
-  (*     let expectr = Int16.shift_right r shift in *)
-  (*     let expect = *)
-  (*       Int16.of_ints expectl expectr expectl expectr expectl expectr expectl *)
-  (*         expectr *)
-  (*     in *)
-  (*     eq (int16x8_low_int64 result) *)
-  (*       (int16x8_high_int64 result) *)
-  (*       (int16x8_low_int64 expect) *)
-  (*       (int16x8_high_int64 expect)); *)
+  Int16.check_ints (fun l r ->
+      (failmsg := fun () -> Printf.printf "%08x >> %08x\n%!" l r);
+      let v = Int16.of_ints l r l r l r l r in
+      let shift = Int16.logand r 0xf in
+      let result = srl v (Int16.of_ints shift 0 0 0 0 0 0 0) in
+      let expectl = Int16.shift_right_logical l shift in
+      let expectr = Int16.shift_right_logical r shift in
+      let expect =
+        Int16.of_ints expectl expectr expectl expectr expectl expectr expectl
+          expectr
+      in
+      eq (int16x8_low_int64 result)
+        (int16x8_high_int64 result)
+        (int16x8_low_int64 expect)
+        (int16x8_high_int64 expect));
+  Int16.check_ints (fun l r ->
+      (failmsg := fun () -> Printf.printf "%08x >>a %08x\n%!" l r);
+      let v = Int16.of_ints l r l r l r l r in
+      let shift = Int16.logand r 0xf in
+      let result = sra v (Int16.of_ints shift 0 0 0 0 0 0 0) in
+      let expectl = Int16.shift_right l shift in
+      let expectr = Int16.shift_right r shift in
+      let expect =
+        Int16.of_ints expectl expectr expectl expectr expectl expectr expectl
+          expectr
+      in
+      eq (int16x8_low_int64 result)
+        (int16x8_high_int64 result)
+        (int16x8_low_int64 expect)
+        (int16x8_high_int64 expect));
   Int16.check_ints (fun l r ->
       (failmsg := fun () -> Printf.printf "%08x|%08x << 7\n%!" l r);
       let v = Int16.of_ints l r l r l r l r in
@@ -244,19 +242,18 @@ let () =
         (int16x8_high_int64 result)
         (int16x8_low_int64 expect)
         (int16x8_high_int64 expect));
-  (* CR gyorsh: fix right shifts and re-enable the test *)
-  (* Int16.check_ints (fun l r -> *)
-  (*     (failmsg := fun () -> Printf.printf "%08x|%08x >>a 7\n%!" l r); *)
-  (*     let v = Int16.of_ints l r l r l r l r in *)
-  (*     let result = srai 7 v in *)
-  (*     let expectl = Int16.shift_right l 7 in *)
-  (*     let expectr = Int16.shift_right r 7 in *)
-  (*     let expect = *)
-  (*       Int16.of_ints expectl expectr expectl expectr expectl expectr expectl *)
-  (*         expectr *)
-  (*     in *)
-  (*     eq (int16x8_low_int64 result) *)
-  (*       (int16x8_high_int64 result) *)
-  (*       (int16x8_low_int64 expect) *)
-  (*       (int16x8_high_int64 expect)) *)
+  Int16.check_ints (fun l r ->
+      (failmsg := fun () -> Printf.printf "%08x|%08x >>a 7\n%!" l r);
+      let v = Int16.of_ints l r l r l r l r in
+      let result = srai 7 v in
+      let expectl = Int16.shift_right l 7 in
+      let expectr = Int16.shift_right r 7 in
+      let expect =
+        Int16.of_ints expectl expectr expectl expectr expectl expectr expectl
+          expectr
+      in
+      eq (int16x8_low_int64 result)
+        (int16x8_high_int64 result)
+        (int16x8_low_int64 expect)
+        (int16x8_high_int64 expect));
   ()
