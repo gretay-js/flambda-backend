@@ -42,11 +42,10 @@ let () =
     (check_binop "add_saturating_unsigned" Int8.addsu add_saturating_unsigned);
   Int8.check_ints
     (check_binop "sub_saturating_unsigned" Int8.subsu sub_saturating_unsigned);
-  (* CR gyorsh: fix and re-enable the test *)
-  (* Int8.check_ints (check_binop "max" Int8.max max); *)
-  (* Int8.check_ints (check_binop "min" Int8.min min); *)
-  (* Int8.check_ints (check_binop "maxu" Int8.maxu maxu); *)
-  (* Int8.check_ints (check_binop "minu" Int8.minu minu); *)
+  Int8.check_ints (check_binop "max" Int8.max max);
+  Int8.check_ints (check_binop "min" Int8.min min);
+  Int8.check_ints (check_binop "maxu" Int8.maxu maxu);
+  Int8.check_ints (check_binop "minu" Int8.minu minu);
   Int8.check_ints (check_binop "cmpeq" Int8.cmpeq cmpeq);
   Int8.check_ints (check_binop "cmpgt" Int8.cmpgt cmpgt);
   Int8.check_ints (fun l r ->
