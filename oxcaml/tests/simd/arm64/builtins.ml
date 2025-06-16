@@ -148,13 +148,22 @@ module Int64x2 = struct
     = "caml_vec128_unreachable" "caml_neon_int64x2_dup_lane"
     [@@noalloc] [@@builtin]
 
-  (* Shifts with [count] in a register. See comment in [Int32x4]. *)
+  (* Shift each element of the vector by the count in the corresponding element
+     of the second vector. *)
+  let srl_by_vector_of_shifts : t -> t -> t =
+   fun arg count -> ushl arg (neg count)
+
+  let sra_by_vector_of_shifts : t -> t -> t =
+   fun arg count -> sshl arg (neg count)
+
+  (* Shifts with [count] at the bottom of the register. See comment in
+     [Int32x4]. *)
 
   let sll : t -> t -> t = fun arg count -> ushl arg (dup count)
 
-  let srl : t -> t -> t = fun arg count -> ushl arg (neg count)
+  let srl : t -> t -> t = fun arg count -> ushl arg (dup (neg count))
 
-  let sra : t -> t -> t = fun arg count -> sshl arg (neg count)
+  let sra : t -> t -> t = fun arg count -> sshl arg (dup (neg count))
 end
 
 module Int32x4 = struct
@@ -753,9 +762,9 @@ module Int16x8 = struct
 
   let sll : t -> t -> t = fun arg count -> ushl arg (dup count)
 
-  let srl : t -> t -> t = fun arg count -> ushl arg (neg count)
+  let srl : t -> t -> t = fun arg count -> ushl arg (dup (neg count))
 
-  let sra : t -> t -> t = fun arg count -> sshl arg (neg count)
+  let sra : t -> t -> t = fun arg count -> sshl arg (dup (neg count))
 end
 
 module Int8x16 = struct
@@ -906,9 +915,9 @@ module Int8x16 = struct
 
   let sll : t -> t -> t = fun arg count -> ushl arg (dup count)
 
-  let srl : t -> t -> t = fun arg count -> ushl arg (neg count)
+  let srl : t -> t -> t = fun arg count -> ushl arg (dup (neg count))
 
-  let sra : t -> t -> t = fun arg count -> sshl arg (neg count)
+  let sra : t -> t -> t = fun arg count -> sshl arg (dup (neg count))
 end
 
 module SSE_Util = struct

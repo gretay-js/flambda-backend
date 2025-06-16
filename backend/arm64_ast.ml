@@ -621,7 +621,7 @@ module Instruction_name = struct
     | USHL -> "ushl"
     | SSHL -> "sshl"
     | USHR -> "ushr"
-    | SSHR -> "ushr"
+    | SSHR -> "sshr"
     | SXTL -> "sxtl"
     | UXTL -> "uxtl"
     | XTN -> "xtn"
