@@ -42,11 +42,10 @@ let () =
     (check_binop "add_saturating_unsigned" Int16.addsu add_saturating_unsigned);
   Int16.check_ints
     (check_binop "sub_saturating_unsigned" Int16.subsu sub_saturating_unsigned);
-  (* CR gyorsh: fix and re-enable the test *)
-  (* Int16.check_ints (check_binop "max" Int16.max max); *)
-  (* Int16.check_ints (check_binop "min" Int16.min min); *)
-  (* Int16.check_ints (check_binop "maxu" Int16.maxu maxu); *)
-  (* Int16.check_ints (check_binop "minu" Int16.minu minu); *)
+  Int16.check_ints (check_binop "max" Int16.max max);
+  Int16.check_ints (check_binop "min" Int16.min min);
+  Int16.check_ints (check_binop "maxu" Int16.maxu maxu);
+  Int16.check_ints (check_binop "minu" Int16.minu minu);
   Int16.check_ints (check_binop "cmpeq" Int16.cmpeq cmpeq);
   Int16.check_ints (check_binop "cmpgt" Int16.cmpgt cmpgt);
   (* CR gyorsh: fix and re-enable the test *)
