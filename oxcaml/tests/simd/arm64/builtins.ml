@@ -694,15 +694,15 @@ module Int16x8 = struct
 
   let mul_high : t -> t -> t =
    fun a b ->
-    let low = mul_low_long a b in
-    let high = mul_high_long a b in
+    let low = mul_low_long a b |> Int32x4.srai 16 in
+    let high = mul_high_long a b |> Int32x4.srai 16 in
     let low = Int32x4.to_int16x8_low low in
     Int32x4.to_int16x8_high low high
 
   let mul_high_unsigned : t -> t -> t =
    fun a b ->
-    let low = mul_low_long_unsigned a b in
-    let high = mul_high_long_unsigned a b in
+    let low = mul_low_long_unsigned a b |> Int32x4.srli 16 in
+    let high = mul_high_long_unsigned a b |> Int32x4.srli 16 in
     let low = Int32x4.to_int16x8_low low in
     Int32x4.to_int16x8_high low high
 
