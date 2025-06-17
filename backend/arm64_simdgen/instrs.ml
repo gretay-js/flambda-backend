@@ -35,7 +35,7 @@ type nonrec instr = id instr
 
 
 let pmovmskb_r64_X = {
-    id = Pmovmskb_r64_X
+    id = Vaddq_s64
   ; args = [|{ loc = Temp [|XMM|]; enc = RM_rm }|]
   ; res = Res { loc = Temp [|R64|]; enc = RM_r }
   ; imm = false

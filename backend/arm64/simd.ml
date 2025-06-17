@@ -18,6 +18,8 @@
 
 open! Int_replace_polymorphic_compare [@@ocaml.warning "-66"]
 
+module I = Arm64_ast
+
 type operation_class = Pure
 
 module Rounding_mode = struct
@@ -110,16 +112,57 @@ module Cond = struct
     | (EQ | GE | GT | LE | LT), _ -> false
 end
 
-module Seq = struct
-  (* [Min_scalar_f32/Max_scalar_f32] are emitted as a sequence of instructions
-     that matches amd64 semantics of the same intrinsic
-     [caml_simd_float32_min/max], regardless of the value of [FPCR.AH]. *)
+(** [Seq] represents intrinsics that are emitted as a sequence of Neon instructions,
+    including single scalar Neon instructions that do not have a corresponding "v"
+    C intrinsic in "arm_neon.h". *)
+module Instr_seq = struct
+
+  type id =
+    (* [*_match_sse] are emitted as a sequence of instructions
+       that matches amd64 semantics of the same intrinsic
+       [caml_simd_float32_min/max], regardless of the value of [FPCR.AH]. *)
+  | Scalar_min_f32_match_sse
+  | Scalar_max_f32_match_sse
+  | Scalar_min_f64_match_sse
+  | Scalar_max_f64_match_sse
+
   (* [Fmin/Fmax] are emitted as the corresponding arm64 single instructions. *)
-  type t =
-  | Min_scalar_f32
-  | Max_scalar_f32
-  | Min_scalar_f64
-  | Max_scalar_f64
+  | Scalar_fmin_f32
+  | Scalar_fmax_f32
+
+  | Scalar_Round_f32
+  | Round_f64
+  | Round_f32_i64
+
+  let t =
+    {
+      id: id;
+      instr : Arm64_simd_instrs.instr;
+    }
+
+  let scalar_max_f32_match_sse = default_binary_float32 Scalar_min_f32_match_sse I.NOP
+
+  let scalar_max_f32_match_sse = default_binary_float32 Scalar_max_f32_match_sse I.NOP
+
+  let scalar_fmin_f32 = default_binary_float32 Scalar_fmin_f32 I.FMIN
+
+  let max_scalar_f32 = default_binary_float32 Scalar_fmax_f32 I.FMAX
+
+  let min_scalar_f64 = default_binary_float Min_scalar_f32 I.NOP
+
+  let max_scalar_f64 = default_binary_float Max_scalar_f32 I.NOP
+
+  let scalar_fmin_f64 = default_binary_float32 Scalar_fmin_f64 I.FMIN
+
+  let max_scalar_f64 = default_binary_float32 Scalar_fmax_f64 I.FMAX
+
+(*=
+  | Round_f32_i64 -> Rf32_to_Ri64
+  | Round_f32 _ -> Rf32_to_Rf32
+  | Round_f64 _ -> Rf64_to_Rf64
+  | Fmin_f32 | Fmax_f32 | Min_scalar_f32 | Max_scalar_f32 -> Rf32_Rf32_to_Rf32
+  | Min_scalar_f64 | Max_scalar_f64 -> Rf64_Rf64_to_Rf64
+ *)
 
   let equal _ _ = Misc.fatal_error "arm64/simd: impelment equal for Seq.t"
 
@@ -131,18 +174,18 @@ end
 module Pseudo_instr = struct
   type t =
     | Instruction of Arm64_simd_instrs.instr
-    | Sequence of Seq.t
+    | Sequence of Instr_seq.t
 
   let equal t1 t2 =
     match t1, t2 with
     | Instruction i0, Instruction i1 -> Amd64_simd_instrs.equal i0 i1
-    | Sequence s0, Sequence s1 -> Seq.equal s0 s1
+    | Sequence s0, Sequence s1 -> Instr_seq.equal s0 s1
     | (Instruction _ | Sequence _), _ -> false
 
   let print ppf t =
     match t with
     | Instruction instr -> fprintf ppf "%s" instr.mnemonic
-    | Sequence seq -> fprintf ppf "[seq] %s" (Seq.mnemonic seq)
+    | Sequence seq -> fprintf ppf "[seq] %s" (Instr_seq.mnemonic seq)
 end
 
 module Imm = struct

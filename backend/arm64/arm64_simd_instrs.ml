@@ -3,12 +3,7 @@
 open Arm64_simd_defs
 
 type id =
-  | Round_f32
-  | Round_f64
   | Round_f32x4
-  | Round_f32_i64
-  | Fmin_f32
-  | Fmax_f32
   | Zip1_f32
   | Zip1q_f32
   | Zip1q_f64
