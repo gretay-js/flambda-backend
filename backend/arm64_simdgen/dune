@@ -18,10 +18,8 @@
  (modules simdgen arm64_regs arm64_simd_defs))
 
 (rule
- (target arm64_simd_instrs.ml)
+ (target arm64_simd_mnemonics.ml arm64_simd_instrs.ml simd_builtins.ml)
  (deps simdgen.exe arm64/advsimd.csv)
  (mode promote)
  (action
-  (with-stdout-to
-   arm64_simd_instrs.ml
-   (run ./simdgen.exe arm64/advsimd.csv))))
+   (run ./simdgen.exe arm64/advsimd.csv)))

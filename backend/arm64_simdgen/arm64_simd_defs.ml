@@ -31,7 +31,7 @@ module Instr = struct
   (* CR gyorsh: connect to [Instruction.t] instead of using string [mnemonic]  *)
   type t =
     {
-      mnemonic : string;
+      mnemonic : Arm64_ast.Instruction_name.t;
       operands : loc array;
     }
 end
@@ -40,8 +40,7 @@ module Decl = struct
   (** external declaration of the intrinsic  *)
   type typ =
     | Imm
-    | Base of string
-    | Ptr of string
+    | Typ of string
 
   type param = { typ : typ; name : string }
 
@@ -57,7 +56,7 @@ end
 type t =
   {
     decl : Decl.t;
-    instr : Instr.t;
+    instr : Arm64_ast.Instruction_name.t;
     arg : loc list;
     res : res;
   }

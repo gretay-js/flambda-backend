@@ -110,137 +110,102 @@ module Cond = struct
     | (EQ | GE | GT | LE | LT), _ -> false
 end
 
-type operation =
-  | Round_f32 of Rounding_mode.t
-  | Round_f64 of Rounding_mode.t
-  | Round_f32x4 of Rounding_mode.t
-  | Round_f32_i64
+module Seq = struct
   (* [Min_scalar_f32/Max_scalar_f32] are emitted as a sequence of instructions
      that matches amd64 semantics of the same intrinsic
      [caml_simd_float32_min/max], regardless of the value of [FPCR.AH]. *)
+  (* [Fmin/Fmax] are emitted as the corresponding arm64 single instructions. *)
+  type t =
   | Min_scalar_f32
   | Max_scalar_f32
   | Min_scalar_f64
   | Max_scalar_f64
-  (* [Fmin/Fmax] are emitted as the corresponding arm64 single instructions. *)
-  | Fmin_f32
-  | Fmax_f32
-  | Zip1_f32
-  | Zip1q_f32
-  | Zip1q_f64
-  | Zip2q_f64
-  | Addq_i64
-  | Subq_i64
-  | Addq_f32
-  | Subq_f32
-  | Mulq_f32
-  | Divq_f32
-  | Minq_f32
-  | Maxq_f32
-  | Recpeq_f32
-  | Sqrtq_f32
-  | Rsqrteq_f32
-  | Cvtq_s32_of_f32
-  | Cvtq_f32_of_s32
-  | Cvt_f64_f32
-  | Paddq_f32
-  | Cmp_f32 of Float_cond.t
-  | Cmpz_s32 of Cond.t
 
-let print_name op =
-  match op with
-  | Round_f32 rm -> "Round_f32_" ^ Rounding_mode.instruction_suffix rm
-  | Round_f64 rm -> "Round_f64_" ^ Rounding_mode.instruction_suffix rm
-  | Round_f32x4 rm -> "Round_f32x4_" ^ Rounding_mode.instruction_suffix rm
-  | Round_f32_i64 -> "Round_f32_i"
-  | Zip1_f32 -> "Zip1_f32"
-  | Zip1q_f32 -> "Zip1q_f32"
-  | Zip1q_f64 -> "Zip1q_f64"
-  | Zip2q_f64 -> "Zip2q_f64"
-  | Fmin_f32 -> "Fmin_f32"
-  | Fmax_f32 -> "Fmax_f32"
-  | Min_scalar_f32 -> "Min_scalar_f32"
-  | Max_scalar_f32 -> "Max_scalar_f32"
-  | Min_scalar_f64 -> "Min_scalar_f64"
-  | Max_scalar_f64 -> "Max_scalar_f64"
-  | Addq_i64 -> "Addq_i64"
-  | Subq_i64 -> "Subq_i64"
-  | Addq_f32 -> "Addq_f32"
-  | Subq_f32 -> "Subq_f32"
-  | Mulq_f32 -> "Mulq_f64"
-  | Divq_f32 -> "Divq_f64"
-  | Minq_f32 -> "Minq_f64"
-  | Maxq_f32 -> "Maxq_f64"
-  | Recpeq_f32 -> "Recpeq_f64"
-  | Sqrtq_f32 -> "Sqrtq_f64"
-  | Rsqrteq_f32 -> "Rsqrtq_f64"
-  | Cvtq_s32_of_f32 -> "Cvtq_s32_of_f32"
-  | Cvtq_f32_of_s32 -> "Cvtq_f32_of_s32"
-  | Cvt_f64_f32 -> "Cvt_f64_f32"
-  | Paddq_f32 -> "Paddq_f64"
-  | Cmp_f32 cond -> "Cmp_f32_" ^ Float_cond.to_string cond
-  | Cmpz_s32 cond -> "Cmpz_s32_" ^ Cond.to_string cond
+  let equal _ _ = Misc.fatal_error "arm64/simd: impelment equal for Seq.t"
 
-let print_operation printreg op ppf arg =
+  let mnemonic _ = Misc.fatal_error "arm64/simd: impelment mnemonic for Seq.t"
+
+  let print ppf _ = Misc.fatal_error "arm64/simd: impelment print for Seq.t"
+end
+
+module Pseudo_instr = struct
+  type t =
+    | Instruction of Arm64_simd_instrs.instr
+    | Sequence of Seq.t
+
+  let equal t1 t2 =
+    match t1, t2 with
+    | Instruction i0, Instruction i1 -> Amd64_simd_instrs.equal i0 i1
+    | Sequence s0, Sequence s1 -> Seq.equal s0 s1
+    | (Instruction _ | Sequence _), _ -> false
+
+  let print ppf t =
+    match t with
+    | Instruction instr -> fprintf ppf "%s" instr.mnemonic
+    | Sequence seq -> fprintf ppf "[seq] %s" (Seq.mnemonic seq)
+end
+
+module Imm = struct
+  type t =
+    | Imm of int
+    | Mode of Rounding_mode.t
+    | Float_cond of Float_cond.t
+    | Cond of Cond.t
+    | Lane of int
+    | Lanes of
+        { src : int;
+          dst : int
+        }
+
+  let print ppf t =
+    match t with
+    | Imm i -> Format.fprintf ppf "%d" i
+    | Mode rm -> Format.fprintf ppf "%s" (Rounding_mode.to_string rm)
+    | Float_cond fc -> Format.fprintf ppf "%s" (Float_cond.to_string fc)
+    | Cond c -> Format.fprintf ppf "%s" (Cond.to_string c)
+    | Lane i -> Format.fprintf ppf "%d" i
+    | Lanes { src; dst } -> Format.fprintf ppf "src_lane=%d dst_lane=%d" src dst
+
+  let equal t1 t2 =
+    match t1,t2 with
+    | Imm i1, Imm i2 -> Int.equal i1 i2
+    | Mode rm1, Mode rm2 -> Rounding_mode.equal rm1 rm2
+    | Float_cond fc1, Float_cond fc2 -> Float_cond.equal fc1 fc2
+    | Cond c1, Cond c2 -> Cond.equal c1 c2
+    | Lane i1, Lane i2 -> Int.equal i1 i2
+    | Lanes { src; dst }, Lanes { src = src'; dst = dst' } ->
+        Int.equal src src' && Int.equal dst dst'
+    | (Imm _ | Mode _ | Float_cond _ | Cond _ | Lane _ | Lanes _), _ -> false
+end
+
+(* CR gyorsh: clean up constructor arguments *)
+type operation =
+  { instr : Pseudo_instr.t;
+    imm : Imm.t option (* immediate arguments *)
+  }
+
+let instruction instr imm = { instr = Pseudo_instr.Instruction instr; imm }
+
+let sequence instr imm = { instr = Pseudo_instr.Sequence instr; imm }
+
+let is_pure_operation _op = true
+
+let class_of_operation _op = Pure
+
+let print_operation printreg (op : operation) ppf regs =
   (* CR gyorsh: does not support memory operands (except stack operands). *)
-  Format.fprintf ppf "%s %a" (print_name op)
+  Format.fprintf ppf "%s %a %a"
+    (Pseudo_instr.print op.instr)
+    (Format.pp_print_option Imm.print)
+    op.imm
     (Format.pp_print_seq ~pp_sep:Format.pp_print_space printreg)
-    (arg |> Array.to_seq)
+    (regs |> Array.to_seq)
 
-let equal_operation op1 op2 =
-  match op1, op2 with
-  | Round_f32 mode, Round_f32 mode'
-  | Round_f64 mode, Round_f64 mode'
-  | Round_f32x4 mode, Round_f32x4 mode' ->
-    Rounding_mode.equal mode mode'
-  | Round_f32_i64, Round_f32_i64 -> true
-  | Min_scalar_f32, Min_scalar_f32
-  | Max_scalar_f32, Max_scalar_f32
-  | Min_scalar_f64, Min_scalar_f64
-  | Max_scalar_f64, Max_scalar_f64
-  | Fmin_f32, Fmin_f32
-  | Fmax_f32, Fmax_f32
-  | Zip1_f32, Zip1_f32 ->
-    true
-  | Zip1q_f32, Zip1q_f32 -> true
-  | Zip1q_f64, Zip1q_f64 -> true
-  | Zip2q_f64, Zip2q_f64 -> true
-  | Addq_i64, Addq_i64 -> true
-  | Subq_i64, Subq_i64 -> true
-  | Addq_f32, Addq_f32
-  | Subq_f32, Subq_f32
-  | Mulq_f32, Mulq_f32
-  | Divq_f32, Divq_f32
-  | Minq_f32, Minq_f32
-  | Maxq_f32, Maxq_f32
-  | Recpeq_f32, Recpeq_f32
-  | Sqrtq_f32, Sqrtq_f32
-  | Rsqrteq_f32, Rsqrteq_f32
-  | Cvtq_s32_of_f32, Cvtq_s32_of_f32
-  | Cvtq_f32_of_s32, Cvtq_f32_of_s32
-  | Cvt_f64_f32, Cvt_f64_f32
-  | Paddq_f32, Paddq_f32 ->
-    true
-  | Cmp_f32 c, Cmp_f32 c' -> Float_cond.equal c c'
-  | Cmpz_s32 c, Cmpz_s32 c' -> Cond.equal c c'
-  | ( ( Round_f32 _ | Round_f64 _ | Round_f32x4 _ | Round_f32_i64
-      | Min_scalar_f32 | Max_scalar_f32 | Min_scalar_f64 | Max_scalar_f64
-      | Fmin_f32 | Fmax_f32 | Zip1_f32 | Zip1q_f32 | Zip1q_f64 | Zip2q_f64
-      | Addq_i64 | Subq_i64 | Addq_f32 | Subq_f32 | Mulq_f32 | Divq_f32
-      | Minq_f32 | Maxq_f32 | Recpeq_f32 | Sqrtq_f32 | Rsqrteq_f32
-      | Cvtq_s32_of_f32 | Cvtq_f32_of_s32 | Cvt_f64_f32 | Paddq_f32 | Cmp_f32 _
-      | Cmpz_s32 _ ),
-      _ ) ->
-    false
+let equal_operation
+    { instr = instr0l imm = imm0 }
+    } { instr = instr1; imm = imm1 } =
+  Pseudo_instr.equal instr0 instr1 && Option.equal Imm.equal imm0 imm1
 
-let class_of_operation op =
-  match op with
-  | Round_f32 _ | Round_f64 _ | Round_f32x4 _ | Round_f32_i64 | Min_scalar_f32
-  | Max_scalar_f32 | Min_scalar_f64 | Max_scalar_f64 | Fmin_f32 | Fmax_f32
-  | Zip1_f32 | Zip1q_f32 | Zip1q_f64 | Zip2q_f64 | Addq_i64 | Subq_i64
-  | Addq_f32 | Subq_f32 | Mulq_f32 | Divq_f32 | Minq_f32 | Maxq_f32 | Recpeq_f32
-  | Sqrtq_f32 | Rsqrteq_f32 | Cvtq_s32_of_f32 | Cvtq_f32_of_s32 | Cvt_f64_f32
-  | Paddq_f32 | Cmp_f32 _ | Cmpz_s32 _ ->
-    Pure
+let class_of_operation _op = Pure
 
 let operation_is_pure op = match class_of_operation op with Pure -> true
