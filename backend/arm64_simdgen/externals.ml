@@ -1,0 +1,5 @@
+external vadd_s8 : int8x8 -> int8x8 -> int8x8 =
+  "vadd_s8" "caml_neon_vadd_s8"
+
+external vaddq_s8 : int8x16 -> int8x16 -> int8x16 =
+  "vaddq_s8" "caml_neon_vaddq_s8"

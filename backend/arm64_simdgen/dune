@@ -18,7 +18,7 @@
  (modules simdgen arm64_regs arm64_simd_defs))
 
 (rule
- (target arm64_simd_mnemonics.ml arm64_simd_instrs.ml simd_builtins.ml)
+ (target arm64_simd_instrs.ml arm64_simd_externals.ml)
  (deps simdgen.exe arm64/advsimd.csv)
  (mode promote)
  (action
