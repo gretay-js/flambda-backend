@@ -17,8 +17,8 @@
 (* SIMD instructions for ARM64 *)
 
 open! Int_replace_polymorphic_compare [@@ocaml.warning "-66"]
-
 module I = Arm64_ast
+module D = Arm64_simd_defs
 
 type operation_class = Pure
 
@@ -112,57 +112,108 @@ module Cond = struct
     | (EQ | GE | GT | LE | LT), _ -> false
 end
 
-(** [Seq] represents intrinsics that are emitted as a sequence of Neon instructions,
-    including single scalar Neon instructions that do not have a corresponding "v"
-    C intrinsic in "arm_neon.h". *)
+let emit_rounding_mode (rm : Simd.Rounding_mode.t) : I.Rounding_mode.t =
+  match rm with
+  | Neg_inf -> I.Rounding_mode.M
+  | Pos_inf -> I.Rounding_mode.P
+  | Zero -> I.Rounding_mode.Z
+  | Current -> I.Rounding_mode.X
+  | Nearest -> I.Rounding_mode.N
+
+let emit_float_cond (cond : Simd.Float_cond.t) : I.Float_cond.t =
+  match cond with
+  | EQ -> EQ
+  | GT -> GT
+  | LE -> LE
+  | GE -> GE
+  | LT -> LT
+  | NE -> NE
+  | CC -> CC
+  | CS -> CS
+  | LS -> LS
+  | HI -> HI
+
+let emit_cond (cond : Simd.Cond.t) : I.Cond.t =
+  match cond with EQ -> EQ | GT -> GT | GE -> GE | LE -> LE | LT -> LT
+
+(** [Seq] represents intrinsics that are emitted as a sequence of Neon
+    instructions, including single scalar Neon instructions that do
+    not have a corresponding "v" C intrinsic in "arm_neon.h". *)
 module Instr_seq = struct
-
   type id =
-    (* [*_match_sse] are emitted as a sequence of instructions
-       that matches amd64 semantics of the same intrinsic
-       [caml_simd_float32_min/max], regardless of the value of [FPCR.AH]. *)
-  | Scalar_min_f32_match_sse
-  | Scalar_max_f32_match_sse
-  | Scalar_min_f64_match_sse
-  | Scalar_max_f64_match_sse
+    (* [*_match_sse] are emitted as a sequence of instructions that matches
+       amd64 semantics of the same intrinsic [caml_simd_float32_min/max],
+       regardless of the value of [FPCR.AH]. *)
+    | Scalar_min_f32_match_sse
+    | Scalar_max_f32_match_sse
+    | Scalar_min_f64_match_sse
+    | Scalar_max_f64_match_sse
+    (* [Fmin/Fmax] are emitted as the corresponding arm64 single
+       instructions. *)
+    | Scalar_fmin_f32
+    | Scalar_fmax_f32
+    | Scalar_fmin_f64
+    | Scalar_fmax_f64
+    (* Scalar conversions *)
+    | Scalar_round_f32
+    | Scalar_round_f64
+    | Scalar_round_f32_to_i64
 
-  (* [Fmin/Fmax] are emitted as the corresponding arm64 single instructions. *)
-  | Scalar_fmin_f32
-  | Scalar_fmax_f32
+  let t = id Arm64_simd_instrs.instr
 
-  | Scalar_Round_f32
-  | Round_f64
-  | Round_f32_i64
+  (* helpers *)
+  let default_binary_float32 id instr =
+    D.default_binary id instr D.operand_default_float32
 
-  let t =
-    {
-      id: id;
-      instr : Arm64_simd_instrs.instr;
-    }
+  let default_binary_float id instr =
+    D.default_binary id instr D.operand_default_float
 
-  let scalar_max_f32_match_sse = default_binary_float32 Scalar_min_f32_match_sse I.NOP
+  let default_binary_int id instr =
+    default_binary id instr D.operand_default_int
 
-  let scalar_max_f32_match_sse = default_binary_float32 Scalar_max_f32_match_sse I.NOP
+  let default_unary_float32 id instr =
+    D.default_unary id instr D.operand_default_float32
+
+  let default_unary_float id instr =
+    D.default_unary id instr D.operand_default_float
+
+  let default_unary_int id instr =
+    D.default_unary id instr D.operand_default_int
+
+  (* instructions *)
+
+  let scalar_min_f32_match_sse =
+    default_binary_float32 Scalar_min_f32_match_sse None
+
+  let scalar_max_f32_match_sse =
+    default_binary_float32 Scalar_max_f32_match_sse None
+
+  let scalar_min_f64_match_sse =
+    default_binary_float Scalar_min_f64_match_sse None
+
+  let scalar_max_f64_match_sse =
+    default_binary_float Scalar_max_f64_match_sse None
 
   let scalar_fmin_f32 = default_binary_float32 Scalar_fmin_f32 I.FMIN
 
-  let max_scalar_f32 = default_binary_float32 Scalar_fmax_f32 I.FMAX
+  let scalar_fmax_f32 = default_binary_float32 Scalar_fmax_f32 I.FMAX
 
-  let min_scalar_f64 = default_binary_float Min_scalar_f32 I.NOP
+  let scalar_fmin_f64 = default_binary_float Scalar_fmin_f32 I.FMIN
 
-  let max_scalar_f64 = default_binary_float Max_scalar_f32 I.NOP
+  let scalar_fmax_f64 = default_binary_float Scalar_fmax_f32 I.FMAX
 
-  let scalar_fmin_f64 = default_binary_float32 Scalar_fmin_f64 I.FMIN
+  let scalar_round_f32 rm =
+    default_unary_float32 Scalar_round_f32 (I.FRINT (emit_rounding_mode rm))
 
-  let max_scalar_f64 = default_binary_float32 Scalar_fmax_f64 I.FMAX
+  let scalar_round_f64 rm =
+    default_unary_float Scalar_round_f64 (I.FRINT (emit_rounding_mode rm))
 
-(*=
-  | Round_f32_i64 -> Rf32_to_Ri64
-  | Round_f32 _ -> Rf32_to_Rf32
-  | Round_f64 _ -> Rf64_to_Rf64
-  | Fmin_f32 | Fmax_f32 | Min_scalar_f32 | Max_scalar_f32 -> Rf32_Rf32_to_Rf32
-  | Min_scalar_f64 | Max_scalar_f64 -> Rf64_Rf64_to_Rf64
- *)
+  let scalar_round_f32_i64 =
+    { id = Scalar_round_f32_i64;
+      instr = I.FCVTNS;
+      args = [| D.operand_default_float32 |];
+      res = Res operand_default_int
+    }
 
   let equal _ _ = Misc.fatal_error "arm64/simd: impelment equal for Seq.t"
 
@@ -170,6 +221,7 @@ module Instr_seq = struct
 
   let print ppf _ = Misc.fatal_error "arm64/simd: impelment print for Seq.t"
 end
+[@@inline always]
 
 module Pseudo_instr = struct
   type t =
@@ -210,14 +262,14 @@ module Imm = struct
     | Lanes { src; dst } -> Format.fprintf ppf "src_lane=%d dst_lane=%d" src dst
 
   let equal t1 t2 =
-    match t1,t2 with
+    match t1, t2 with
     | Imm i1, Imm i2 -> Int.equal i1 i2
     | Mode rm1, Mode rm2 -> Rounding_mode.equal rm1 rm2
     | Float_cond fc1, Float_cond fc2 -> Float_cond.equal fc1 fc2
     | Cond c1, Cond c2 -> Cond.equal c1 c2
     | Lane i1, Lane i2 -> Int.equal i1 i2
     | Lanes { src; dst }, Lanes { src = src'; dst = dst' } ->
-        Int.equal src src' && Int.equal dst dst'
+      Int.equal src src' && Int.equal dst dst'
     | (Imm _ | Mode _ | Float_cond _ | Cond _ | Lane _ | Lanes _), _ -> false
 end
 
@@ -244,9 +296,8 @@ let print_operation printreg (op : operation) ppf regs =
     (Format.pp_print_seq ~pp_sep:Format.pp_print_space printreg)
     (regs |> Array.to_seq)
 
-let equal_operation
-    { instr = instr0l imm = imm0 }
-    } { instr = instr1; imm = imm1 } =
+let equal_operation { instr = instr0; imm = imm0 }
+    { instr = instr1; imm = imm1 } =
   Pseudo_instr.equal instr0 instr1 && Option.equal Imm.equal imm0 imm1
 
 let class_of_operation _op = Pure

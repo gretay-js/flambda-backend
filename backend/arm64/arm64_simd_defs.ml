@@ -16,13 +16,13 @@
 
 type emit_reg =
   | Default  (* use machtype Reg.typ *)
-  | DSL of (int -> Operand.t)
+  | DSL of (int -> Arm64_ast.Operand.t)
 
 (* CR gyorsh: add mem and other operands or simplify this type *)
 type loc =
   | Reg of emit_reg
 
-let operand =
+type operand =
   { loc : loc;
     allowed_machtypes : Cmm.machtype
   }
@@ -34,7 +34,7 @@ type res =
 type 'id t =
   {
     id : 'id
-    instr : Arm64_ast.Instruction_name.t;
+    instr : Arm64_ast.Instruction_name.t option;
     args : operand array;
     res : res;
   }
@@ -46,7 +46,7 @@ let reg_default = Reg Default
 let operand_default_float32 = { loc = reg_default; allowed_machtypes = Cmm.typ_float32 }
 let operand_default_float = { loc = reg_default; allowed_machtypes = Cmm.typ_float }
 let operand_default_int = { loc = reg_default; allowed_machtypes = Cmm.typ_int }
-
+let operand_vec128 emit_reg = { loc = Reg emit_reg; allowed_machtypes = Cmm.typ_vec128 }
 
 let default_binary id instr operand =
   {
@@ -63,13 +63,3 @@ let default_unary id instr operand =
     args = [| operand |];
     res = Res operand
   }
-
-let default_binary_float32 id instr = default_binary id instr operand_default_float32
-let default_binary_float id instr = default_binary id instr operand_default_float
-let default_binary_int id instr = default_binary id instr operand_default_int
-
-let default_unary_float32 id instr = default_unary id instr operand_default_float32
-let default_unary_float id instr = default_unary id instr operand_default_float
-let default_unary_int id instr = default_unary id instr operand_default_int
-
-let operand_vec128 emit_reg = { loc = Reg emit_reg; allowed_machtypes = Cmm.typ_vec128 }

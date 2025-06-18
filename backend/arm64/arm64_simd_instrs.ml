@@ -3,6 +3,7 @@
 open Arm64_simd_defs
 
 type id =
+  (* scalar intrinsics  *)
   | Round_f32x4
   | Zip1_f32
   | Zip1q_f32
@@ -26,17 +27,4 @@ type id =
   | Cmp_f32
   | Cmpz_s32
 
-type nonrec instr = id instr
-
-let pmovmskb_r64_X =
-  { id = Pmovmskb_r64_X;
-    args = [| { loc = Temp [| XMM |]; enc = RM_rm } |];
-    res = Res { loc = Temp [| R64 |]; enc = RM_r };
-    imm = false;
-    mnemonic = "pmovmskb";
-    enc =
-      { prefix = Legacy { prefix = Prx_66; rex = Rex_none; escape = Esc_0F };
-        rm_reg = Reg;
-        opcode = 215
-      }
-  }
+(* type nonrec instr = id instr *)

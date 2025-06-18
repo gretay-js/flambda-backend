@@ -420,29 +420,29 @@ end = struct
     | Fmax_f32 | Addq_i64 | Subq_i64 | Cmp_f32 _ | Cmpz_s32 _ ->
       1
 
-  let emit_rounding_mode (rm : Simd.Rounding_mode.t) : I.Rounding_mode.t =
-    match rm with
-    | Neg_inf -> I.Rounding_mode.M
-    | Pos_inf -> I.Rounding_mode.P
-    | Zero -> I.Rounding_mode.Z
-    | Current -> I.Rounding_mode.X
-    | Nearest -> I.Rounding_mode.N
+  (* let emit_rounding_mode (rm : Simd.Rounding_mode.t) : I.Rounding_mode.t = *)
+  (*   match rm with *)
+  (*   | Neg_inf -> I.Rounding_mode.M *)
+  (*   | Pos_inf -> I.Rounding_mode.P *)
+  (*   | Zero -> I.Rounding_mode.Z *)
+  (*   | Current -> I.Rounding_mode.X *)
+  (*   | Nearest -> I.Rounding_mode.N *)
 
-  let emit_float_cond (cond : Simd.Float_cond.t) : I.Float_cond.t =
-    match cond with
-    | EQ -> EQ
-    | GT -> GT
-    | LE -> LE
-    | GE -> GE
-    | LT -> LT
-    | NE -> NE
-    | CC -> CC
-    | CS -> CS
-    | LS -> LS
-    | HI -> HI
+  (* let emit_float_cond (cond : Simd.Float_cond.t) : I.Float_cond.t = *)
+  (*   match cond with *)
+  (*   | EQ -> EQ *)
+  (*   | GT -> GT *)
+  (*   | LE -> LE *)
+  (*   | GE -> GE *)
+  (*   | LT -> LT *)
+  (*   | NE -> NE *)
+  (*   | CC -> CC *)
+  (*   | CS -> CS *)
+  (*   | LS -> LS *)
+  (*   | HI -> HI *)
 
-  let emit_cond (cond : Simd.Cond.t) : I.Cond.t =
-    match cond with EQ -> EQ | GT -> GT | GE -> GE | LE -> LE | LT -> LT
+  (* let emit_cond (cond : Simd.Cond.t) : I.Cond.t = *)
+  (*   match cond with EQ -> EQ | GT -> GT | GE -> GE | LE -> LE | LT -> LT *)
 
   let simd_instr (op : Simd.operation) i =
     let b = Simd_proc.register_behavior op in
