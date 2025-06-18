@@ -40,6 +40,18 @@ let instr instr ?i args = Some (Simd.instruction instr i, args)
 
 let seq seq ?i args = Some (Simd.sequence seq i, args)
 
+let two_args name args =
+  match args with
+  | [arg1; arg2] -> arg1, arg2
+  | _ ->
+    Misc.fatal_errorf "Cmm_builtins: expected exactly 2 arguments for %s" name
+
+let swap_args args =
+  match args with
+  | [arg1; arg2] -> [arg2; arg1]
+  | _ ->
+    Misc.fatal_errorf "Simd_selection: expected exactly 2 arguments for %s" name
+
 let select_simd_instr op args =
   match op with
   | "caml_simd_float32_round_neg_inf" -> instr S.vrndms_f32 args
@@ -56,39 +68,45 @@ let select_simd_instr op args =
   | "caml_simd_float64_max" -> Some (Max_scalar_f64, args)
   | "caml_neon_float32_fmin" -> Some (Fmin_f32, args)
   | "caml_neon_float32_fmax" -> Some (Fmax_f32, args)
-  | "caml_neon_float32x2_zip1" -> Some (Zip1_f32, args)
+  | "caml_neon_float32x2_zip1" -> instr S.Vzip1_f32 args
   | "caml_simd_vec128_interleave_low_32" | "caml_neon_float32x4_zip1" ->
-    Some (Zip1q_f32, args)
+    instr S.vzip1q_f32 args
   | "caml_simd_vec128_interleave_low_64" | "caml_neon_float64x2_zip1" ->
-    Some (Zip1q_f64, args)
+    instr S.vzip1q_f64 args
   | "caml_simd_vec128_interleave_high_64" | "caml_neon_float64x2_zip2" ->
-    Some (Zip2q_f64, args)
-  | "caml_simd_int64x2_add" | "caml_neon_int64x2_add" -> Some (Addq_i64, args)
-  | "caml_simd_int64x2_sub" | "caml_neon_int64x2_sub" -> Some (Subq_i64, args)
-  | "caml_neon_float32x4_add" -> Some (Addq_f32, args)
-  | "caml_neon_float32x4_sub" -> Some (Subq_f32, args)
-  | "caml_neon_float32x4_mul" -> Some (Mulq_f32, args)
-  | "caml_neon_float32x4_div" -> Some (Divq_f32, args)
-  | "caml_neon_float32x4_min" -> Some (Minq_f32, args)
-  | "caml_neon_float32x4_max" -> Some (Maxq_f32, args)
-  | "caml_neon_float32x4_rcp" -> Some (Recpeq_f32, args)
-  | "caml_neon_float32x4_sqrt" -> Some (Sqrtq_f32, args)
-  | "caml_neon_float32x4_rsqrt" -> Some (Rsqrteq_f32, args)
-  | "caml_neon_float32x4_round_current" -> Some (Round_f32x4 Current, args)
-  | "caml_neon_float32x4_round_nearest" -> Some (Round_f32x4 Nearest, args)
-  | "caml_neon_float32x4_to_int32x4" -> Some (Cvtq_s32_of_f32, args)
-  | "caml_neon_int32x4_to_float64x2" -> Some (Cvtq_f32_of_s32, args)
-  | "caml_neon_float32x2_to_float64x2" -> Some (Cvt_f64_f32, args)
-  | "caml_neon_float32x4_hadd" -> Some (Paddq_f32, args)
-  | "caml_neon_float32x4_cmeq" -> Some (Cmp_f32 EQ, args)
-  | "caml_neon_float32x4_cmgt" -> Some (Cmp_f32 GT, args)
-  | "caml_neon_float32x4_cmle" -> Some (Cmp_f32 LE, args)
-  | "caml_neon_float32x4_cmlt" -> Some (Cmp_f32 LT, args)
-  | "caml_neon_int32x4_cmpeqz" -> Some (Cmpz_s32 EQ, args)
-  | "caml_neon_int32x4_cmpgez" -> Some (Cmpz_s32 GE, args)
-  | "caml_neon_int32x4_cmpgtz" -> Some (Cmpz_s32 GT, args)
-  | "caml_neon_int32x4_cmplez" -> Some (Cmpz_s32 LE, args)
-  | "caml_neon_int32x4_cmpltz" -> Some (Cmpz_s32 LT, args)
+    instr S.vzip2q_f64 args
+  | "caml_simd_int64x2_add" | "caml_neon_int64x2_add" -> instr S.vaddq_s64 args
+  | "caml_simd_int64x2_sub" | "caml_neon_int64x2_sub" -> instr S.vsubq_s64 args
+  | "caml_neon_float32x4_add" -> instr S.vaddq_f32 args
+  | "caml_neon_float32x4_sub" -> instr S.vsubq_f32 args
+  | "caml_neon_float32x4_mul" -> instr S.vmulq_f32 args
+  | "caml_neon_float32x4_div" -> instr S.vdivq_f32 args
+  | "caml_neon_float32x4_min" -> instr S.vminq_f32 args
+  | "caml_neon_float32x4_max" -> instr S.vmaxq_f32 args
+  | "caml_neon_float32x4_rcp" -> instr S.vrecpeq_f32 args
+  | "caml_neon_float32x4_sqrt" -> insr vsqrtq_f32 args
+  | "caml_neon_float32x4_rsqrt" -> insr vrsqrteq_f32 args
+  | "caml_neon_float32x4_round_current" -> instr S.vrndiq_f32 args
+  | "caml_neon_float32x4_round_nearest" -> instr S.vrndnq_f32 args
+  | "caml_neon_float32x4_to_int32x4" -> instr S.vcvtq_s32_f32 args
+  | "caml_neon_float32x2_to_float64x2" -> instr S.vcvt_f64_f32 args
+  | "caml_neon_float32x4_hadd" -> instr S.vpaddq_f32 args
+  | "caml_neon_float32x4_cmeq" -> instr S.vceqq_f32 args
+  | "caml_neon_float32x4_cmgt" -> instr S.vcgtq_f32 args
+  | "caml_neon_float32x4_cmge" -> instr S.vcgeq_f32 args
+  | "caml_neon_float32x4_cmle" ->
+    (* FCMLE is only supported with ZERO. *)
+    let args = swap_args name args in
+    instr S.vcgeq_f32 args
+  | "caml_neon_float32x4_cmlt" ->
+    (* FCMLT is only supported with ZERO. *)
+    let args = swap_args name args in
+    instr S.vcgtq_f32 args
+  | "caml_neon_int32x4_cmpeqz" -> instr S.vceqzq_f32 args
+  | "caml_neon_int32x4_cmpgez" -> instr S.vcgezq_f32 args
+  | "caml_neon_int32x4_cmpgtz" -> instr S.vcgtzq_f32 args
+  | "caml_neon_int32x4_cmplez" -> instr S.vclezq_f32 args
+  | "caml_neon_int32x4_cmpltz" -> instr S.vcltzq_f32 args
   | _ -> None
 
 let select_operation_cfg op args =

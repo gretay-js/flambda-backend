@@ -158,20 +158,17 @@ module Instr_seq = struct
   let t = id Arm64_simd_instrs.instr
 
   (* helpers *)
-  let make_binary_float32 id instr =
-    D.make_binary id instr D.operand_default_float32
+  let make_binary_float32 id instr = D.make_binary id instr D.reg_float32
 
-  let make_binary_float id instr =
-    D.make_binary id instr D.operand_default_float
+  let make_binary_float id instr = D.make_binary id instr D.reg_float
 
-  let make_binary_int id instr = make_binary id instr D.operand_default_int
+  let make_binary_int id instr = make_binary id instr D.reg_int
 
-  let make_unary_float32 id instr =
-    D.make_unary id instr D.operand_default_float32
+  let make_unary_float32 id instr = D.make_unary id instr D.reg_float32
 
-  let make_unary_float id instr = D.make_unary id instr D.operand_default_float
+  let make_unary_float id instr = D.make_unary id instr D.reg_float
 
-  let make_unary_int id instr = D.make_unary id instr D.operand_default_int
+  let make_unary_int id instr = D.make_unary id instr D.reg_int
 
   (* instructions *)
 

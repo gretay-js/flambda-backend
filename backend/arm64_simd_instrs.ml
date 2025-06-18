@@ -8,6 +8,11 @@ type id =
   | Vaddq_f32
   | Vsubq_f32
   | Vrndmq_f32
+  | Vrndnq_f32
+  | Vrndpq_f32
+  | Vrndzq_f32
+  | Vrndxq_f32
+  | Vrndnq_f32
   | Vrndm_f32
   | Vzip1_f32
   | Vzip1q_f32
@@ -26,7 +31,8 @@ type id =
   | Vcvtq_f32_s32
   | Vcvtns_s64_f32
   | Vceqq_f32
-  | Vceqq_f32
+  | Vcgtq_f32
+  | Vcgeq_f32
   | Vceqzq_s32
   | Vceqq_s32
   | Vrndms_f32
@@ -44,106 +50,122 @@ type id =
   | Vrnda_f64
   | Vrndz_f64
 
-let vaddq_s64 = D.make_binary Vaddq_s64 I.ADD D.operand_vec128_v2d
+let vaddq_s64 = D.make_binary Vaddq_s64 I.ADD D.reg_v2d
 
-let vsubq_s64 = D.make_binary Vsubq_s64 I.SUB D.operand_vec128_v2d
+let vsubq_s64 = D.make_binary Vsubq_s64 I.SUB D.reg_v2d
 
-let vaddq_f32 = D.make_binary Vaddq_f32 I.FADD D.operand_vec128_v4s
+let vaddq_f32 = D.make_binary Vaddq_f32 I.FADD D.reg_v4s
 
-let vsubq_f32 = D.make_binary Vsubq_f32 I.FSUB D.operand_vec128_v4s
+let vsubq_f32 = D.make_binary Vsubq_f32 I.FSUB D.reg_v4s
 
-let vrndmq_f32 = D.make_unary Vrndmq_f32 (I.FRINT I.M) D.operand_vec128_v4s
+let vrndmq_f32 = D.make_unary Vrndmq_f32 (I.FRINT M) D.reg_v4s
 
-let vrndm_f32 = D.make_unary Vrndm_f32 (I.FRINT I.M) D.operand_vec128_v2s
+let vrndnq_f32 = D.make_unary Vrndnq_f32 I.(FRINT N) D.reg_v4s
 
-let vzip1_f32 = D.make_binary Vzip1_f32 I.ZIP1 D.operand_vec128_v2s
+let vrndpq_f32 = D.make_unary Vrndpq_f32 I.(FRINT P) D.reg_v4s
 
-let vzip1q_f32 = D.make_binary Vzip1q_f32 I.ZIP1 D.operand_vec128_v4s
+let vrndzq_f32 = D.make_unary Vrndzq_f32 I.(FRINT Z) D.reg_v4s
 
-let vzip1q_f64 = D.make_binary Vzip1q_f64 I.ZIP1 D.operand_vec128_v2d
+let vrndxq_f32 = D.make_unary Vrndxq_f32 I.(FRINT X) D.reg_v4s
 
-let vzip2q_f64 = D.make_binary Vzip1q_f64 I.ZIP2 D.operand_vec128_v2d
+let vrndaq_f32 = D.make_unary Vrndxq_f32 I.(FRINT A) D.reg_v4s
 
-let vmulq_f32 = D.make_binary Vmulq_f32 I.FMUL D.operand_vec128_v4s
+let vrndiq_f32 = D.make_unary Vrndxq_f32 I.(FRINT I) D.reg_v4s
 
-let vdivq_f32 = D.make_binary Vdivq_f32 I.FDIV D.operand_vec128_v4s
+let vrndm_f32 = D.make_unary Vrndm_f32 (I.FRINT I.M) D.reg_v2s
 
-let vminq_f32 = D.make_binary Vminq_f32 I.FMIN D.operand_vec128_v4s
+let vzip1_f32 = D.make_binary Vzip1_f32 I.ZIP1 D.reg_v2s
 
-let vmaxq_f32 = D.make_binary Vmaxq_f32 I.FMAX D.operand_vec128_v4s
+let vzip1q_f32 = D.make_binary Vzip1q_f32 I.ZIP1 D.reg_v4s
 
-let vpaddq_f32 = D.make_binary Vpaddq_f32 I.FADDP D.operand_vec128_v4s
+let vzip1q_f64 = D.make_binary Vzip1q_f64 I.ZIP1 D.reg_v2d
 
-let vrecpeq_f32 = D.make_unary Vrecpeq_f32 I.FRECPE D.operand_vec128_v4s
+let vzip2q_f64 = D.make_binary Vzip1q_f64 I.ZIP2 D.reg_v2d
 
-let vsqrtq_f32 = D.make_unary Vsqrtq_f32 I.FSQRT D.operand_vec128_v4s
+let vmulq_f32 = D.make_binary Vmulq_f32 I.FMUL D.reg_v4s
 
-let vrsqrteq_f32 = D.make_unary Vrsqrteq_f32 I.FRSQRTE D.operand_vec128_v4s
+let vdivq_f32 = D.make_binary Vdivq_f32 I.FDIV D.reg_v4s
 
-let vcvtq_s32_f32 = D.make_unary Vcvtq_s32_f32 I.FCVTZS D.operand_vec128_v4s
+let vminq_f32 = D.make_binary Vminq_f32 I.FMIN D.reg_v4s
 
-let vcvtnq_s32_f32 = D.make_unary Vcvtq_s32_f32 I.FCVTNS D.operand_vec128_v4s
+let vmaxq_f32 = D.make_binary Vmaxq_f32 I.FMAX D.reg_v4s
 
-let vcvtq_f32_s32 = D.make_unary Vcvtq_f32_s32 I.SCVTF D.operand_vec128_v4s
+let vpaddq_f32 = D.make_binary Vpaddq_f32 I.FADDP D.reg_v4s
+
+let vrecpeq_f32 = D.make_unary Vrecpeq_f32 I.FRECPE D.reg_v4s
+
+let vsqrtq_f32 = D.make_unary Vsqrtq_f32 I.FSQRT D.reg_v4s
+
+let vrsqrteq_f32 = D.make_unary Vrsqrteq_f32 I.FRSQRTE D.reg_v4s
+
+let vcvtq_s32_f32 = D.make_unary Vcvtq_s32_f32 I.FCVTZS D.reg_v4s
+
+let vcvtnq_s32_f32 = D.make_unary Vcvtq_s32_f32 I.FCVTNS D.reg_v4s
+
+let vcvtq_f32_s32 = D.make_unary Vcvtq_f32_s32 I.SCVTF D.reg_v4s
 
 let vcvt_f64_f32 =
   (* Input should be in Vec128 register but only the bottom f32x2 is used by
      this instruction. *)
   { id = Vcvt_f64_f32;
     instr = I.FCVTL;
-    args = [| D.operand_vec128_v2s |];
-    res = Res D.operand_vec128_v2d
+    args = [| D.reg_v2s |];
+    res = Res D.reg_v2d
   }
 
 let vcvtns_s64_f32 =
   { id = Vcvtns_s64_f32;
     instr = I.FCVTNS;
-    args = [| D.operand_default_float32 |];
-    res = Res D.operand_default_int
+    args = [| D.reg_float32 |];
+    res = Res D.reg_int
   }
 
-let vceqq_f32 = D.make_binary Vceqq_f32 (I.FCM EQ) D.operand_vec128_v4s
+let vceqq_f32 = D.make_binary Vceqq_f32 (I.FCM EQ) D.reg_v4s
+
+let vcgtq_f32 = D.make_binary Vcgtq_f32 (I.CM GT) D.reg_v4s
+
+let vcgeq_f32 = D.make_binary Vcgeq_f32 (I.CM GE) D.reg_v4s
 
 let vceqzq_f32 =
   { id = vceqzq_f32;
     instr = I.(FCM EQ);
-    args = [| D.operand_vec128_v4s; D.Imm 0 |];
-    res = Res [| D.operand_vec128_v4s |]
+    args = [| D.reg_v4s; D.Imm 0 |];
+    res = Res [| D.reg_v4s |]
   }
 
-let vceqq_s32 = D.make_binary Vceqq_s32 (I.CM EQ) D.operand_vec128_v4s
+let vceqq_s32 = D.make_binary Vceqq_s32 (I.CM EQ) D.reg_v4s
 
 let vceqzq_s32 =
   { id = Vceqzq_s32;
     instr = I.(CM EQ);
-    args = [| D.operand_vec128_v4s; D.Imm 0 |];
-    res = Res [| D.operand_vec128_v4s |]
+    args = [| D.reg_v4s; D.Imm 0 |];
+    res = Res [| D.reg_v4s |]
   }
 
-let vrndms_f32 = make_unary Vrndms_f32 I.(FRINT M) D.operand_default_float32
+let vrndms_f32 = make_unary Vrndms_f32 I.(FRINT M) D.reg_float32
 
-let vrndns_f32 = make_unary Vrndns_f32 I.(FRINT N) D.operand_default_float32
+let vrndns_f32 = make_unary Vrndns_f32 I.(FRINT N) D.reg_float32
 
-let vrndps_f32 = make_unary Vrndps_f32 I.(FRINT P) D.operand_default_float32
+let vrndps_f32 = make_unary Vrndps_f32 I.(FRINT P) D.reg_float32
 
-let vrndzs_f32 = make_unary Vrndzs_f32 I.(FRINT Z) D.operand_default_float32
+let vrndzs_f32 = make_unary Vrndzs_f32 I.(FRINT Z) D.reg_float32
 
-let vrndxs_f32 = make_unary Vrndxs_f32 I.(FRINT X) D.operand_default_float32
+let vrndxs_f32 = make_unary Vrndxs_f32 I.(FRINT X) D.reg_float32
 
-let vrndis_f32 = make_unary Vrndis_f32 I.(FRINT I) D.operand_default_float32
+let vrndis_f32 = make_unary Vrndis_f32 I.(FRINT I) D.reg_float32
 
-let vrndas_f32 = make_unary Vrndas_f32 I.(FRINT A) D.operand_default_float32
+let vrndas_f32 = make_unary Vrndas_f32 I.(FRINT A) D.reg_float32
 
-let vrndm_f64 = make_unary Vrndm_f64 I.(FRINT M) D.operand_default_float
+let vrndm_f64 = make_unary Vrndm_f64 I.(FRINT M) D.reg_float
 
-let vrndn_f64 = make_unary Vrndn_f64 I.(FRINT N) D.operand_default_float
+let vrndn_f64 = make_unary Vrndn_f64 I.(FRINT N) D.reg_float
 
-let vrndp_f64 = make_unary Vrndp_f64 I.(FRINT P) D.operand_default_float
+let vrndp_f64 = make_unary Vrndp_f64 I.(FRINT P) D.reg_float
 
-let vrndz_f64 = make_unary Vrndz_f64 I.(FRINT Z) D.operand_default_float
+let vrndz_f64 = make_unary Vrndz_f64 I.(FRINT Z) D.reg_float
 
-let vrndx_f64 = make_unary Vrndx_f64 I.(FRINT X) D.operand_default_float
+let vrndx_f64 = make_unary Vrndx_f64 I.(FRINT X) D.reg_float
 
-let vrndi_f64 = make_unary Vrndi_f64 I.(FRINT I) D.operand_default_float
+let vrndi_f64 = make_unary Vrndi_f64 I.(FRINT I) D.reg_float
 
-let vrnda_f64 = make_unary Vrnda_f64 I.(FRINT A) D.operand_default_float
+let vrnda_f64 = make_unary Vrnda_f64 I.(FRINT A) D.reg_float

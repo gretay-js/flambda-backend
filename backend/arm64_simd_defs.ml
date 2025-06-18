@@ -37,7 +37,7 @@ type res =
 
 type 'id t =
   { id : 'id;
-    instr : I.t option;
+    instr : I.t;
     args : operand array;
     res : res
   }
@@ -46,25 +46,23 @@ type 'id t =
 
 let reg_default = Reg Default
 
-let operand_default_float32 =
-  Reg { loc = Ddefault; allowed_machtypes = Cmm.typ_float32 }
+let reg_float32 = Reg { loc = Ddefault; allowed_machtypes = Cmm.typ_float32 }
 
-let operand_default_float =
-  Reg { loc = Default; allowed_machtypes = Cmm.typ_float }
+let reg_float = Reg { loc = Default; allowed_machtypes = Cmm.typ_float }
 
-let operand_default_int = Reg { loc = Default; allowed_machtypes = Cmm.typ_int }
+let reg_int = Reg { loc = Default; allowed_machtypes = Cmm.typ_int }
 
-let operand_vec128 emit_reg =
+let reg_vec128 emit_reg =
   Reg { loc = emit_reg; allowed_machtypes = Cmm.typ_vec128 }
 
-let operand_vec128_v2d = operand_vec128 DSL.reg_v2d
+let reg_v2d = reg_vec128 DSL.reg_v2d
 
-let operand_vec128_v4s = operand_vec128 DSL.reg_v4s
+let reg_v4s = reg_vec128 DSL.reg_v4s
 
-let operand_vec128_v2s = operand_vec128 DSL.reg_v2s
+let reg_v2s = reg_vec128 DSL.reg_v2s
 
 let make_binary id instr operand =
-  { id; instr = Some instr; args = [| operand; operand |]; res = Res operand }
+  { id; instr; args = [| operand; operand |]; res = Res operand }
 
 let make_unary id instr operand =
-  { id; instr = Some instr; args = [| operand |]; res = Res operand }
+  { id; instr; args = [| operand |]; res = Res operand }
