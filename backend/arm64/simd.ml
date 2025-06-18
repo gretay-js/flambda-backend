@@ -148,47 +148,20 @@ module Instr_seq = struct
     | Scalar_max_f32_match_sse
     | Scalar_min_f64_match_sse
     | Scalar_max_f64_match_sse
-    (* [Fmin/Fmax] are emitted as the corresponding arm64 single
-       instructions. *)
-    | Scalar_fmin_f32
-    | Scalar_fmax_f32
-    | Scalar_fmin_f64
-    | Scalar_fmax_f64
 
   let t = id Arm64_simd_instrs.instr
 
-  (* helpers *)
-  let make_binary_float32 id instr = D.make_binary id instr D.reg_float32
-
-  let make_binary_float id instr = D.make_binary id instr D.reg_float
-
-  let make_binary_int id instr = make_binary id instr D.reg_int
-
-  let make_unary_float32 id instr = D.make_unary id instr D.reg_float32
-
-  let make_unary_float id instr = D.make_unary id instr D.reg_float
-
-  let make_unary_int id instr = D.make_unary id instr D.reg_int
-
-  (* instructions *)
-
   let scalar_min_f32_match_sse =
-    make_binary_float32 Scalar_min_f32_match_sse None
+    D.make_binary Scalar_min_f32_match_sse I.NOP D.reg_float32
 
   let scalar_max_f32_match_sse =
-    make_binary_float32 Scalar_max_f32_match_sse None
+    D.make_binary Scalar_max_f32_match_sse I.NOP D.reg_float32
 
-  let scalar_min_f64_match_sse = make_binary_float Scalar_min_f64_match_sse None
+  let scalar_min_f64_match_sse =
+    D.make_binary Scalar_min_f64_match_sse I.NOP D.reg_float
 
-  let scalar_max_f64_match_sse = make_binary_float Scalar_max_f64_match_sse None
-
-  let scalar_fmin_f32 = make_binary_float32 Scalar_fmin_f32 I.FMIN
-
-  let scalar_fmax_f32 = make_binary_float32 Scalar_fmax_f32 I.FMAX
-
-  let scalar_fmin_f64 = make_binary_float Scalar_fmin_f32 I.FMIN
-
-  let scalar_fmax_f64 = make_binary_float Scalar_fmax_f32 I.FMAX
+  let scalar_max_f64_match_sse =
+    D.make_binary Scalar_max_f64_match_sse I.NOP D.reg_float
 
   let equal _ _ = Misc.fatal_error "arm64/simd: impelment equal for Seq.t"
 

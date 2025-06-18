@@ -468,7 +468,6 @@
   proc
   simd
   simd_selection
-  simd_proc
   amd64_simd_defs
   amd64_simd_instrs
   stack_check

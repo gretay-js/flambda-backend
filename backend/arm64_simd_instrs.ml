@@ -90,6 +90,14 @@ let vminq_f32 = D.make_binary Vminq_f32 I.FMIN D.reg_v4s
 
 let vmaxq_f32 = D.make_binary Vmaxq_f32 I.FMAX D.reg_v4s
 
+let vmins_f32 = D.make_binary Vmins_f32 I.FMIN D.reg_float32
+
+let vmaxs_f32 = D.make_binary Vmaxs_f32 I.FMAX D.reg_float32
+
+let vmin_f64 = D.make_binary Vmin_f64 I.FMIN D.reg_float
+
+let vmax_f64 = D.make_binary Vmax_f64 I.FMAX D.reg_float
+
 let vpaddq_f32 = D.make_binary Vpaddq_f32 I.FADDP D.reg_v4s
 
 let vrecpeq_f32 = D.make_unary Vrecpeq_f32 I.FRECPE D.reg_v4s
@@ -130,7 +138,7 @@ let vceqzq_f32 =
   { id = vceqzq_f32;
     instr = I.(FCM EQ);
     args = [| D.reg_v4s; D.Imm 0 |];
-    res = Res [| D.reg_v4s |]
+    res = Res D.reg_v4s
   }
 
 let vceqq_s32 = D.make_binary Vceqq_s32 (I.CM EQ) D.reg_v4s
@@ -139,7 +147,7 @@ let vceqzq_s32 =
   { id = Vceqzq_s32;
     instr = I.(CM EQ);
     args = [| D.reg_v4s; D.Imm 0 |];
-    res = Res [| D.reg_v4s |]
+    res = Res D.reg_v4s
   }
 
 let vrndms_f32 = make_unary Vrndms_f32 I.(FRINT M) D.reg_float32

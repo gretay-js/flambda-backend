@@ -62,13 +62,13 @@ let select_simd_instr op args =
   | "caml_simd_float32_round_nearest" -> instr S.vrndns_f32 args
   | "caml_neon_float64_round_nearest" -> instr S.vrndn_f64 args
   | "caml_simd_cast_float32_int64" -> instr S.vcvtns_s64_f32 args
-  | "caml_simd_float32_min" -> Some (Min_scalar_f32, args)
-  | "caml_simd_float32_max" -> Some (Max_scalar_f32, args)
-  | "caml_simd_float64_min" -> Some (Min_scalar_f64, args)
-  | "caml_simd_float64_max" -> Some (Max_scalar_f64, args)
-  | "caml_neon_float32_fmin" -> Some (Fmin_f32, args)
-  | "caml_neon_float32_fmax" -> Some (Fmax_f32, args)
-  | "caml_neon_float32x2_zip1" -> instr S.Vzip1_f32 args
+  | "caml_simd_float32_min" -> seq Scalar_min_f32_match_sse args
+  | "caml_simd_float32_max" -> seq Scalar_max_f32_match_sse args
+  | "caml_simd_float64_min" -> seq Scalar_min_f65_match_sse args
+  | "caml_simd_float64_max" -> seq Scalar_max_f65_match_sse args
+  | "caml_neon_float32_fmin" -> instr S.vmins_f32 args
+  | "caml_neon_float32_fmax" -> instr S.vmaxs_f32 args
+  | "caml_neon_float32x2_zip1" -> instr S.vzip1_f32 args
   | "caml_simd_vec128_interleave_low_32" | "caml_neon_float32x4_zip1" ->
     instr S.vzip1q_f32 args
   | "caml_simd_vec128_interleave_low_64" | "caml_neon_float64x2_zip1" ->
@@ -84,8 +84,8 @@ let select_simd_instr op args =
   | "caml_neon_float32x4_min" -> instr S.vminq_f32 args
   | "caml_neon_float32x4_max" -> instr S.vmaxq_f32 args
   | "caml_neon_float32x4_rcp" -> instr S.vrecpeq_f32 args
-  | "caml_neon_float32x4_sqrt" -> insr vsqrtq_f32 args
-  | "caml_neon_float32x4_rsqrt" -> insr vrsqrteq_f32 args
+  | "caml_neon_float32x4_sqrt" -> insr S.vsqrtq_f32 args
+  | "caml_neon_float32x4_rsqrt" -> insr S.vrsqrteq_f32 args
   | "caml_neon_float32x4_round_current" -> instr S.vrndiq_f32 args
   | "caml_neon_float32x4_round_nearest" -> instr S.vrndnq_f32 args
   | "caml_neon_float32x4_to_int32x4" -> instr S.vcvtq_s32_f32 args

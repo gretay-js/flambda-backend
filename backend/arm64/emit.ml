@@ -410,6 +410,9 @@ end = struct
     | Rf64_to_Rf64 | Rf32_to_Rf32 | Rf32_to_Ri64 -> emit_regs_unary i
 
   let simd_instr_size (op : Simd.operation) =
+    match op.instr with
+    | Instruction simd -> 1
+    | Sequence seq =
     match op with
     | Min_scalar_f64 | Max_scalar_f64 -> 2
     | Min_scalar_f32 | Max_scalar_f32 -> 2
