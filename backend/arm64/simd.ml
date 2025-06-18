@@ -22,119 +22,119 @@ module D = Arm64_simd_defs
 
 type operation_class = Pure
 
-module Rounding_mode = struct
-  type t =
-    | Current (* Default is Nearest *)
-    | Neg_inf
-    | Pos_inf
-    | Zero
-    | Nearest
-
-  let instruction_suffix = function
-    | Neg_inf -> "Neg_inf"
-    | Pos_inf -> "Pos_inf"
-    | Zero -> "Zero"
-    | Current -> "Current"
-    | Nearest -> "Nearest"
-
-  let equal t1 t2 =
-    match t1, t2 with
-    | Current, Current
-    | Neg_inf, Neg_inf
-    | Pos_inf, Pos_inf
-    | Zero, Zero
-    | Nearest, Nearest ->
-      true
-    | (Current | Neg_inf | Pos_inf | Zero | Nearest), _ -> false
-end
-
-module Float_cond = struct
-  type t = Arm64_ast.Instruction_name.Float_cond.t =
-    | EQ
-    | GT
-    | LE
-    | GE
-    | LT
-    | NE
-    | CC
-    | CS
-    | LS
-    | HI
-
-  let to_string t =
-    match t with
-    | EQ -> "eq"
-    | GT -> "gt"
-    | LE -> "le"
-    | GE -> "ge"
-    | LT -> "lt"
-    | NE -> "ne"
-    | CC -> "cc"
-    | CS -> "cs"
-    | LS -> "ls"
-    | HI -> "hi"
-
-  let equal t1 t2 =
-    match t1, t2 with
-    | EQ, EQ
-    | GT, GT
-    | LE, LE
-    | GE, GE
-    | LT, LT
-    | NE, NE
-    | CC, CC
-    | CS, CS
-    | LS, LS
-    | HI, HI ->
-      true
-    | (EQ | GT | LE | GE | LT | NE | CC | CS | LS | HI), _ -> false
-end
-
-module Cond = struct
-  type t =
-    | EQ
-    | GE
-    | GT
-    | LE
-    | LT
-
-  let to_string t =
-    match t with
-    | EQ -> "eq"
-    | GE -> "ge"
-    | GT -> "ne"
-    | LE -> "le"
-    | LT -> "lt"
-
-  let equal t1 t2 =
-    match t1, t2 with
-    | EQ, EQ | GE, GE | GT, GT | LE, LE | LT, LT -> true
-    | (EQ | GE | GT | LE | LT), _ -> false
-end
-
-let emit_rounding_mode (rm : Simd.Rounding_mode.t) : I.Rounding_mode.t =
-  match rm with
-  | Neg_inf -> I.Rounding_mode.M
-  | Pos_inf -> I.Rounding_mode.P
-  | Zero -> I.Rounding_mode.Z
-  | Current -> I.Rounding_mode.X
-  | Nearest -> I.Rounding_mode.N
-
-let emit_float_cond (cond : Simd.Float_cond.t) : I.Float_cond.t =
-  match cond with
-  | EQ -> EQ
-  | GT -> GT
-  | LE -> LE
-  | GE -> GE
-  | LT -> LT
-  | NE -> NE
-  | CC -> CC
-  | CS -> CS
-  | LS -> LS
-  | HI -> HI
-
-let emit_cond (cond : Simd.Cond.t) : I.Cond.t =
-  match cond with EQ -> EQ | GT -> GT | GE -> GE | LE -> LE | LT -> LT
+(* module Rounding_mode = struct
+ *   type t =
+ *     | Current (* Default is Nearest *)
+ *     | Neg_inf
+ *     | Pos_inf
+ *     | Zero
+ *     | Nearest
+ *
+ *   let instruction_suffix = function
+ *     | Neg_inf -> "Neg_inf"
+ *     | Pos_inf -> "Pos_inf"
+ *     | Zero -> "Zero"
+ *     | Current -> "Current"
+ *     | Nearest -> "Nearest"
+ *
+ *   let equal t1 t2 =
+ *     match t1, t2 with
+ *     | Current, Current
+ *     | Neg_inf, Neg_inf
+ *     | Pos_inf, Pos_inf
+ *     | Zero, Zero
+ *     | Nearest, Nearest ->
+ *       true
+ *     | (Current | Neg_inf | Pos_inf | Zero | Nearest), _ -> false
+ * end
+ *
+ * module Float_cond = struct
+ *   type t = Arm64_ast.Instruction_name.Float_cond.t =
+ *     | EQ
+ *     | GT
+ *     | LE
+ *     | GE
+ *     | LT
+ *     | NE
+ *     | CC
+ *     | CS
+ *     | LS
+ *     | HI
+ *
+ *   let to_string t =
+ *     match t with
+ *     | EQ -> "eq"
+ *     | GT -> "gt"
+ *     | LE -> "le"
+ *     | GE -> "ge"
+ *     | LT -> "lt"
+ *     | NE -> "ne"
+ *     | CC -> "cc"
+ *     | CS -> "cs"
+ *     | LS -> "ls"
+ *     | HI -> "hi"
+ *
+ *   let equal t1 t2 =
+ *     match t1, t2 with
+ *     | EQ, EQ
+ *     | GT, GT
+ *     | LE, LE
+ *     | GE, GE
+ *     | LT, LT
+ *     | NE, NE
+ *     | CC, CC
+ *     | CS, CS
+ *     | LS, LS
+ *     | HI, HI ->
+ *       true
+ *     | (EQ | GT | LE | GE | LT | NE | CC | CS | LS | HI), _ -> false
+ * end
+ *
+ * module Cond = struct
+ *   type t =
+ *     | EQ
+ *     | GE
+ *     | GT
+ *     | LE
+ *     | LT
+ *
+ *   let to_string t =
+ *     match t with
+ *     | EQ -> "eq"
+ *     | GE -> "ge"
+ *     | GT -> "ne"
+ *     | LE -> "le"
+ *     | LT -> "lt"
+ *
+ *   let equal t1 t2 =
+ *     match t1, t2 with
+ *     | EQ, EQ | GE, GE | GT, GT | LE, LE | LT, LT -> true
+ *     | (EQ | GE | GT | LE | LT), _ -> false
+ * end
+ *
+ * let emit_rounding_mode (rm : Simd.Rounding_mode.t) : I.Rounding_mode.t =
+ *   match rm with
+ *   | Neg_inf -> I.Rounding_mode.M
+ *   | Pos_inf -> I.Rounding_mode.P
+ *   | Zero -> I.Rounding_mode.Z
+ *   | Current -> I.Rounding_mode.X
+ *   | Nearest -> I.Rounding_mode.N
+ *
+ * let emit_float_cond (cond : Simd.Float_cond.t) : I.Float_cond.t =
+ *   match cond with
+ *   | EQ -> EQ
+ *   | GT -> GT
+ *   | LE -> LE
+ *   | GE -> GE
+ *   | LT -> LT
+ *   | NE -> NE
+ *   | CC -> CC
+ *   | CS -> CS
+ *   | LS -> LS
+ *   | HI -> HI
+ *
+ * let emit_cond (cond : Simd.Cond.t) : I.Cond.t =
+ *   match cond with EQ -> EQ | GT -> GT | GE -> GE | LE -> LE | LT -> LT *)
 
 (** [Seq] represents intrinsics that are emitted as a sequence of Neon
     instructions, including single scalar Neon instructions that do

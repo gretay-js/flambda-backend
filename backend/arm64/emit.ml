@@ -412,40 +412,11 @@ end = struct
   let simd_instr_size (op : Simd.operation) =
     match op.instr with
     | Instruction simd -> 1
-    | Sequence seq =
-    match op with
-    | Min_scalar_f64 | Max_scalar_f64 -> 2
-    | Min_scalar_f32 | Max_scalar_f32 -> 2
-    | Round_f32 _ | Round_f64 _ | Round_f32x4 _ | Round_f32_i64 | Zip1_f32
-    | Zip1q_f32 | Zip1q_f64 | Zip2q_f64 | Addq_f32 | Subq_f32 | Mulq_f32
-    | Divq_f32 | Minq_f32 | Maxq_f32 | Recpeq_f32 | Sqrtq_f32 | Rsqrteq_f32
-    | Cvtq_s32_of_f32 | Cvtq_f32_of_s32 | Cvt_f64_f32 | Paddq_f32 | Fmin_f32
-    | Fmax_f32 | Addq_i64 | Subq_i64 | Cmp_f32 _ | Cmpz_s32 _ ->
-      1
-
-  (* let emit_rounding_mode (rm : Simd.Rounding_mode.t) : I.Rounding_mode.t = *)
-  (*   match rm with *)
-  (*   | Neg_inf -> I.Rounding_mode.M *)
-  (*   | Pos_inf -> I.Rounding_mode.P *)
-  (*   | Zero -> I.Rounding_mode.Z *)
-  (*   | Current -> I.Rounding_mode.X *)
-  (*   | Nearest -> I.Rounding_mode.N *)
-
-  (* let emit_float_cond (cond : Simd.Float_cond.t) : I.Float_cond.t = *)
-  (*   match cond with *)
-  (*   | EQ -> EQ *)
-  (*   | GT -> GT *)
-  (*   | LE -> LE *)
-  (*   | GE -> GE *)
-  (*   | LT -> LT *)
-  (*   | NE -> NE *)
-  (*   | CC -> CC *)
-  (*   | CS -> CS *)
-  (*   | LS -> LS *)
-  (*   | HI -> HI *)
-
-  (* let emit_cond (cond : Simd.Cond.t) : I.Cond.t = *)
-  (*   match cond with EQ -> EQ | GT -> GT | GE -> GE | LE -> LE | LT -> LT *)
+    | Sequence seq -> (
+      match seq.id with
+      | Scalar_min_f32_match_sse | Scalar_max_f32_match_sse
+      | Scalar_min_f64_match_sse | Scalar_max_f64_match_sse ->
+        2)
 
   let simd_instr (op : Simd.operation) i =
     let b = Simd_proc.register_behavior op in
