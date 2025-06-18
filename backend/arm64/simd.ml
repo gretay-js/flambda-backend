@@ -17,7 +17,7 @@
 (* SIMD instructions for ARM64 *)
 
 open! Int_replace_polymorphic_compare [@@ocaml.warning "-66"]
-module I = Arm64_ast
+module I = Arm64_ast.Instruction_name
 module D = Arm64_simd_defs
 
 type operation_class = Pure
@@ -154,66 +154,44 @@ module Instr_seq = struct
     | Scalar_fmax_f32
     | Scalar_fmin_f64
     | Scalar_fmax_f64
-    (* Scalar conversions *)
-    | Scalar_round_f32
-    | Scalar_round_f64
-    | Scalar_round_f32_to_i64
 
   let t = id Arm64_simd_instrs.instr
 
   (* helpers *)
-  let default_binary_float32 id instr =
-    D.default_binary id instr D.operand_default_float32
+  let make_binary_float32 id instr =
+    D.make_binary id instr D.operand_default_float32
 
-  let default_binary_float id instr =
-    D.default_binary id instr D.operand_default_float
+  let make_binary_float id instr =
+    D.make_binary id instr D.operand_default_float
 
-  let default_binary_int id instr =
-    default_binary id instr D.operand_default_int
+  let make_binary_int id instr = make_binary id instr D.operand_default_int
 
-  let default_unary_float32 id instr =
-    D.default_unary id instr D.operand_default_float32
+  let make_unary_float32 id instr =
+    D.make_unary id instr D.operand_default_float32
 
-  let default_unary_float id instr =
-    D.default_unary id instr D.operand_default_float
+  let make_unary_float id instr = D.make_unary id instr D.operand_default_float
 
-  let default_unary_int id instr =
-    D.default_unary id instr D.operand_default_int
+  let make_unary_int id instr = D.make_unary id instr D.operand_default_int
 
   (* instructions *)
 
   let scalar_min_f32_match_sse =
-    default_binary_float32 Scalar_min_f32_match_sse None
+    make_binary_float32 Scalar_min_f32_match_sse None
 
   let scalar_max_f32_match_sse =
-    default_binary_float32 Scalar_max_f32_match_sse None
+    make_binary_float32 Scalar_max_f32_match_sse None
 
-  let scalar_min_f64_match_sse =
-    default_binary_float Scalar_min_f64_match_sse None
+  let scalar_min_f64_match_sse = make_binary_float Scalar_min_f64_match_sse None
 
-  let scalar_max_f64_match_sse =
-    default_binary_float Scalar_max_f64_match_sse None
+  let scalar_max_f64_match_sse = make_binary_float Scalar_max_f64_match_sse None
 
-  let scalar_fmin_f32 = default_binary_float32 Scalar_fmin_f32 I.FMIN
+  let scalar_fmin_f32 = make_binary_float32 Scalar_fmin_f32 I.FMIN
 
-  let scalar_fmax_f32 = default_binary_float32 Scalar_fmax_f32 I.FMAX
+  let scalar_fmax_f32 = make_binary_float32 Scalar_fmax_f32 I.FMAX
 
-  let scalar_fmin_f64 = default_binary_float Scalar_fmin_f32 I.FMIN
+  let scalar_fmin_f64 = make_binary_float Scalar_fmin_f32 I.FMIN
 
-  let scalar_fmax_f64 = default_binary_float Scalar_fmax_f32 I.FMAX
-
-  let scalar_round_f32 rm =
-    default_unary_float32 Scalar_round_f32 (I.FRINT (emit_rounding_mode rm))
-
-  let scalar_round_f64 rm =
-    default_unary_float Scalar_round_f64 (I.FRINT (emit_rounding_mode rm))
-
-  let scalar_round_f32_i64 =
-    { id = Scalar_round_f32_i64;
-      instr = I.FCVTNS;
-      args = [| D.operand_default_float32 |];
-      res = Res operand_default_int
-    }
+  let scalar_fmax_f64 = make_binary_float Scalar_fmax_f32 I.FMAX
 
   let equal _ _ = Misc.fatal_error "arm64/simd: impelment equal for Seq.t"
 

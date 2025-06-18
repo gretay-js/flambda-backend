@@ -23,6 +23,10 @@ arm64/stack_check.ml
 arm64/stack_class.ml
 arm64/vectorize_specific.ml
 arm64/regalloc_stack_operands.ml
+arm64_regs.ml
+arm64_regs.mli
+arm64_simd_instrs.ml
+arm64_simd_defs.ml
 arm64_ast.ml
 arm64_ast.mli
 arm64_simdgen/**/*.ml

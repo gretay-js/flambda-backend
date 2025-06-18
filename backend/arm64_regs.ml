@@ -47,9 +47,17 @@ module Neon_reg_name = struct
     let name t index = Printf.sprintf "%s%d" (to_string t) index
   end
 
+  module Lane = struct
+    (** Support alternative representations. *)
+    type t =
+      | V of Vector.t * int
+      | S of Scalar.t * int
+  end
+
   type t =
     | Vector of Vector.t
     | Scalar of Scalar.t
+    | Lane of Lane.t
 
   let last = 31
 
@@ -106,7 +114,6 @@ module Reg_name = struct
     | GP rn -> GP_reg_name.name rn index
     | Neon rn -> Neon_reg_name.name rn index
 end
-
 
 module Reg = struct
   type t =

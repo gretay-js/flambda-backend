@@ -1,6 +1,6 @@
 [@@@ocaml.warning "+a"]
 
-include Arm64_regs
+include module type of Arm64_regs
 
 module Symbol : sig
   type t

@@ -14,6 +14,7 @@
 [@@@ocaml.warning "+a-40-42"]
 
 open Simd
+module S = Arm64_simd_instrs
 
 (* SIMD instruction selection for ARM64 *)
 
@@ -35,16 +36,20 @@ open! Int_replace_polymorphic_compare [@@ocaml.warning "-66"]
    Some intrinsics have both names to make it easier to correlate with both
    amd64 intrinsics and arm64 instructions, depending on context. *)
 
+let instr instr ?i args = Some (Simd.instruction instr i, args)
+
+let seq seq ?i args = Some (Simd.sequence seq i, args)
+
 let select_simd_instr op args =
   match op with
-  | "caml_simd_float32_round_neg_inf" -> Some (Round_f32 Neg_inf, args)
-  | "caml_simd_float32_round_pos_inf" -> Some (Round_f32 Pos_inf, args)
-  | "caml_simd_float32_round_towards_zero" -> Some (Round_f32 Zero, args)
-  | "caml_simd_float32_round_current" -> Some (Round_f32 Current, args)
-  | "caml_neon_float64_round_current" -> Some (Round_f64 Current, args)
-  | "caml_simd_float32_round_nearest" -> Some (Round_f32 Nearest, args)
-  | "caml_neon_float64_round_nearest" -> Some (Round_f64 Nearest, args)
-  | "caml_simd_cast_float32_int64" -> Some (Round_f32_i64, args)
+  | "caml_simd_float32_round_neg_inf" -> instr S.vrndms_f32 args
+  | "caml_simd_float32_round_pos_inf" -> instr S.vrndps_f32 args
+  | "caml_simd_float32_round_towards_zero" -> instr S.vrndzs_f32 args
+  | "caml_simd_float32_round_current" -> instr S.vrndis_f32 args
+  | "caml_neon_float64_round_current" -> instr S.vrndi_f64 args
+  | "caml_simd_float32_round_nearest" -> instr S.vrndns_f32 args
+  | "caml_neon_float64_round_nearest" -> instr S.vrndn_f64 args
+  | "caml_simd_cast_float32_int64" -> instr S.vcvtns_s64_f32 args
   | "caml_simd_float32_min" -> Some (Min_scalar_f32, args)
   | "caml_simd_float32_max" -> Some (Max_scalar_f32, args)
   | "caml_simd_float64_min" -> Some (Min_scalar_f64, args)

@@ -1170,6 +1170,7 @@ uint32x4_t vcvtaq_u32_f32(float32x4_t a)	a -> Vn.4S	FCVTAU Vd.4S,Vn.4S	Vd.4S -> 
 int32_t vcvts_s32_f32(float32_t a)	a -> Sn	FCVTZS Sd,Sn	Sd -> result	A64
 uint32_t vcvts_u32_f32(float32_t a)	a -> Sn	FCVTZU Sd,Sn	Sd -> result	A64
 int32_t vcvtns_s32_f32(float32_t a)	a -> Sn	FCVTNS Sd,Sn	Sd -> result	A64
+int64_t vcvtns_s64_f32(float32_t a)	a -> Sn	FCVTNS Xn,Sn	Xn -> result	A64
 uint32_t vcvtns_u32_f32(float32_t a)	a -> Sn	FCVTNU Sd,Sn	Sd -> result	A64
 int32_t vcvtms_s32_f32(float32_t a)	a -> Sn	FCVTMS Sd,Sn	Sd -> result	A64
 uint32_t vcvtms_u32_f32(float32_t a)	a -> Sn	FCVTMU Sd,Sn	Sd -> result	A64
@@ -1263,6 +1264,12 @@ float32x4_t vrndnq_f32(float32x4_t a)	a -> Vn.4S	FRINTN Vd.4S,Vn.4S	Vd.4S -> res
 float64x1_t vrndn_f64(float64x1_t a)	a -> Dn	FRINTN Dd,Dn	Dd -> result	A32/A64
 float64x2_t vrndnq_f64(float64x2_t a)	a -> Vn.2D	FRINTN Vd.2D,Vn.2D	Vd.2D -> result	A32/A64
 float32_t vrndns_f32(float32_t a)	a -> Sn	FRINTN Sd,Sn	Sd -> result	A32/A64
+float32_t vrndms_f32(float32_t a)	a -> Sn	FRINTM Sd,Sn	Sd -> result	A32/A64
+float32_t vrndps_f32(float32_t a)	a -> Sn	FRINTP Sd,Sn	Sd -> result	A32/A64
+float32_t vrndzs_f32(float32_t a)	a -> Sn	FRINTZ Sd,Sn	Sd -> result	A32/A64
+float32_t vrndxs_f32(float32_t a)	a -> Sn	FRINTX Sd,Sn	Sd -> result	A32/A64
+float32_t vrndis_f32(float32_t a)	a -> Sn	FRINTI Sd,Sn	Sd -> result	A32/A64
+float32_t vrndas_f32(float32_t a)	a -> Sn	FRINTA Sd,Sn	Sd -> result	A32/A64
 float32x2_t vrndm_f32(float32x2_t a)	a -> Vn.2S	FRINTM Vd.2S,Vn.2S	Vd.2S -> result	A32/A64
 float32x4_t vrndmq_f32(float32x4_t a)	a -> Vn.4S	FRINTM Vd.4S,Vn.4S	Vd.4S -> result	A32/A64
 float64x1_t vrndm_f64(float64x1_t a)	a -> Dn	FRINTM Dd,Dn	Dd -> result	A64
