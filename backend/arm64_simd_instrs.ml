@@ -50,6 +50,8 @@ type id =
   | Vrnda_f64
   | Vrndz_f64
 
+type t = id instr
+
 let vaddq_s64 = D.make_binary Vaddq_s64 I.ADD D.reg_v2d
 
 let vsubq_s64 = D.make_binary Vsubq_s64 I.SUB D.reg_v2d

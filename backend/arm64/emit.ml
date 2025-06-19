@@ -456,6 +456,70 @@ end = struct
     | Paddq_f32 -> ins I.FADDP operands
     | Cmp_f32 c -> ins (I.FCM (emit_float_cond c)) operands
     | Cmpz_s32 c -> ins (I.CM (emit_cond c)) (Array.append operands [| imm 0 |])
+
+  let check_simd_loc (loc : Simd.loc) arg =
+    match Reg.is_reg arg with
+    | true -> assert (D.loc_allows_reg loc)
+    | false -> assert (D.loc_allows_mem loc)
+
+  let check_simd_instr (simd : Simd.instr) imm instr =
+    assert (Bool.equal simd.imm (Option.is_some imm));
+    let total_args = Array.length instr.arg in
+    if total_args <> Array.length simd.args
+    then Misc.fatal_errorf "wrong number of arguments for %s" simd.mnemonic;
+    Array.iteri
+      (fun j (arg : Simd.arg) -> check_simd_loc arg.loc instr.arg.(j))
+      simd.args;
+    match simd.res with
+    | First_arg -> assert (Reg.same_loc instr.arg.(0) instr.res.(0))
+    | Res { loc; _ } -> check_simd_loc loc instr.res.(0)
+
+  let emit_simd_instr (simd : Arm64_simd_istrs.t) imm instr =
+    check_simd_instr simd imm instr;
+    let total_args = Array.length instr.arg in
+    if total_args <> Array.length simd.args
+    then Misc.fatal_errorf "wrong number of arguments for %s" simd.mnemonic;
+    let args =
+      List.init total_args (fun i ->
+          if Simd.arg_is_implicit simd.args.(i)
+          then None
+          else Some (to_arg_with_width simd.args.(i).loc instr i))
+      |> List.filter_map (fun arg -> arg)
+    in
+    let args =
+      match simd.res with
+      | First_arg | Res { enc = Implicit; _ } -> args
+      | Res { loc; enc = RM_r | RM_rm | Vex_v } -> (
+        match Simd.loc_is_pinned loc with
+        | Some _ -> args
+        | None -> to_res_with_width loc instr 0 :: args)
+    in
+    let args =
+      match imm with
+      | None -> List.rev args
+      | Some imm -> X86_dsl.int imm :: List.rev args
+    in
+    I.simd simd (Array.of_list args)
+
+  let simd_instr (op : Simd.operation) instr =
+    match op.instr with
+    | Instruction simd -> emit_simd_instr simd op.imm instr
+    | Sequence seq -> (
+      (* min/max: generate a sequence that matches the weird semantics of amd64
+         instruction "minss", even when the flag [FPCR.AH] is not set. A
+         separate intrinsics generates fmin/fmax arm64 instructions directly. *)
+      match seq.id with
+      | Scalar_min_f32_match_sse -> assert false
+      | Scalar_max_f32_match_sse -> assert false
+      | Scalar_min_f64_match_sse -> assert false
+      | Scalar_max_f64_match_sse -> assert false)
+
+  (* | Min_scalar_f32 | Min_scalar_f64 ->
+   *   ins I.FCMP (src_operands operands);
+   *   ins_cond I.FCSEL I.Cond.MI operands
+   * | Max_scalar_f32 | Max_scalar_f64 ->
+   *   ins I.FCMP (src_operands operands);
+   *   ins_cond I.FCSEL I.Cond.GT operands *)
 end
 
 (* Record live pointers at call points *)

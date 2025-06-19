@@ -149,7 +149,7 @@ module Instr_seq = struct
     | Scalar_min_f64_match_sse
     | Scalar_max_f64_match_sse
 
-  let t = id Arm64_simd_instrs.instr
+  let t = id D.instr
 
   let scalar_min_f32_match_sse =
     D.make_binary Scalar_min_f32_match_sse I.NOP D.reg_float32
@@ -173,12 +173,12 @@ end
 
 module Pseudo_instr = struct
   type t =
-    | Instruction of Arm64_simd_instrs.instr
+    | Instruction of Arm64_simd_instrs.t
     | Sequence of Instr_seq.t
 
   let equal t1 t2 =
     match t1, t2 with
-    | Instruction i0, Instruction i1 -> Amd64_simd_instrs.equal i0 i1
+    | Instruction i0, Instruction i1 -> Arm64_simd_instrs.equal i0 i1
     | Sequence s0, Sequence s1 -> Instr_seq.equal s0 s1
     | (Instruction _ | Sequence _), _ -> false
 
