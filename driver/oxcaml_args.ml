@@ -733,6 +733,12 @@ let mk_gdwarf_max_function_complexity f =
       \     will not be emitted, to improve compilation time (default %d)"
     !Dwarf_flags.dwarf_max_function_complexity
 
+let mk_gdwarf_compression f =
+  ( "-gdwarf-compression",
+    Arg.String f,
+    Format.sprintf " Set the DWARF compression format (default %s)"
+      !Dwarf_flags.gdwarf_compression )
+
 let mk_use_cached_generic_functions f =
   "-use-cached-generic-functions", Arg.Unit f, " Use the cached generated functions"
 ;;
@@ -1380,20 +1386,23 @@ module type Debugging_options = sig
   val gdwarf_may_alter_codegen : unit -> unit
   val no_gdwarf_may_alter_codegen : unit -> unit
   val gdwarf_max_function_complexity : int -> unit
+  val gdwarf_compression : string -> unit
 end
 
 module Make_debugging_options (F : Debugging_options) = struct
-  let list3 = [
-    mk_restrict_to_upstream_dwarf F.restrict_to_upstream_dwarf;
-    mk_no_restrict_to_upstream_dwarf F.no_restrict_to_upstream_dwarf;
-    mk_dwarf_inlined_frames F.dwarf_inlined_frames;
-    mk_no_dwarf_inlined_frames F.no_dwarf_inlined_frames;
-    mk_dwarf_for_startup_file F.dwarf_for_startup_file;
-    mk_no_dwarf_for_startup_file F.no_dwarf_for_startup_file;
-    mk_gdwarf_may_alter_codegen F.gdwarf_may_alter_codegen;
-    mk_no_gdwarf_may_alter_codegen F.no_gdwarf_may_alter_codegen;
-    mk_gdwarf_max_function_complexity F.gdwarf_max_function_complexity;
-   ]
+  let list3 =
+    [
+      mk_restrict_to_upstream_dwarf F.restrict_to_upstream_dwarf;
+      mk_no_restrict_to_upstream_dwarf F.no_restrict_to_upstream_dwarf;
+      mk_dwarf_inlined_frames F.dwarf_inlined_frames;
+      mk_no_dwarf_inlined_frames F.no_dwarf_inlined_frames;
+      mk_dwarf_for_startup_file F.dwarf_for_startup_file;
+      mk_no_dwarf_for_startup_file F.no_dwarf_for_startup_file;
+      mk_gdwarf_may_alter_codegen F.gdwarf_may_alter_codegen;
+      mk_no_gdwarf_may_alter_codegen F.no_gdwarf_may_alter_codegen;
+      mk_gdwarf_max_function_complexity F.gdwarf_max_function_complexity;
+      mk_gdwarf_compression F.gdwarf_compression;
+    ]
 end
 
 module Debugging_options_impl = struct
@@ -1415,6 +1424,8 @@ module Debugging_options_impl = struct
     Debugging.gdwarf_may_alter_codegen := false
   let gdwarf_max_function_complexity c =
     Debugging.dwarf_max_function_complexity := c
+
+  let gdwarf_compression value = Debugging.gdwarf_compression := value
 end
 
 module Extra_params = struct
