@@ -803,3 +803,55 @@
  (action
   (diff csel_ir.output csel_ir.output.corrected)))
 
+(rule
+ (enabled_if
+  (and
+   (= %{context_name} "main")
+   (= %{architecture} "amd64")
+   (<> %{env:OXCAML_CLANG=} "")))
+ (targets vec128_const_stub.o vec128_const.cmx vec128_const_ir.output.corrected vec128_const_main.cmx vec128_const.output.exe)
+ (deps vec128_const_stub.c vec128_const.ml vec128_const_main.ml)
+ (action
+  (progn
+   (run clang vec128_const_stub.c -c -g -O3 -I %{project_root}/runtime)
+   (run %{bin:ocamlopt.opt} vec128_const.ml -c -llvm-backend -llvm-path ${OXCAML_CLANG} -keep-llvmir -dno-asm-comments -disable-poll-insertion -g -O3 -opaque -S -dump-into-file -dcmm -dcfg -dlinear)
+   (with-outputs-to vec128_const_ir.output.corrected (pipe-outputs (run cat vec128_const.ll) (run ./filter.sh)))
+   (run %{bin:ocamlopt.opt} vec128_const_main.ml -c -g -O3 -opaque -S -dump-into-file -dcmm -dcfg -dlinear)
+   (run %{bin:ocamlopt.opt} vec128_const_stub.o vec128_const.cmx vec128_const_main.cmx -opaque -o vec128_const.output.exe))))
+
+(rule
+ (enabled_if
+  (and
+   (= %{context_name} "main")
+   (= %{architecture} "amd64")
+   (<> %{env:OXCAML_CLANG=} "")))
+ (alias runtest-llvmize)
+ (deps vec128_const.output.exe)
+ (targets vec128_const.output.corrected)
+ (action
+  (with-outputs-to
+   vec128_const.output.corrected
+   (run ./vec128_const.output.exe))))
+
+(rule
+ (enabled_if
+  (and
+   (= %{context_name} "main")
+   (= %{architecture} "amd64")
+   (<> %{env:OXCAML_CLANG=} "")))
+ (alias runtest-llvmize)
+ (deps vec128_const.output vec128_const.output.corrected)
+ (action
+  (diff vec128_const.output vec128_const.output.corrected)))
+
+(rule
+ (enabled_if
+  (and
+   (= %{context_name} "main")
+   (= %{architecture} "amd64")
+   (<> %{env:OXCAML_CLANG=} "")))
+ (alias runtest-llvmize)
+ (deps vec128_const_ir.output vec128_const_ir.output.corrected)
+ (action
+  (diff vec128_const_ir.output vec128_const_ir.output.corrected)))
+
