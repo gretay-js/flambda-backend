@@ -1,0 +1,8 @@
+(lldb) target create test_param_dwarf.exe
+(lldb) image lookup -n Test_param_dwarf.T1.test
+(lldb) b Test_param_dwarf.T1.test
+(lldb) run
+(lldb) frame variable
+(lldb) c  
+(lldb) frame variable
+(lldb) quit
