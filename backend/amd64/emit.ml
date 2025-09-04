@@ -2363,6 +2363,27 @@ let emit_instr ~first ~fallthrough i =
     D.cfi_adjust_cfa_offset ~bytes:delta_bytes;
     stack_offset := !stack_offset + delta_bytes
   | Lpushtrap { lbl_handler } ->
+    (* allocate a new trap block with two slots *)
+    I.mov (domain_field Domainstate.Domain_exn_handler) r11;
+    I.sub (int Proc.trap_size_in_bytes) r11;
+    I.mov r11 (domain_field Domainstate.Domain_exn_handler);
+    I.cmp (domain_field Domainstate.Domain_exn_handler_limit) r;
+    let lbl_call = L.create Text in
+    I.j L (emit_asm_label_arg lbl_call);
+    let lbl_after_alloc = L.create Text in
+    D.define_label lbl_after_alloc;
+    I.add (domain_field Domainstate.Domain_exn_handler_top) r;
+    I.add (int 8) r;
+    (*  *)
+    local_realloc_sites
+      := { lr_lbl = lbl_call;
+           lr_dbg = i.dbg;
+           lr_return_lbl = lbl_after_alloc;
+           lr_save_simd = must_save_simd_regs i.live
+         }
+         :: !local_realloc_sites
+
+    (* Fill in the trap block *)
     let lbl_handler = label_to_asm_label ~section:Text lbl_handler in
     emit_push_trap_label lbl_handler;
     let load_label_addr s arg =
@@ -2370,13 +2391,9 @@ let emit_instr ~first ~fallthrough i =
       then I.lea (mem64_rip NONE (L.encode s)) arg
       else I.mov (emit_asm_label_arg s) arg
     in
+    I.push rsp;  (* save rsp *)
     load_label_addr lbl_handler r11;
     I.push r11;
-    D.cfi_adjust_cfa_offset ~bytes:8;
-    I.push (domain_field Domainstate.Domain_exn_handler);
-    D.cfi_adjust_cfa_offset ~bytes:8;
-    I.mov rsp (domain_field Domainstate.Domain_exn_handler);
-    stack_offset := !stack_offset + 16
   | Lpoptrap _ ->
     emit_pop_trap_label ();
     I.pop (domain_field Domainstate.Domain_exn_handler);
