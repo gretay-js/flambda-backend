@@ -2354,11 +2354,7 @@ let emit_instr ~first ~fallthrough i =
     I.jmp (reg tmp1);
     let table = { table_lbl = lbl; elems = jumptbl } in
     jump_tables := table :: !jump_tables
-  | Lentertrap ->
-    if fp
-    then
-      let delta = frame_size () - 16 (* retaddr + rbp *) in
-      I.lea (mem64 NONE delta RSP) rbp
+  | Lentertrap -> ()
   | Ladjust_stack_offset { delta_bytes } ->
     D.cfi_adjust_cfa_offset ~bytes:delta_bytes;
     stack_offset := !stack_offset + delta_bytes
@@ -2371,6 +2367,11 @@ let emit_instr ~first ~fallthrough i =
       else I.mov (emit_asm_label_arg s) arg
     in
     load_label_addr lbl_handler r11;
+    if fp
+    then (
+      (* spill r11 and rbp. *)
+      push r11;
+      push rbp);
     I.push r11;
     D.cfi_adjust_cfa_offset ~bytes:8;
     I.push (domain_field Domainstate.Domain_exn_handler);
@@ -2381,9 +2382,10 @@ let emit_instr ~first ~fallthrough i =
     emit_pop_trap_label ();
     I.pop (domain_field Domainstate.Domain_exn_handler);
     D.cfi_adjust_cfa_offset ~bytes:(-8);
-    I.add (int 8) rsp;
-    D.cfi_adjust_cfa_offset ~bytes:(-8);
-    stack_offset := !stack_offset - 16
+    let n = if fp then 24 else 8 in
+    I.add (int n) rsp;
+    D.cfi_adjust_cfa_offset ~bytes:(-n);
+    stack_offset := !stack_offset - (8 + n)
   | Lraise k -> (
     match k with
     | Lambda.Raise_regular ->
@@ -2399,6 +2401,11 @@ let emit_instr ~first ~fallthrough i =
       I.mov (domain_field Domainstate.Domain_exn_handler) rsp;
       I.pop (domain_field Domainstate.Domain_exn_handler);
       I.pop r11;
+      if fp
+      then (
+        (* reload rbp and r11 *)
+        I.pop rbp;
+        I.pop r11);
       I.jmp r11)
   | Lstackcheck { max_frame_size_bytes } ->
     emit_stack_check ~size_in_bytes:max_frame_size_bytes

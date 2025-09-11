@@ -248,10 +248,19 @@ X(16) X(17) X(18) X(19) X(20) X(21) X(22) X(23) X(24) X(25) X(26) X(27) X(27) X(
         movq    Caml_state(exn_handler), %r11; \
         pushq   %r11; CFI_ADJUST(8);
 
+#ifdef WITH_FRAME_POINTERS
+#define POP_FRAME_POINTER_EXN_HANDLER \
+        pop %r11;  CFI_ADJUST(-8); \
+        pop %rbp;  CFI_ADJUST(-8)
+#else
+#define POP_FRAME_POINTER_EXN_HANDLER
+#endif
+
 /* Pop the current exception handler. Undoes PUSH_EXN_HANDLER. Clobbers %r11 */
 #define POP_EXN_HANDLER \
         leaq    Caml_state(exn_handler), %r11; \
-        popq    (%r11); CFI_ADJUST(-8)
+        popq    (%r11); CFI_ADJUST(-8);        \
+        POP_FRAME_POINTER_EXN_HANDLER
 
 /******************************************************************************/
 /* Stack switching operations */
