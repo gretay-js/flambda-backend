@@ -317,11 +317,11 @@ let instr_cfg_with_layout :
       if needs_poll
       then (
         let after = Cfg.get_block_exn cfg src in
-        let poll =
-          { after.terminator with
-            Cfg.id = next_instruction_id ();
-            Cfg.desc = Cfg.Op Poll
-          }
+        let poll = Cfg.make_instruction
+            ~desc:(Cfg.Op Poll)
+            ~id:(next_instruction_id ())
+            ~dbg:after.terminator.dbg
+            ~stack_offset:after.terminator.stack_offset ()
         in
         (match
            ( Label.Set.cardinal
