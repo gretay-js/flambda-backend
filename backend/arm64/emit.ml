@@ -1053,7 +1053,7 @@ let num_call_gc_points instr =
           ( Imuladd | Imulsub | Inegmulf | Imuladdf | Inegmuladdf | Imulsubf
           | Inegmulsubf | Isqrtf | Imove32
           | Ishiftarith (_, _)
-          | Ibswap _ | Isignext _ | Isimd _ ))
+          | Ibswap _ | Isignext _ | Isimd _ | Illvm_intrinsic _ ))
     | Lop
         ( Move | Spill | Reload | Opaque | Pause | Begin_region | End_region
         | Dls_get | Const_int _ | Const_float32 _ | Const_float _
@@ -1331,6 +1331,7 @@ module BR = Branch_relaxation.Make (struct
       | Lambda.Raise_notrace -> 4)
     | Lstackcheck _ -> 5
     | Lop (Specific (Isimd simd)) -> DSL.simd_instr_size simd
+    | Lop (Specific (Illvm_intrinsic _)) -> assert false
 
   let relax_poll () = Lop (Specific Ifar_poll)
 
@@ -2341,6 +2342,7 @@ let emit_instr i =
              sc_return = ret;
              sc_max_frame_size_in_bytes = max_frame_size_bytes
            }
+  | Lop (Specific (Illvm_intrinsic _)) -> assert false
 
 let emit_instr i =
   try emit_instr i

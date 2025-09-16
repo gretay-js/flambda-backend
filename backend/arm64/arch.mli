@@ -58,7 +58,8 @@ type specific_operation =
   | Imove32       (* 32-bit integer move *)
   | Isignext of int (* sign extension *)
   | Isimd of Simd.operation
-
+  | Illvm_intrinsic of string (* Name of caml_* intrinsic (to be
+                                 lowered in llvmize) *)
 and arith_operation =
     Ishiftadd
   | Ishiftsub

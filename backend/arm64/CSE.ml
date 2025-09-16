@@ -44,6 +44,7 @@ let class_of_operation (op : Operation.t)
       | Imove32
       | Isignext _ -> Op_pure
       | Isimd op -> of_simd_class (Simd.class_of_operation op)
+      | Illvm_intrinsic _ -> Op_other
     in
     Class op_class
   | Move | Spill | Reload

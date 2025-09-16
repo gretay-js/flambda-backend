@@ -536,10 +536,20 @@ and expression =
   | Ccatch of ccatch_flag * static_handler list * expression
   | Cexit of exit_label * expression list * trap_action list
 
+type regalloc_kind =
+  | Default_regalloc
+  | Cfg_regalloc
+  | Irc_regalloc
+  | Ls_regalloc
+  | Gi_regalloc
+
 type codegen_option =
   | Reduce_code_size
   | No_CSE
   | Use_linscan_regalloc
+  | Use_regalloc of regalloc_kind
+  | Use_regalloc_param of string list
+  | Cold
   | Assume_zero_alloc of
       { strict : bool;
         never_returns_normally : bool;
@@ -656,5 +666,9 @@ val equal_integer_comparison : integer_comparison -> integer_comparison -> bool
 val caml_flambda2_invalid : string
 
 val is_val : machtype_component -> bool
+
+val is_int : machtype_component -> bool
+
+val is_addr : machtype_component -> bool
 
 val is_exn_handler : ccatch_flag -> bool

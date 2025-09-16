@@ -55,6 +55,8 @@
 
 (copy_files# backend/internal_assembler/*.ml{,i})
 
+(copy_files# backend/llvm/*.ml{,i})
+
 (copy_files# backend/peephole/*.ml{,i})
 
 (copy_files# backend/regalloc/*.ml{,i})
@@ -184,7 +186,7 @@
   ast_invariants
   depend
   parser_types ; manual update: mli only files asttypes parsetree
-  ;; TYPING
+               ;; TYPING
   ident
   path
   jkind
@@ -352,10 +354,7 @@
  (ocamlopt_flags
   (:include %{project_root}/ocamlopt_flags.sexp))
  (libraries ocamlcommon flambda2)
- (modules
-   jsmaindriver
-   jscompile
-   jslibrarian))
+ (modules jsmaindriver jscompile jslibrarian))
 
 (executable
  (name boot_ocamlj)
@@ -582,6 +581,8 @@
   vectorize
   vectorize_utils
   vectorize_specific
+  ;; backend/llvm
+  llvm_ir
   llvmize
   ;; backend/regalloc
   regalloc_gi
