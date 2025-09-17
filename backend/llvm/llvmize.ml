@@ -83,6 +83,7 @@ type t =
     ppf_dump : Format.formatter;
     mutable sourcefile : string option; (* gets set in [begin_assembly] *)
     mutable asm_filename : string option; (* gets set in [open_out] *)
+    mutable is_startup : bool;
     mutable current_fun_info : fun_info option;
         (* Maintains the state of the current function (reset for every
            function) *)
@@ -141,6 +142,7 @@ let create ~llvmir_filename ~ppf_dump =
   { llvmir_filename;
     asm_filename = None;
     sourcefile = None;
+    is_startup = false;
     oc;
     ppf;
     ppf_dump;
@@ -230,10 +232,11 @@ let make_ret_type ret_types =
   let runtime_reg_types = List.map (fun _ -> T.i64) runtime_regs in
   T.(Struct [Struct runtime_reg_types; Struct ret_types])
 
-let make_ret_type_of_machtype ret_machtype =
-  let actual_ret_types =
-    Array.to_list ret_machtype |> List.map T.of_machtype_component
-  in
+(* Filters out return types to be passed via domain state since they aren't
+   dealt with in LLVM's calling conventions *)
+let filter_ds_and_make_ret_type ret_machtype =
+  let cc_regs = Proc.loc_results_return ret_machtype in
+  let actual_ret_types = reg_list_for_call cc_regs |> List.map T.of_reg in
   make_ret_type actual_ret_types
 
 let make_arg_types arg_types =
@@ -1334,7 +1337,7 @@ let prepare_fun_info t (cfg : Cfg.t) =
     Array.to_list fun_args |> List.filter reg_listed_in_signature
   in
   let arg_types = List.map T.of_reg arg_regs |> make_arg_types in
-  let res_type = make_ret_type_of_machtype fun_ret_type in
+  let res_type = filter_ds_and_make_ret_type fun_ret_type in
   let attrs = fun_attrs ~fun_has_try fun_codegen_options in
   let emitter =
     E.create ~name:fun_name ~args:arg_types ~res:(Some res_type) ~cc:Oxcaml
@@ -1537,10 +1540,14 @@ let data (ds : Cmm.data_item list) =
     | [] -> None
     | d :: ds -> peek d |> Option.map (fun i -> i, ds)
   in
+  let eat_header_and_symbol ds =
+    let header, ds = eat_if peek_int ds |> Option.get in
+    let symbol, ds = eat_if peek_define_symbol ds |> Option.get in
+    header, symbol, ds
+  in
   let closure_block ds =
     let function_slot ds =
-      let header, ds = eat_if peek_int ds |> Option.get in
-      let symbol, ds = eat_if peek_define_symbol ds |> Option.get in
+      let header, symbol, ds = eat_header_and_symbol ds in
       (*= A function slot is either:
           | code pointer | closinfo | (if the function has arity 0 or 1)
           | code pointer | closinfo | second code pointer | (arity >= 2)
@@ -1564,6 +1571,31 @@ let data (ds : Cmm.data_item list) =
     in
     iter_slots ds
   in
+  (* Returns true if successful *)
+  let caml_startup ds =
+    let caml_startup_indices =
+      List.mapi
+        (fun i d ->
+          Option.bind (peek_define_symbol d) (fun sym ->
+              if String.begins_with ~prefix:"caml_startup" sym
+              then Some i
+              else None))
+        ds
+      |> List.filter_map (fun opt -> opt)
+    in
+    match caml_startup_indices with
+    | [idx] ->
+      let do_block ds =
+        let header, symbol, contents = eat_header_and_symbol ds in
+        define_symbol ~private_:false ~header:(Some header)
+          ~symbol:(Some symbol) contents
+      in
+      let exn_ds, caml_startup_ds = List.split_at (idx - 1) ds in
+      do_block exn_ds;
+      do_block caml_startup_ds;
+      true
+    | [] | _ :: _ :: _ -> false
+  in
   let block ds =
     match eat_if peek_int ds with
     | Some (i, after_i) -> (
@@ -1572,6 +1604,8 @@ let data (ds : Cmm.data_item list) =
         (* [i] is a header *)
         if Nativeint.(logand i 0xffn = of_int Obj.closure_tag)
         then closure_block ds
+        else if caml_startup ds
+        then ()
         else
           define_symbol ~private_:false ~header:(Some i) ~symbol:(Some symbol)
             after_symbol
@@ -1746,9 +1780,21 @@ let assemble_file ~asm_filename ~obj_filename =
    assembly file if -stop-after simplify_cfg or -stop_after linearization are
    passed, which it shouldn't do. *)
 
-let begin_assembly ~sourcefile =
+let begin_assembly ~is_startup ~sourcefile =
   let t = get_current_compilation_unit "begin_asm" in
-  t.sourcefile <- sourcefile
+  t.sourcefile <- sourcefile;
+  t.is_startup <- is_startup
+
+(* CR yusumez: lift this to [Llvm_ir] when we have proper metadata support *)
+let write_module_metadata t =
+  let module_name =
+    if t.is_startup
+    then "_startup" (* LLVM will put the "caml" in front *)
+    else Compilation_unit.(get_current_or_dummy () |> name |> Name.to_string)
+  in
+  F.pp_line t.ppf "";
+  F.pp_line t.ppf {|!0 = !{ i32 1, !"oxcaml_module", !"%s" }|} module_name;
+  F.pp_line t.ppf {|!llvm.module.flags = !{ !0 }|}
 
 let write_llvmir_to_file t =
   (match t.sourcefile with
@@ -1759,7 +1805,8 @@ let write_llvmir_to_file t =
   F.pp_line t.ppf "";
   String.Map.iter
     (fun _ fundecl -> LL.Fundecl.pp_t t.ppf fundecl)
-    t.called_intrinsics
+    t.called_intrinsics;
+  write_module_metadata t
 
 let end_assembly () =
   let t = get_current_compilation_unit "end_asm" in
