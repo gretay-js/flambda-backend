@@ -1,6 +1,6 @@
 source_filename = "gcd.ml"
 
-define  oxcamlcc { { i64, i64 }, { i64 } } @camlGcd__gcd_HIDE_STAMP(i64 %0, i64 %1, i64 %2) gc "ocaml" {
+define  oxcamlcc { { i64, i64 }, { i64 } } @camlGcd__gcd_HIDE_STAMP(i64 %0, i64 %1, i64 %2) gc "oxcaml" {
   %ds = alloca i64
   store i64 %0, ptr %ds
   %alloc = alloca i64
@@ -208,7 +208,7 @@ L142:
   ret { { i64, i64 }, { i64 } } %133
 }
 
-define  oxcamlcc { { i64, i64 }, { ptr addrspace(1) } } @camlGcd__entry(i64 %0, i64 %1) gc "ocaml" {
+define  oxcamlcc { { i64, i64 }, { ptr addrspace(1) } } @camlGcd__entry(i64 %0, i64 %1) gc "oxcaml" {
   %ds = alloca i64
   store i64 %0, ptr %ds
   %alloc = alloca i64
@@ -257,3 +257,6 @@ define private oxcamlcc { { i64, i64 }, { i64 } } @wrap_try(i64 %0, i64 %1) retu
 @caml_exn_Division_by_zero = external global ptr
 @caml_raise_exn = external global ptr
 
+
+!0 = !{ i32 1, !"oxcaml_module", !"Gcd" }
+!llvm.module.flags = !{ !0 }

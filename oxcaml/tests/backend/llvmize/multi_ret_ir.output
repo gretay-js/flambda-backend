@@ -1,6 +1,6 @@
 source_filename = "multi_ret.ml"
 
-define  oxcamlcc { { i64, i64 }, { double, double, double, double } } @camlMulti_ret__permute_HIDE_STAMP(i64 %0, i64 %1, double %2, double %3, double %4, double %5) gc "ocaml" {
+define  oxcamlcc { { i64, i64 }, { double, double, double, double } } @camlMulti_ret__permute_HIDE_STAMP(i64 %0, i64 %1, double %2, double %3, double %4, double %5) gc "oxcaml" {
   %ds = alloca i64
   store i64 %0, ptr %ds
   %alloc = alloca i64
@@ -52,7 +52,7 @@ L101:
   ret { { i64, i64 }, { double, double, double, double } } %34
 }
 
-define  oxcamlcc { { i64, i64 }, { ptr addrspace(1) } } @camlMulti_ret__entry(i64 %0, i64 %1) gc "ocaml" {
+define  oxcamlcc { { i64, i64 }, { ptr addrspace(1) } } @camlMulti_ret__entry(i64 %0, i64 %1) gc "oxcaml" {
   %ds = alloca i64
   store i64 %0, ptr %ds
   %alloc = alloca i64
@@ -101,3 +101,6 @@ define private oxcamlcc { { i64, i64 }, { i64 } } @wrap_try(i64 %0, i64 %1) retu
 @camlMulti_ret__empty_block4 = global {  } {  }, section ".data", align 8
 @caml_curryF_F_F_F_RFFFF = external global ptr
 
+
+!0 = !{ i32 1, !"oxcaml_module", !"Multi_ret" }
+!llvm.module.flags = !{ !0 }

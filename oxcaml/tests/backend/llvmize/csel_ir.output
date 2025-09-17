@@ -1,6 +1,6 @@
 source_filename = "csel.ml"
 
-define  oxcamlcc { { i64, i64 }, { i64 } } @camlCsel__csel_HIDE_STAMP(i64 %0, i64 %1, i64 %2, i64 %3, i64 %4) gc "ocaml" {
+define  oxcamlcc { { i64, i64 }, { i64 } } @camlCsel__csel_HIDE_STAMP(i64 %0, i64 %1, i64 %2, i64 %3, i64 %4) gc "oxcaml" {
   %ds = alloca i64
   store i64 %0, ptr %ds
   %alloc = alloca i64
@@ -46,7 +46,7 @@ L101:
   ret { { i64, i64 }, { i64 } } %30
 }
 
-define  oxcamlcc { { i64, i64 }, { i64 } } @camlCsel__min_HIDE_STAMP(i64 %0, i64 %1, i64 %2, i64 %3) gc "ocaml" {
+define  oxcamlcc { { i64, i64 }, { i64 } } @camlCsel__min_HIDE_STAMP(i64 %0, i64 %1, i64 %2, i64 %3) gc "oxcaml" {
   %ds = alloca i64
   store i64 %0, ptr %ds
   %alloc = alloca i64
@@ -88,7 +88,7 @@ L105:
   ret { { i64, i64 }, { i64 } } %27
 }
 
-define  oxcamlcc { { i64, i64 }, { ptr addrspace(1) } } @camlCsel__entry(i64 %0, i64 %1) gc "ocaml" {
+define  oxcamlcc { { i64, i64 }, { ptr addrspace(1) } } @camlCsel__entry(i64 %0, i64 %1) gc "oxcaml" {
   %ds = alloca i64
   store i64 %0, ptr %ds
   %alloc = alloca i64
@@ -625,3 +625,6 @@ define private oxcamlcc { { i64, i64 }, { i64 } } @wrap_try(i64 %0, i64 %1) retu
 @caml_curry2 = external global ptr
 @caml_curry3 = external global ptr
 
+
+!0 = !{ i32 1, !"oxcaml_module", !"Csel" }
+!llvm.module.flags = !{ !0 }

@@ -1,6 +1,6 @@
 source_filename = "const_val.ml"
 
-define  oxcamlcc { { i64, i64 }, { ptr addrspace(1) } } @camlConst_val__entry(i64 %0, i64 %1) gc "ocaml" {
+define  oxcamlcc { { i64, i64 }, { ptr addrspace(1) } } @camlConst_val__entry(i64 %0, i64 %1) gc "oxcaml" {
   %ds = alloca i64
   store i64 %0, ptr %ds
   %alloc = alloca i64
@@ -44,3 +44,6 @@ define private oxcamlcc { { i64, i64 }, { i64 } } @wrap_try(i64 %0, i64 %1) retu
 @header.camlConst_val = global i64 1792, section ".data", align 8
 @camlConst_val = global { i64 } { i64 75 }, section ".data", align 8
 
+
+!0 = !{ i32 1, !"oxcaml_module", !"Const_val" }
+!llvm.module.flags = !{ !0 }

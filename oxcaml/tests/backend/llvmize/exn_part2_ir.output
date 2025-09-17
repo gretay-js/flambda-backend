@@ -1,6 +1,6 @@
 source_filename = "exn_part2.ml"
 
-define  oxcamlcc { { i64, i64 }, { i64 } } @camlExn_part2__catch_exn1_from_llvm_HIDE_STAMP(i64 %0, i64 %1, i64 %2) noinline gc "ocaml" {
+define  oxcamlcc { { i64, i64 }, { i64 } } @camlExn_part2__catch_exn1_from_llvm_HIDE_STAMP(i64 %0, i64 %1, i64 %2) noinline gc "oxcaml" {
   %ds = alloca i64
   store i64 %0, ptr %ds
   %alloc = alloca i64
@@ -310,7 +310,7 @@ L138:
   unreachable
 }
 
-define  oxcamlcc { { i64, i64 }, { i64 } } @camlExn_part2__raise_exn1_catch_exn2_from_llvm_HIDE_STAMP(i64 %0, i64 %1, i64 %2) noinline gc "ocaml" {
+define  oxcamlcc { { i64, i64 }, { i64 } } @camlExn_part2__raise_exn1_catch_exn2_from_llvm_HIDE_STAMP(i64 %0, i64 %1, i64 %2) noinline gc "oxcaml" {
   %ds = alloca i64
   store i64 %0, ptr %ds
   %alloc = alloca i64
@@ -519,7 +519,7 @@ L172:
   unreachable
 }
 
-define  oxcamlcc { { i64, i64 }, { i64 } } @camlExn_part2__catch_exn1_nested_from_llvm_HIDE_STAMP(i64 %0, i64 %1, i64 %2) noinline gc "ocaml" {
+define  oxcamlcc { { i64, i64 }, { i64 } } @camlExn_part2__catch_exn1_nested_from_llvm_HIDE_STAMP(i64 %0, i64 %1, i64 %2) noinline gc "oxcaml" {
   %ds = alloca i64
   store i64 %0, ptr %ds
   %alloc = alloca i64
@@ -804,7 +804,7 @@ L214:
   unreachable
 }
 
-define  oxcamlcc { { i64, i64 }, { i64 } } @camlExn_part2__raise_1_HIDE_STAMP(i64 %0, i64 %1, i64 %2, i64 %3) gc "ocaml" {
+define  oxcamlcc { { i64, i64 }, { i64 } } @camlExn_part2__raise_1_HIDE_STAMP(i64 %0, i64 %1, i64 %2, i64 %3) gc "oxcaml" {
   %ds = alloca i64
   store i64 %0, ptr %ds
   %alloc = alloca i64
@@ -877,7 +877,7 @@ L226:
   ret { { i64, i64 }, { i64 } } %46
 }
 
-define  oxcamlcc { { i64, i64 }, { i64 } } @camlExn_part2__raise_2_HIDE_STAMP(i64 %0, i64 %1, i64 %2) gc "ocaml" {
+define  oxcamlcc { { i64, i64 }, { i64 } } @camlExn_part2__raise_2_HIDE_STAMP(i64 %0, i64 %1, i64 %2) gc "oxcaml" {
   %ds = alloca i64
   store i64 %0, ptr %ds
   %alloc = alloca i64
@@ -919,7 +919,7 @@ L229:
   unreachable
 }
 
-define  oxcamlcc { { i64, i64 }, { i64 } } @camlExn_part2__raise_3_HIDE_STAMP(i64 %0, i64 %1, i64 %2) gc "ocaml" {
+define  oxcamlcc { { i64, i64 }, { i64 } } @camlExn_part2__raise_3_HIDE_STAMP(i64 %0, i64 %1, i64 %2) gc "oxcaml" {
   %ds = alloca i64
   store i64 %0, ptr %ds
   %alloc = alloca i64
@@ -949,7 +949,7 @@ L234:
   unreachable
 }
 
-define  oxcamlcc { { i64, i64 }, { i64 } } @camlExn_part2__complicated_HIDE_STAMP(i64 %0, i64 %1, ptr addrspace(1) %2) noinline gc "ocaml" {
+define  oxcamlcc { { i64, i64 }, { i64 } } @camlExn_part2__complicated_HIDE_STAMP(i64 %0, i64 %1, ptr addrspace(1) %2) noinline gc "oxcaml" {
   %ds = alloca i64
   store i64 %0, ptr %ds
   %alloc = alloca i64
@@ -1513,7 +1513,7 @@ L328:
   unreachable
 }
 
-define  oxcamlcc { { i64, i64 }, { i64 } } @camlExn_part2__raise_in_loop_HIDE_STAMP(i64 %0, i64 %1, i64 %2) noinline gc "ocaml" {
+define  oxcamlcc { { i64, i64 }, { i64 } } @camlExn_part2__raise_in_loop_HIDE_STAMP(i64 %0, i64 %1, i64 %2) noinline gc "oxcaml" {
   %ds = alloca i64
   store i64 %0, ptr %ds
   %alloc = alloca i64
@@ -1756,7 +1756,7 @@ L389:
   ret { { i64, i64 }, { i64 } } %151
 }
 
-define  oxcamlcc { { i64, i64 }, { i64 } } @camlExn_part2__catch_wildcard_HIDE_STAMP(i64 %0, i64 %1, i64 %2) noinline gc "ocaml" {
+define  oxcamlcc { { i64, i64 }, { i64 } } @camlExn_part2__catch_wildcard_HIDE_STAMP(i64 %0, i64 %1, i64 %2) noinline gc "oxcaml" {
   %ds = alloca i64
   store i64 %0, ptr %ds
   %alloc = alloca i64
@@ -1996,7 +1996,7 @@ L422:
   ret { { i64, i64 }, { i64 } } %155
 }
 
-define  oxcamlcc { { i64, i64 }, { ptr addrspace(1) } } @camlExn_part2__entry(i64 %0, i64 %1) gc "ocaml" {
+define  oxcamlcc { { i64, i64 }, { ptr addrspace(1) } } @camlExn_part2__entry(i64 %0, i64 %1) gc "oxcaml" {
   %ds = alloca i64
   store i64 %0, ptr %ds
   %alloc = alloca i64
@@ -2168,3 +2168,6 @@ declare i64 @llvm.read_register.i64(metadata)
 declare void @llvm.stackrestore(ptr)
 declare ptr @llvm.stacksave()
 declare void @llvm.write_register.i64(metadata, i64)
+
+!0 = !{ i32 1, !"oxcaml_module", !"Exn_part2" }
+!llvm.module.flags = !{ !0 }

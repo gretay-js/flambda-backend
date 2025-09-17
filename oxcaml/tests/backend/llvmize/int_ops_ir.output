@@ -1,6 +1,6 @@
 source_filename = "int_ops.ml"
 
-define  oxcamlcc { { i64, i64 }, { i64 } } @camlInt_ops__add_HIDE_STAMP(i64 %0, i64 %1, i64 %2) gc "ocaml" {
+define  oxcamlcc { { i64, i64 }, { i64 } } @camlInt_ops__add_HIDE_STAMP(i64 %0, i64 %1, i64 %2) gc "oxcaml" {
   %ds = alloca i64
   store i64 %0, ptr %ds
   %alloc = alloca i64
@@ -61,7 +61,7 @@ L101:
   ret { { i64, i64 }, { i64 } } %39
 }
 
-define  oxcamlcc { { i64, i64 }, { i64 } } @camlInt_ops__sub_HIDE_STAMP(i64 %0, i64 %1, i64 %2) gc "ocaml" {
+define  oxcamlcc { { i64, i64 }, { i64 } } @camlInt_ops__sub_HIDE_STAMP(i64 %0, i64 %1, i64 %2) gc "oxcaml" {
   %ds = alloca i64
   store i64 %0, ptr %ds
   %alloc = alloca i64
@@ -122,7 +122,7 @@ L109:
   ret { { i64, i64 }, { i64 } } %39
 }
 
-define  oxcamlcc { { i64, i64 }, { i64 } } @camlInt_ops__mul_HIDE_STAMP(i64 %0, i64 %1, i64 %2) gc "ocaml" {
+define  oxcamlcc { { i64, i64 }, { i64 } } @camlInt_ops__mul_HIDE_STAMP(i64 %0, i64 %1, i64 %2) gc "oxcaml" {
   %ds = alloca i64
   store i64 %0, ptr %ds
   %alloc = alloca i64
@@ -196,7 +196,7 @@ L117:
   ret { { i64, i64 }, { i64 } } %48
 }
 
-define  oxcamlcc { { i64, i64 }, { i64 } } @camlInt_ops__div_HIDE_STAMP(i64 %0, i64 %1, i64 %2) gc "ocaml" {
+define  oxcamlcc { { i64, i64 }, { i64 } } @camlInt_ops__div_HIDE_STAMP(i64 %0, i64 %1, i64 %2) gc "oxcaml" {
   %ds = alloca i64
   store i64 %0, ptr %ds
   %alloc = alloca i64
@@ -331,7 +331,7 @@ L149:
   unreachable
 }
 
-define  oxcamlcc { { i64, i64 }, { i64 } } @camlInt_ops__mod__HIDE_STAMP(i64 %0, i64 %1, i64 %2) gc "ocaml" {
+define  oxcamlcc { { i64, i64 }, { i64 } } @camlInt_ops__mod__HIDE_STAMP(i64 %0, i64 %1, i64 %2) gc "oxcaml" {
   %ds = alloca i64
   store i64 %0, ptr %ds
   %alloc = alloca i64
@@ -447,7 +447,7 @@ L174:
   unreachable
 }
 
-define  oxcamlcc { { i64, i64 }, { i64 } } @camlInt_ops__land__HIDE_STAMP(i64 %0, i64 %1, i64 %2) gc "ocaml" {
+define  oxcamlcc { { i64, i64 }, { i64 } } @camlInt_ops__land__HIDE_STAMP(i64 %0, i64 %1, i64 %2) gc "oxcaml" {
   %ds = alloca i64
   store i64 %0, ptr %ds
   %alloc = alloca i64
@@ -502,7 +502,7 @@ L179:
   ret { { i64, i64 }, { i64 } } %35
 }
 
-define  oxcamlcc { { i64, i64 }, { i64 } } @camlInt_ops__lor__HIDE_STAMP(i64 %0, i64 %1, i64 %2) gc "ocaml" {
+define  oxcamlcc { { i64, i64 }, { i64 } } @camlInt_ops__lor__HIDE_STAMP(i64 %0, i64 %1, i64 %2) gc "oxcaml" {
   %ds = alloca i64
   store i64 %0, ptr %ds
   %alloc = alloca i64
@@ -557,7 +557,7 @@ L186:
   ret { { i64, i64 }, { i64 } } %35
 }
 
-define  oxcamlcc { { i64, i64 }, { i64 } } @camlInt_ops__lxor__HIDE_STAMP(i64 %0, i64 %1, i64 %2) gc "ocaml" {
+define  oxcamlcc { { i64, i64 }, { i64 } } @camlInt_ops__lxor__HIDE_STAMP(i64 %0, i64 %1, i64 %2) gc "oxcaml" {
   %ds = alloca i64
   store i64 %0, ptr %ds
   %alloc = alloca i64
@@ -618,7 +618,7 @@ L193:
   ret { { i64, i64 }, { i64 } } %39
 }
 
-define  oxcamlcc { { i64, i64 }, { i64 } } @camlInt_ops__lnot__HIDE_STAMP(i64 %0, i64 %1, i64 %2) gc "ocaml" {
+define  oxcamlcc { { i64, i64 }, { i64 } } @camlInt_ops__lnot__HIDE_STAMP(i64 %0, i64 %1, i64 %2) gc "oxcaml" {
   %ds = alloca i64
   store i64 %0, ptr %ds
   %alloc = alloca i64
@@ -664,7 +664,7 @@ L201:
   ret { { i64, i64 }, { i64 } } %28
 }
 
-define  oxcamlcc { { i64, i64 }, { i64 } } @camlInt_ops__lsl__HIDE_STAMP(i64 %0, i64 %1, i64 %2) gc "ocaml" {
+define  oxcamlcc { { i64, i64 }, { i64 } } @camlInt_ops__lsl__HIDE_STAMP(i64 %0, i64 %1, i64 %2) gc "oxcaml" {
   %ds = alloca i64
   store i64 %0, ptr %ds
   %alloc = alloca i64
@@ -741,7 +741,7 @@ L207:
   ret { { i64, i64 }, { i64 } } %50
 }
 
-define  oxcamlcc { { i64, i64 }, { i64 } } @camlInt_ops__lsr__HIDE_STAMP(i64 %0, i64 %1, i64 %2) gc "ocaml" {
+define  oxcamlcc { { i64, i64 }, { i64 } } @camlInt_ops__lsr__HIDE_STAMP(i64 %0, i64 %1, i64 %2) gc "oxcaml" {
   %ds = alloca i64
   store i64 %0, ptr %ds
   %alloc = alloca i64
@@ -812,7 +812,7 @@ L217:
   ret { { i64, i64 }, { i64 } } %46
 }
 
-define  oxcamlcc { { i64, i64 }, { i64 } } @camlInt_ops__asr__HIDE_STAMP(i64 %0, i64 %1, i64 %2) gc "ocaml" {
+define  oxcamlcc { { i64, i64 }, { i64 } } @camlInt_ops__asr__HIDE_STAMP(i64 %0, i64 %1, i64 %2) gc "oxcaml" {
   %ds = alloca i64
   store i64 %0, ptr %ds
   %alloc = alloca i64
@@ -883,7 +883,7 @@ L226:
   ret { { i64, i64 }, { i64 } } %46
 }
 
-define  oxcamlcc { { i64, i64 }, { i64 } } @camlInt_ops__add_imm_HIDE_STAMP(i64 %0, i64 %1, i64 %2) gc "ocaml" {
+define  oxcamlcc { { i64, i64 }, { i64 } } @camlInt_ops__add_imm_HIDE_STAMP(i64 %0, i64 %1, i64 %2) gc "oxcaml" {
   %ds = alloca i64
   store i64 %0, ptr %ds
   %alloc = alloca i64
@@ -923,7 +923,7 @@ L235:
   ret { { i64, i64 }, { i64 } } %24
 }
 
-define  oxcamlcc { { i64, i64 }, { i64 } } @camlInt_ops__sub_imm_HIDE_STAMP(i64 %0, i64 %1, i64 %2) gc "ocaml" {
+define  oxcamlcc { { i64, i64 }, { i64 } } @camlInt_ops__sub_imm_HIDE_STAMP(i64 %0, i64 %1, i64 %2) gc "oxcaml" {
   %ds = alloca i64
   store i64 %0, ptr %ds
   %alloc = alloca i64
@@ -963,7 +963,7 @@ L240:
   ret { { i64, i64 }, { i64 } } %24
 }
 
-define  oxcamlcc { { i64, i64 }, { i64 } } @camlInt_ops__mul_imm_HIDE_STAMP(i64 %0, i64 %1, i64 %2) gc "ocaml" {
+define  oxcamlcc { { i64, i64 }, { i64 } } @camlInt_ops__mul_imm_HIDE_STAMP(i64 %0, i64 %1, i64 %2) gc "oxcaml" {
   %ds = alloca i64
   store i64 %0, ptr %ds
   %alloc = alloca i64
@@ -1009,7 +1009,7 @@ L245:
   ret { { i64, i64 }, { i64 } } %28
 }
 
-define  oxcamlcc { { i64, i64 }, { i64 } } @camlInt_ops__div_imm_HIDE_STAMP(i64 %0, i64 %1, i64 %2) gc "ocaml" {
+define  oxcamlcc { { i64, i64 }, { i64 } } @camlInt_ops__div_imm_HIDE_STAMP(i64 %0, i64 %1, i64 %2) gc "oxcaml" {
   %ds = alloca i64
   store i64 %0, ptr %ds
   %alloc = alloca i64
@@ -1089,7 +1089,7 @@ L251:
   ret { { i64, i64 }, { i64 } } %51
 }
 
-define  oxcamlcc { { i64, i64 }, { i64 } } @camlInt_ops__mod_imm_HIDE_STAMP(i64 %0, i64 %1, i64 %2) gc "ocaml" {
+define  oxcamlcc { { i64, i64 }, { i64 } } @camlInt_ops__mod_imm_HIDE_STAMP(i64 %0, i64 %1, i64 %2) gc "oxcaml" {
   %ds = alloca i64
   store i64 %0, ptr %ds
   %alloc = alloca i64
@@ -1179,7 +1179,7 @@ L262:
   ret { { i64, i64 }, { i64 } } %58
 }
 
-define  oxcamlcc { { i64, i64 }, { i64 } } @camlInt_ops__land_imm_HIDE_STAMP(i64 %0, i64 %1, i64 %2) gc "ocaml" {
+define  oxcamlcc { { i64, i64 }, { i64 } } @camlInt_ops__land_imm_HIDE_STAMP(i64 %0, i64 %1, i64 %2) gc "oxcaml" {
   %ds = alloca i64
   store i64 %0, ptr %ds
   %alloc = alloca i64
@@ -1219,7 +1219,7 @@ L274:
   ret { { i64, i64 }, { i64 } } %24
 }
 
-define  oxcamlcc { { i64, i64 }, { i64 } } @camlInt_ops__lor_imm_HIDE_STAMP(i64 %0, i64 %1, i64 %2) gc "ocaml" {
+define  oxcamlcc { { i64, i64 }, { i64 } } @camlInt_ops__lor_imm_HIDE_STAMP(i64 %0, i64 %1, i64 %2) gc "oxcaml" {
   %ds = alloca i64
   store i64 %0, ptr %ds
   %alloc = alloca i64
@@ -1259,7 +1259,7 @@ L279:
   ret { { i64, i64 }, { i64 } } %24
 }
 
-define  oxcamlcc { { i64, i64 }, { i64 } } @camlInt_ops__lxor_imm_HIDE_STAMP(i64 %0, i64 %1, i64 %2) gc "ocaml" {
+define  oxcamlcc { { i64, i64 }, { i64 } } @camlInt_ops__lxor_imm_HIDE_STAMP(i64 %0, i64 %1, i64 %2) gc "oxcaml" {
   %ds = alloca i64
   store i64 %0, ptr %ds
   %alloc = alloca i64
@@ -1305,7 +1305,7 @@ L284:
   ret { { i64, i64 }, { i64 } } %28
 }
 
-define  oxcamlcc { { i64, i64 }, { i64 } } @camlInt_ops__lsl_imm_HIDE_STAMP(i64 %0, i64 %1, i64 %2) gc "ocaml" {
+define  oxcamlcc { { i64, i64 }, { i64 } } @camlInt_ops__lsl_imm_HIDE_STAMP(i64 %0, i64 %1, i64 %2) gc "oxcaml" {
   %ds = alloca i64
   store i64 %0, ptr %ds
   %alloc = alloca i64
@@ -1351,7 +1351,7 @@ L290:
   ret { { i64, i64 }, { i64 } } %28
 }
 
-define  oxcamlcc { { i64, i64 }, { i64 } } @camlInt_ops__lsr_imm_HIDE_STAMP(i64 %0, i64 %1, i64 %2) gc "ocaml" {
+define  oxcamlcc { { i64, i64 }, { i64 } } @camlInt_ops__lsr_imm_HIDE_STAMP(i64 %0, i64 %1, i64 %2) gc "oxcaml" {
   %ds = alloca i64
   store i64 %0, ptr %ds
   %alloc = alloca i64
@@ -1397,7 +1397,7 @@ L296:
   ret { { i64, i64 }, { i64 } } %28
 }
 
-define  oxcamlcc { { i64, i64 }, { i64 } } @camlInt_ops__asr_imm_HIDE_STAMP(i64 %0, i64 %1, i64 %2) gc "ocaml" {
+define  oxcamlcc { { i64, i64 }, { i64 } } @camlInt_ops__asr_imm_HIDE_STAMP(i64 %0, i64 %1, i64 %2) gc "oxcaml" {
   %ds = alloca i64
   store i64 %0, ptr %ds
   %alloc = alloca i64
@@ -1443,7 +1443,7 @@ L302:
   ret { { i64, i64 }, { i64 } } %28
 }
 
-define  oxcamlcc { { i64, i64 }, { i64 } } @camlInt_ops__popcnt_HIDE_STAMP(i64 %0, i64 %1, i64 %2) gc "ocaml" {
+define  oxcamlcc { { i64, i64 }, { i64 } } @camlInt_ops__popcnt_HIDE_STAMP(i64 %0, i64 %1, i64 %2) gc "oxcaml" {
   %ds = alloca i64
   store i64 %0, ptr %ds
   %alloc = alloca i64
@@ -1517,7 +1517,7 @@ L308:
   ret { { i64, i64 }, { i64 } } %47
 }
 
-define  oxcamlcc { { i64, i64 }, { i64 } } @camlInt_ops__ctz_HIDE_STAMP(i64 %0, i64 %1, i64 %2) gc "ocaml" {
+define  oxcamlcc { { i64, i64 }, { i64 } } @camlInt_ops__ctz_HIDE_STAMP(i64 %0, i64 %1, i64 %2) gc "oxcaml" {
   %ds = alloca i64
   store i64 %0, ptr %ds
   %alloc = alloca i64
@@ -1597,7 +1597,7 @@ L318:
   ret { { i64, i64 }, { i64 } } %51
 }
 
-define  oxcamlcc { { i64, i64 }, { i64 } } @camlInt_ops__clz_HIDE_STAMP(i64 %0, i64 %1, i64 %2) gc "ocaml" {
+define  oxcamlcc { { i64, i64 }, { i64 } } @camlInt_ops__clz_HIDE_STAMP(i64 %0, i64 %1, i64 %2) gc "oxcaml" {
   %ds = alloca i64
   store i64 %0, ptr %ds
   %alloc = alloca i64
@@ -1677,7 +1677,7 @@ L329:
   ret { { i64, i64 }, { i64 } } %51
 }
 
-define  oxcamlcc { { i64, i64 }, { ptr addrspace(1) } } @camlInt_ops__entry(i64 %0, i64 %1) gc "ocaml" {
+define  oxcamlcc { { i64, i64 }, { ptr addrspace(1) } } @camlInt_ops__entry(i64 %0, i64 %1) gc "oxcaml" {
   %ds = alloca i64
   store i64 %0, ptr %ds
   %alloc = alloca i64
@@ -1783,3 +1783,6 @@ define private oxcamlcc { { i64, i64 }, { i64 } } @wrap_try(i64 %0, i64 %1) retu
 declare i64 @llvm.ctlz.i64(i64)
 declare i64 @llvm.ctpop.i64(i64)
 declare i64 @llvm.cttz.i64(i64)
+
+!0 = !{ i32 1, !"oxcaml_module", !"Int_ops" }
+!llvm.module.flags = !{ !0 }

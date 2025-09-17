@@ -1,6 +1,6 @@
 source_filename = "data_decl.ml"
 
-define  oxcamlcc { { i64, i64 }, { i64 } } @camlData_decl__f_HIDE_STAMP(i64 %0, i64 %1, i64 %2) gc "ocaml" {
+define  oxcamlcc { { i64, i64 }, { i64 } } @camlData_decl__f_HIDE_STAMP(i64 %0, i64 %1, i64 %2) gc "oxcaml" {
   %ds = alloca i64
   store i64 %0, ptr %ds
   %alloc = alloca i64
@@ -78,7 +78,7 @@ L107:
   ret { { i64, i64 }, { i64 } } %46
 }
 
-define  oxcamlcc { { i64, i64 }, { i64 } } @camlData_decl__g_HIDE_STAMP(i64 %0, i64 %1, i64 %2, i64 %3) gc "ocaml" {
+define  oxcamlcc { { i64, i64 }, { i64 } } @camlData_decl__g_HIDE_STAMP(i64 %0, i64 %1, i64 %2, i64 %3) gc "oxcaml" {
   %ds = alloca i64
   store i64 %0, ptr %ds
   %alloc = alloca i64
@@ -161,7 +161,7 @@ L116:
   ret { { i64, i64 }, { i64 } } %50
 }
 
-define  oxcamlcc { { i64, i64 }, { ptr addrspace(1) } } @camlData_decl__entry(i64 %0, i64 %1) gc "ocaml" {
+define  oxcamlcc { { i64, i64 }, { ptr addrspace(1) } } @camlData_decl__entry(i64 %0, i64 %1) gc "oxcaml" {
   %ds = alloca i64
   store i64 %0, ptr %ds
   %alloc = alloca i64
@@ -557,3 +557,6 @@ define private oxcamlcc { { i64, i64 }, { i64 } } @wrap_try(i64 %0, i64 %1) retu
 @caml_ml_output = external global ptr
 @caml_ml_output_char = external global ptr
 
+
+!0 = !{ i32 1, !"oxcaml_module", !"Data_decl" }
+!llvm.module.flags = !{ !0 }
