@@ -198,7 +198,7 @@ let complete_func_def t =
   add_function_def t (E.get_fun (get_fun_info t).emitter);
   t.current_fun_info <- None
 
-let gc_name = "ocaml" (* The name of the [GCStrategy] we use in LLVM *)
+let gc_name = "oxcaml" (* The name of the [GCStrategy] we use in LLVM *)
 
 (* Runtime registers. These are registers that get threaded through function
    arguments and returns and are pinned to particular physical registers via the
