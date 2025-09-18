@@ -1,42 +1,33 @@
+(******************************************************************************
+ *                                  OxCaml                                    *
+ *                               Jane Street                                  *
+ * -------------------------------------------------------------------------- *
+ *                               MIT License                                  *
+ *                                                                            *
+ * Copyright (c) 2025 Jane Street Group LLC                                   *
+ * opensource-contacts@janestreet.com                                         *
+ *                                                                            *
+ * Permission is hereby granted, free of charge, to any person obtaining a    *
+ * copy of this software and associated documentation files (the "Software"), *
+ * to deal in the Software without restriction, including without limitation  *
+ * the rights to use, copy, modify, merge, publish, distribute, sublicense,   *
+ * and/or sell copies of the Software, and to permit persons to whom the      *
+ * Software is furnished to do so, subject to the following conditions:       *
+ *                                                                            *
+ * The above copyright notice and this permission notice shall be included    *
+ * in all copies or substantial portions of the Software.                     *
+ *                                                                            *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR *
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,   *
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL    *
+ * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER *
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING    *
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER        *
+ * DEALINGS IN THE SOFTWARE.                                                  *
+ ******************************************************************************)
+[@@@ocaml.warning "+a-40-41-42"]
+
 (* CR yusumez: Port documentation here from the .ml file. *)
-
-(** Useful miscellaneous printing functions for LLVM IR fragments *)
-module Format : sig
-  (* CR yusumez: This is sad. *)
-  include module type of Format
-
-  val pp_indent : formatter -> unit -> unit
-
-  val pp_comma : formatter -> unit -> unit
-
-  val pp_space : formatter -> unit -> unit
-
-  val pp_line :
-    ?num_indents:int ->
-    ?append:string ->
-    formatter ->
-    ('a, formatter, unit, unit) format4 ->
-    'a
-
-  val pp_ins : formatter -> ('a, formatter, unit, unit) format4 -> 'a
-
-  val pp_str_if : string -> formatter -> bool -> unit
-
-  val do_if_comments_enabled : (unit -> unit) -> unit
-
-  val pp_comment : formatter -> ('a, formatter, unit, unit) format4 -> 'a
-
-  val pp_dbg_comment : formatter -> string -> Debuginfo.t -> unit
-
-  val pp_dbg_instr_basic : formatter -> Cfg.basic Cfg.instruction -> unit
-
-  val pp_dbg_instr_terminator :
-    formatter -> Cfg.terminator Cfg.instruction -> unit
-
-  val dbg_instr_basic_string : Cfg.basic Cfg.instruction -> tag
-
-  val dbg_instr_terminator_string : Cfg.terminator Cfg.instruction -> tag
-end
 
 (** Types in LLVM IR. These include both first-class types (like int or ptr) and
     non-first-class types (like labels or metadata) *)
@@ -48,11 +39,11 @@ module Type : sig
     | Double
     | Struct of t list
     | Array of
-        { size : int;
+        { num_of_elems : int;
           elem_type : t
         }
     | Vector of
-        { size : int;
+        { num_of_elems : int;
           elem_type : t
         }
     | Label
@@ -153,7 +144,7 @@ end
     type and something that inhabits that type (confusingly called [value] here...).
     The latter can be an immediate, an identifier, among other things. *)
 module Value : sig
-  type value
+  type contents
 
   type t
 
@@ -161,7 +152,7 @@ module Value : sig
 
   val get_ident_exn : t -> Ident.t
 
-  val get_value : t -> value
+  val get_contents : t -> contents
 
   val of_ident : typ:Type.t -> Ident.t -> t
 
@@ -191,7 +182,7 @@ module Value : sig
 
   val blockaddress : func:Ident.t -> block:Ident.t -> t
 
-  val pp_value : Format.formatter -> value -> unit
+  val pp_contents : Format.formatter -> contents -> unit
 
   val pp_t : Format.formatter -> t -> unit
 end
@@ -228,6 +219,11 @@ module Calling_conventions : sig
 end
 
 module Instruction : sig
+  type switch_branch =
+    { index : Value.t;
+      label : Value.t
+    }
+
   type unary_op = Fneg
 
   type binary_op =
@@ -322,10 +318,7 @@ module Instruction : sig
 
   type op
 
-  type t =
-    { op : op;
-      res : Ident.t option
-    }
+  type t
 
   val op_res_type : op -> Type.Or_void.t
 
@@ -342,7 +335,7 @@ module Instruction : sig
   val br_cond : cond:Value.t -> ifso:Value.t -> ifnot:Value.t -> op
 
   val switch :
-    discr:Value.t -> default:Value.t -> branches:(Value.t * Value.t) list -> op
+    discr:Value.t -> default:Value.t -> branches:switch_branch list -> op
 
   val unreachable : op
 
@@ -477,4 +470,42 @@ module Data : sig
   val external_ : string -> t
 
   val pp_t : Format.formatter -> t -> unit
+end
+
+(** Useful miscellaneous printing functions for LLVM IR fragments *)
+module Format : sig
+  (* CR yusumez: This is sad. *)
+  include module type of Format
+
+  val pp_indent : formatter -> unit -> unit
+
+  val pp_comma : formatter -> unit -> unit
+
+  val pp_space : formatter -> unit -> unit
+
+  val pp_line :
+    ?num_indents:int ->
+    ?append:string ->
+    formatter ->
+    ('a, formatter, unit, unit) format4 ->
+    'a
+
+  val pp_ins : formatter -> ('a, formatter, unit, unit) format4 -> 'a
+
+  val pp_str_if : string -> formatter -> bool -> unit
+
+  val do_if_comments_enabled : (unit -> unit) -> unit
+
+  val pp_comment : formatter -> ('a, formatter, unit, unit) format4 -> 'a
+
+  val pp_dbg_comment : formatter -> string -> Debuginfo.t -> unit
+
+  val pp_dbg_instr_basic : formatter -> Cfg.basic Cfg.instruction -> unit
+
+  val pp_dbg_instr_terminator :
+    formatter -> Cfg.terminator Cfg.instruction -> unit
+
+  val dbg_instr_basic_string : Cfg.basic Cfg.instruction -> tag
+
+  val dbg_instr_terminator_string : Cfg.terminator Cfg.instruction -> tag
 end

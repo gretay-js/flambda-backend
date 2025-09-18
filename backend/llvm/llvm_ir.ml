@@ -1,17 +1,31 @@
-(**************************************************************************)
-(*                                                                        *)
-(*                                 OCaml                                  *)
-(*                                                                        *)
-(*                              Jane Street                               *)
-(*                                                                        *)
-(*   Copyright 2025 Jane Street Group LLC                                 *)
-(*                                                                        *)
-(*   All rights reserved.  This file is distributed under the terms of    *)
-(*   the GNU Lesser General Public License version 2.1, with the          *)
-(*   special exception on linking described in the file LICENSE.          *)
-(*                                                                        *)
-(**************************************************************************)
-[@@@ocaml.warning "+a-30-40-41-42-37"]
+(******************************************************************************
+ *                                  OxCaml                                    *
+ *                               Jane Street                                  *
+ * -------------------------------------------------------------------------- *
+ *                               MIT License                                  *
+ *                                                                            *
+ * Copyright (c) 2025 Jane Street Group LLC                                   *
+ * opensource-contacts@janestreet.com                                         *
+ *                                                                            *
+ * Permission is hereby granted, free of charge, to any person obtaining a    *
+ * copy of this software and associated documentation files (the "Software"), *
+ * to deal in the Software without restriction, including without limitation  *
+ * the rights to use, copy, modify, merge, publish, distribute, sublicense,   *
+ * and/or sell copies of the Software, and to permit persons to whom the      *
+ * Software is furnished to do so, subject to the following conditions:       *
+ *                                                                            *
+ * The above copyright notice and this permission notice shall be included    *
+ * in all copies or substantial portions of the Software.                     *
+ *                                                                            *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR *
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,   *
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL    *
+ * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER *
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING    *
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER        *
+ * DEALINGS IN THE SOFTWARE.                                                  *
+ ******************************************************************************)
+[@@@ocaml.warning "+a-40-41-42"]
 
 module String = Misc.Stdlib.String
 
@@ -100,11 +114,11 @@ module Type = struct
     (* Aggregate types *)
     | Struct of t list
     | Array of
-        { size : int;
+        { num_of_elems : int;
           elem_type : t
         }
     | Vector of
-        { size : int;
+        { num_of_elems : int;
           elem_type : t
         }
     (* Non-first-class types *)
@@ -132,7 +146,7 @@ module Type = struct
 
   let val_ptr = Ptr { addrspace = Some "1" }
 
-  let doublex2 = Vector { size = 2; elem_type = double }
+  let doublex2 = Vector { num_of_elems = 2; elem_type = double }
 
   let label = Label
 
@@ -173,9 +187,10 @@ module Type = struct
       fprintf ppf "{ %a }"
         (pp_print_list ~pp_sep:(fun ppf () -> fprintf ppf ", ") pp_t)
         typs
-    | Array { size; elem_type } -> fprintf ppf "[ %d x %a ]" size pp_t elem_type
-    | Vector { size; elem_type } ->
-      fprintf ppf "< %d x %a >" size pp_t elem_type
+    | Array { num_of_elems; elem_type } ->
+      fprintf ppf "[ %d x %a ]" num_of_elems pp_t elem_type
+    | Vector { num_of_elems; elem_type } ->
+      fprintf ppf "< %d x %a >" num_of_elems pp_t elem_type
     | Label -> fprintf ppf "label"
     | Token -> fprintf ppf "token"
     | Metadata -> fprintf ppf "metadata"
@@ -189,11 +204,11 @@ module Type = struct
       Option.equal String.equal x y
     | Float, Float | Double, Double -> true
     | Struct xs, Struct ys -> List.equal equal xs ys
-    | ( Array { size = size1; elem_type = typ1 },
-        Array { size = size2; elem_type = typ2 } ) ->
+    | ( Array { num_of_elems = size1; elem_type = typ1 },
+        Array { num_of_elems = size2; elem_type = typ2 } ) ->
       size1 = size2 && equal typ1 typ2
-    | ( Vector { size = size1; elem_type = typ1 },
-        Vector { size = size2; elem_type = typ2 } ) ->
+    | ( Vector { num_of_elems = size1; elem_type = typ1 },
+        Vector { num_of_elems = size2; elem_type = typ2 } ) ->
       size1 = size2 && equal typ1 typ2
     | Label, Label | Token, Token | Metadata, Metadata -> true
     | ( ( Int _ | Float | Double | Ptr _ | Struct _ | Array _ | Vector _ | Label
@@ -297,7 +312,7 @@ module Value = struct
   (* CR yusumez: Split [Immediate] to multiple variants like [Poison],
      [Zeroinitializer], [Int], etc. *)
 
-  type value =
+  type contents =
     | Ident of Ident.t
     | Immediate of string
     | Struct_constant of t list
@@ -306,17 +321,17 @@ module Value = struct
           block : Ident.t
         }
 
-  and t = Type.t * value
+  and t = Type.t * contents
 
   let get_type (typ, _) = typ
 
-  let get_ident_exn (_, value) =
-    match value with
+  let get_ident_exn (_, contents) =
+    match contents with
     | Ident ident -> ident
     | Immediate _ | Blockaddress _ | Struct_constant _ ->
       fail "Value.get_ident_exn"
 
-  let get_value (_, value) = value
+  let get_contents (_, contents) = contents
 
   let of_ident ~typ ident = typ, Ident ident
 
@@ -343,7 +358,7 @@ module Value = struct
 
   let of_string_constant s =
     let open Format in
-    ( Type.Array { size = String.length s; elem_type = Type.i8 },
+    ( Type.Array { num_of_elems = String.length s; elem_type = Type.i8 },
       Immediate
         (asprintf "%a"
            (fun ppf () ->
@@ -363,15 +378,15 @@ module Value = struct
 
   let blockaddress ~func ~block = Type.ptr, Blockaddress { func; block }
 
-  let rec pp_value ppf value =
+  let rec pp_contents ppf contents =
     let open Format in
-    match value with
+    match contents with
     | Ident ident -> Ident.pp_t ppf ident
     | Immediate s -> fprintf ppf "%s" s
     | Struct_constant ts ->
       fprintf ppf "{ ";
       let pp_elem ppf t =
-        match get_value t with
+        match get_contents t with
         | Ident _ | Immediate _ | Blockaddress _ -> pp_t ppf t
         | Struct_constant _ ->
           fail_msg ~name:"Value.pp_value" "struct constants cannot nest"
@@ -381,8 +396,8 @@ module Value = struct
     | Blockaddress { func; block } ->
       fprintf ppf "blockaddress(%a, %a)" Ident.pp_t func Ident.pp_t block
 
-  and pp_t ppf (typ, value) =
-    Format.fprintf ppf "%a %a" Type.pp_t typ pp_value value
+  and pp_t ppf (typ, contents) =
+    Format.fprintf ppf "%a %a" Type.pp_t typ pp_contents contents
 end
 
 module Fn_attr = struct
@@ -449,6 +464,11 @@ module Calling_conventions = struct
 end
 
 module Instruction = struct
+  type switch_branch =
+    { index : Value.t;
+      label : Value.t
+    }
+
   type unary_op = Fneg
 
   type binary_op =
@@ -647,7 +667,7 @@ module Instruction = struct
     | Switch of
         { discr : Value.t;
           default : Value.t;
-          branches : (Value.t * Value.t) list (* (index, label) *)
+          branches : switch_branch list
         }
     | Unreachable
     (* Basic *)
@@ -818,7 +838,7 @@ module Instruction = struct
     assert' "switch" (Value.get_type default |> Type.(equal label));
     assert' "switch"
       (List.for_all
-         (fun (index, label) ->
+         (fun { index; label } ->
            Value.get_type index |> Type.is_int
            && Value.get_type label |> Type.equal Type.label)
          branches);
@@ -930,7 +950,7 @@ module Instruction = struct
     | Switch { discr; default; branches } ->
       ins "switch %a, %a [" Value.pp_t discr Value.pp_t default;
       List.iter
-        (fun (index, label) ->
+        (fun { index; label } ->
           ins ~num_indents:2 "%a, %a" Value.pp_t index Value.pp_t label)
         branches;
       ins "]"
@@ -939,16 +959,16 @@ module Instruction = struct
       ins_res "%s %a" (unary_op_to_string op) Value.pp_t arg
     | Binary { op; arg1; arg2 } ->
       ins_res "%s %a, %a" (binary_op_to_string op) Value.pp_t arg1
-        Value.pp_value (Value.get_value arg2)
+        Value.pp_contents (Value.get_contents arg2)
     | Convert { op; arg; to_ } ->
       ins_res "%s %a to %a" (convert_op_to_string op) Value.pp_t arg Type.pp_t
         to_
     | Icmp { cond; arg1; arg2 } ->
       ins_res "icmp %s %a, %a" (icmp_cond_to_string cond) Value.pp_t arg1
-        Value.pp_value (Value.get_value arg2)
+        Value.pp_contents (Value.get_contents arg2)
     | Fcmp { cond; arg1; arg2 } ->
       ins_res "fcmp %s %a, %a" (fcmp_cond_to_string cond) Value.pp_t arg1
-        Value.pp_value (Value.get_value arg2)
+        Value.pp_contents (Value.get_contents arg2)
     | Extractelement { vector; index } ->
       ins_res "extractelement %a, %a" Value.pp_t vector Value.pp_t index
     | Insertelement { vector; index; to_insert } ->

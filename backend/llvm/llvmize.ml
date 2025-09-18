@@ -1,17 +1,31 @@
-(**************************************************************************)
-(*                                                                        *)
-(*                                 OCaml                                  *)
-(*                                                                        *)
-(*                              Jane Street                               *)
-(*                                                                        *)
-(*   Copyright 2025 Jane Street Group LLC                                 *)
-(*                                                                        *)
-(*   All rights reserved.  This file is distributed under the terms of    *)
-(*   the GNU Lesser General Public License version 2.1, with the          *)
-(*   special exception on linking described in the file LICENSE.          *)
-(*                                                                        *)
-(**************************************************************************)
-[@@@ocaml.warning "+a-30-40-41-42-37"]
+(******************************************************************************
+ *                                  OxCaml                                    *
+ *                               Jane Street                                  *
+ * -------------------------------------------------------------------------- *
+ *                               MIT License                                  *
+ *                                                                            *
+ * Copyright (c) 2025 Jane Street Group LLC                                   *
+ * opensource-contacts@janestreet.com                                         *
+ *                                                                            *
+ * Permission is hereby granted, free of charge, to any person obtaining a    *
+ * copy of this software and associated documentation files (the "Software"), *
+ * to deal in the Software without restriction, including without limitation  *
+ * the rights to use, copy, modify, merge, publish, distribute, sublicense,   *
+ * and/or sell copies of the Software, and to permit persons to whom the      *
+ * Software is furnished to do so, subject to the following conditions:       *
+ *                                                                            *
+ * The above copyright notice and this permission notice shall be included    *
+ * in all copies or substantial portions of the Software.                     *
+ *                                                                            *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR *
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,   *
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL    *
+ * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER *
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING    *
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER        *
+ * DEALINGS IN THE SOFTWARE.                                                  *
+ ******************************************************************************)
+[@@@ocaml.warning "+a-40-41-42"]
 
 module String = Misc.Stdlib.String
 
@@ -671,7 +685,8 @@ let emit_terminator t (i : Cfg.terminator Cfg.instruction) =
     let default = V.of_label (Cmm.new_label ()) in
     let branches =
       List.mapi
-        (fun i label -> V.of_int i, V.of_label label)
+        (fun i label : I.switch_branch ->
+          { index = V.of_int i; label = V.of_label label })
         (Array.to_list labels)
     in
     emit_ins_no_res t (I.switch ~discr ~default ~branches);
@@ -854,11 +869,11 @@ let intrinsic t (i : Cfg.basic Cfg.instruction) intrinsic_name =
     (* CR yusumez: I really don't like the -fragile-match... *)
     match[@warning "-fragile-match"] from, to_ with
     | _ when T.equal from to_ -> arg
-    | Double, Vector { size = _; elem_type = Double } ->
+    | Double, Vector { num_of_elems = _; elem_type = Double } ->
       emit_ins t
         (I.insertelement ~vector:(V.poison to_) ~index:(V.of_int 0)
            ~to_insert:arg)
-    | Vector { size = _; elem_type = Double }, Double ->
+    | Vector { num_of_elems = _; elem_type = Double }, Double ->
       emit_ins t (I.extractelement ~vector:arg ~index:(V.of_int 0))
     | Int { width_in_bits = 64 }, Int { width_in_bits = 32 } ->
       emit_ins t (I.convert Trunc ~arg ~to_)
@@ -1496,7 +1511,8 @@ let llvm_value_of_data_item (d : Cmm.data_item) =
   | Cint32 n -> V.of_nativeint ~typ:T.i32 n
   | Csymbol_address { sym_name; sym_global = _ } -> V.of_symbol sym_name
   | Cstring s -> V.of_string_constant s
-  | Cskip size -> V.zeroinitializer (T.Array { size; elem_type = T.i8 })
+  | Cskip size ->
+    V.zeroinitializer (T.Array { num_of_elems = size; elem_type = T.i8 })
   | Csingle f -> V.of_float ~typ:T.float f
   | Cdouble f -> V.of_float ~typ:T.double f
   | Cvec128 _ | Cvec256 _ | Cvec512 _ ->
