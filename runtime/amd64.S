@@ -1012,10 +1012,17 @@ LBL(caml_start_program):
         movq    Caml_state(gc_regs), %r11
         movq    %r11, 8(%r10)
     /* Build a handler for exceptions raised in OCaml on the OCaml stack. */
+#ifdef WITH_FRAME_POINTERS
         subq    $32, %r10
+#else
+        subq    $16, %r10
+#endif
         lea     LBL(109)(%rip), %r11
         movq    %r11, 8(%r10)
+#ifdef WITH_FRAME_POINTERS
+        movq    $rbp, 16(%r10)    ; what's RBP here?
         movq    %r11, 24(%r10)
+#endif
     /* link in the previous exn_handler so that copying stacks works */
         movq    Caml_state(exn_handler), %r11
         movq    %r11, 0(%r10)
@@ -1024,6 +1031,7 @@ LBL(caml_start_program):
     /* Switch stacks and call the OCaml code */
         movq    %r10, %rsp
 #ifdef ASM_CFI_SUPPORTED
+        ;; CR gyorsh: fix
         CFI_REMEMBER_STATE
         .cfi_escape DW_CFA_def_cfa_expression, 3 + 2,                 \
             /* %rsp points to the exn handler on the OCaml stack */   \
@@ -1040,11 +1048,19 @@ LBL(108):
     /* pop exn handler */
         movq    0(%rsp), %r11
         movq    %r11, Caml_state(exn_handler)
+#ifdef WITH_FRAME_POINTERS
+        leaq    32(%rsp), %r10
+#else
         leaq    16(%rsp), %r10
+#endif
 1:  /* restore GC regs */
         movq    8(%r10), %r11
         movq    %r11, Caml_state(gc_regs)
+#ifdef WITH_FRAME_POINTERS
+        addq    $32, %r10
+#end
         addq    $16, %r10
+#endif
 #if Stack_padding_word
     /* Pop the additional alignment padding word */
         addq    $8, %r10
@@ -1465,6 +1481,10 @@ CFI_STARTPROC
        after 16byte DWARF & gc_regs block (which is unused here) */
         subq    $32, %r11
         leaq    LBL(fiber_exn_handler)(%rip), %r10
+#ifdef WITH_FRAME_POINTERS
+        movq    %r10, 24(%r11)
+        movq    %rbp, 16(%r11)
+#endif
         movq    %r10, 8(%r11)
     /* link the previous exn_handler so that copying stacks works */
         movq    Stack_exception(%rax), %r10
