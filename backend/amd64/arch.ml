@@ -260,10 +260,12 @@ type specific_operation =
         locality: prefetch_temporal_locality_hint;
         addr: addressing_mode;
       }
-  (* CR yusumez: There probably is a better way to do this, but it is the
-     easiest way to get [Llvmize] to lower intrinsics after [Cfg_selection] *)
-  | Illvm_intrinsic of string          (* Name of caml_* intrinsic (to be
-                                          lowered in llvmize) *)
+  | Illvm_intrinsic of string
+
+(* CR yusumez: [Illvm_intrinsic] exists to pass extcalls with builtin = true to
+   the LLVM backend. Ideally, we'd want this variant to contain the LLVM
+   intrinsic signature (name, arg types, res type) to be determined in
+   [Cfg_selection]. *)
 
 and float_operation =
   | Ifloatadd
@@ -453,7 +455,9 @@ let operation_is_pure = function
   | Ipackf32 -> true
   | Isimd op -> Simd.is_pure_operation op
   | Isimd_mem (op, _addr) -> Simd.Mem.is_pure_operation op
-  | Illvm_intrinsic _ -> false
+  | Illvm_intrinsic intr ->
+    Misc.fatal_errorf "Unexpected llvm_intrinsic %s: not using LLVM backend"
+      intr
 
 (* Keep in sync with [Vectorize_specific] *)
 let operation_allocates = function
@@ -463,7 +467,10 @@ let operation_allocates = function
   | Isimd _ | Isimd_mem _
   | Ilfence | Isfence | Imfence
   | Istore_int (_, _, _) | Ioffset_loc (_, _)
-  | Icldemote _ | Iprefetch _ | Illvm_intrinsic _ -> false
+  | Icldemote _ | Iprefetch _ -> false
+  | Illvm_intrinsic intr ->
+    Misc.fatal_errorf "Unexpected llvm_intrinsic %s: not using LLVM backend"
+      intr
 
 open X86_ast
 

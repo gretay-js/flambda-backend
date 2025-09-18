@@ -1493,8 +1493,11 @@ let vectorize_operation (width_type : Vectorize_utils.Width_in_bits.t)
     | Isimd_mem _ ->
       Misc.fatal_error "Unexpected simd operation with memory arguments"
     | Ioffset_loc _ | Ibswap _ | Irdtsc | Irdpmc | Ilfence | Isfence | Imfence
-    | Ipackf32 | Isimd _ | Iprefetch _ | Icldemote _ | Illvm_intrinsic _ ->
-      None)
+    | Ipackf32 | Isimd _ | Iprefetch _ | Icldemote _ ->
+      None
+    | Illvm_intrinsic intr ->
+      Misc.fatal_errorf "Unexpected llvm_intrinsic %s: not using LLVM backend"
+        intr)
   | Alloc _ | Reinterpret_cast _ | Static_cast _ | Spill | Reload
   | Const_float32 _ | Const_float _ | Const_symbol _ | Const_vec128 _
   | Const_vec256 _ | Const_vec512 _ | Stackoffset _ | Intop_atomic _ | Floatop _

@@ -85,7 +85,7 @@ let precolored_regs =
 
 let phys_reg ty n =
   match (ty : Cmm.machtype_component) with
-  | Int | Addr | Val -> 
+  | Int | Addr | Val ->
     (* CR yusumez: We need physical registers to have the appropriate machtype
        for the LLVM backend. However, this breaks an invariant the IRC register
        allocator relies on. It is safe to guard it with this flag since the LLVM

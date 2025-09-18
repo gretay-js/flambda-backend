@@ -77,8 +77,7 @@ type specific_operation =
   | Imove32       (* 32-bit integer move *)
   | Isignext of int (* sign extension *)
   | Isimd of Simd.operation
-  | Illvm_intrinsic of string (* Name of caml_* intrinsic (to be
-                                 lowered in llvmize) *)
+  | Illvm_intrinsic of string
 
 and arith_operation =
     Ishiftadd
@@ -374,7 +373,9 @@ let operation_is_pure : specific_operation -> bool = function
   | Imove32 -> true
   | Isignext _ -> true
   | Isimd op -> Simd.operation_is_pure op
-  | Illvm_intrinsic _ -> false
+  | Illvm_intrinsic intr ->
+    Misc.fatal_errorf "Unexpected llvm_intrinsic %s: not using LLVM backend"
+      intr
 
 (* Specific operations that can raise *)
 
@@ -393,7 +394,10 @@ let operation_allocates = function
   | Ishiftarith (_, _)
   | Isignext _
   | Ibswap _
-  | Isimd _ | Illvm_intrinsic _ -> false
+  | Isimd _ -> false
+  | Illvm_intrinsic intr ->
+    Misc.fatal_errorf "Unexpected llvm_intrinsic %s: not using LLVM backend"
+      intr
 
 (* See `amd64/arch.ml`. *)
 let equal_addressing_mode_without_displ (addressing_mode_1: addressing_mode)

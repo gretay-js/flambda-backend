@@ -186,7 +186,7 @@
   ast_invariants
   depend
   parser_types ; manual update: mli only files asttypes parsetree
-               ;; TYPING
+  ;; TYPING
   ident
   path
   jkind
@@ -354,7 +354,10 @@
  (ocamlopt_flags
   (:include %{project_root}/ocamlopt_flags.sexp))
  (libraries ocamlcommon flambda2)
- (modules jsmaindriver jscompile jslibrarian))
+ (modules
+   jsmaindriver
+   jscompile
+   jslibrarian))
 
 (executable
  (name boot_ocamlj)

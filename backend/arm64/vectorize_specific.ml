@@ -20,14 +20,20 @@ let memory_access : Arch.specific_operation -> Memory_access.t option =
   | Ifar_alloc _ -> create Alloc
   | Ishiftarith _ | Imuladd | Imulsub | Inegmulf | Imuladdf | Inegmuladdf
   | Imulsubf | Inegmulsubf | Isqrtf | Ibswap _ | Imove32 | Isignext _ | Isimd _
-  | Illvm_intrinsic _ ->
+    ->
     (* Conservative. we don't have any specific operations with memory
        operations at the moment. *)
     if Arch.operation_is_pure op then None else create Memory_access.Arbitrary
+  | Illvm_intrinsic intr ->
+    Misc.fatal_errorf "Unexpected llvm_intrinsic %s: not using LLVM backend"
+      intr
 
 let is_seed_store (op : Arch.specific_operation) =
   match op with
   | Ifar_poll | Ifar_alloc _ | Ishiftarith _ | Imuladd | Imulsub | Inegmulf
   | Imuladdf | Inegmuladdf | Imulsubf | Inegmulsubf | Isqrtf | Ibswap _
-  | Imove32 | Isignext _ | Isimd _ | Illvm_intrinsic _ ->
+  | Imove32 | Isignext _ | Isimd _ ->
     None
+  | Illvm_intrinsic intr ->
+    Misc.fatal_errorf "Unexpected llvm_intrinsic %s: not using LLVM backend"
+      intr

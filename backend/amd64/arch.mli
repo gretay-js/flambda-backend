@@ -103,8 +103,7 @@ type specific_operation =
         locality: prefetch_temporal_locality_hint;
         addr: addressing_mode;
       }
-  | Illvm_intrinsic of string          (* Name of caml_* intrinsic (to be
-                                          lowered in llvmize) *)
+  | Illvm_intrinsic of string
 
 and float_operation =
   | Ifloatadd
