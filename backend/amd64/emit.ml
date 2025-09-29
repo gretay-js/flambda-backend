@@ -1982,6 +1982,28 @@ let emit_instr ~first ~fallthrough i =
     Address_sanitizer.emit_sanitize ~dependencies:[| src |] ~instr:i ~address
       Word_int memory_access;
     I.mov src address
+  | Lop (Specific Is_block) ->
+    if Arch.Extension.enabled BMI
+    then (
+      I.tzcnt (arg i 0) (res i 0);
+      I.set A (res8 i 0);
+      I.movzx (res8 i 0) (res i 0))
+    else (
+      if not (Reg.same_loc i.arg.(0) i.res.(0)) then I.mov (arg i 0) (res i 0);
+      I.sar (int 1) (res i 0);
+      I.set A (res8 i 0);
+      I.movzx (res8 i 0) (res i 0))
+  | Lop (Specific Is_long) ->
+    if Arch.Extension.enabled BMI
+    then (
+      I.tzcnt (arg i 0) (res i 0);
+      I.set BE (res8 i 0);
+      I.movzx (res8 i 0) (res i 0))
+    else (
+      if not (Reg.same_loc i.arg.(0) i.res.(0)) then I.mov (arg i 0) (res i 0);
+      I.sar (int 1) (res i 0);
+      I.set BE (res8 i 0);
+      I.movzx (res8 i 0) (res i 0))
   | Lop (Alloc { bytes = n; dbginfo; mode = Heap }) ->
     assert (n <= (Config.max_young_wosize + 1) * Arch.size_addr);
     let gc_save_simd = must_save_simd_regs i.live in

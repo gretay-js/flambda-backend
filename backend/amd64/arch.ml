@@ -261,6 +261,8 @@ type specific_operation =
         addr: addressing_mode;
       }
   | Illvm_intrinsic of string
+  | Is_block                     (* is the value non-null and not immediate *)
+  | Is_long                      (* is null or a (tagged) immediate *)
 
 (* CR yusumez: [Illvm_intrinsic] exists to pass extcalls with builtin = true to
    the LLVM backend. Ideally, we'd want this variant to contain the LLVM
@@ -413,6 +415,9 @@ let print_specific_operation printreg op ppf arg =
         printreg arg.(0)
   | Illvm_intrinsic name ->
       fprintf ppf "llvm_intrinsic %s" name
+  | Is_block -> fprintf ppf "is_block"
+  | Is_long -> fprintf ppf "is_long"
+
 
 let specific_operation_name : specific_operation -> string = fun op ->
   match op with
@@ -435,6 +440,8 @@ let specific_operation_name : specific_operation -> string = fun op ->
   | Icldemote _ -> "cldemote"
   | Iprefetch _ -> "prefetch"
   | Illvm_intrinsic _ -> "llvm_intrinsic"
+  | Is_block -> "is_block"
+  | Is_long -> "is_long"
 
 (* Are we using the Windows 64-bit ABI? *)
 let win64 =
@@ -452,6 +459,7 @@ let operation_is_pure = function
   | Ilfence | Isfence | Imfence
   | Istore_int (_, _, _) | Ioffset_loc (_, _)
   | Icldemote _ | Iprefetch _ -> false
+  | Is_block | Is_long -> true
   | Ipackf32 -> true
   | Isimd op -> Simd.is_pure_operation op
   | Isimd_mem (op, _addr) -> Simd.Mem.is_pure_operation op
@@ -468,6 +476,7 @@ let operation_allocates = function
   | Isimd _ | Isimd_mem _
   | Ilfence | Isfence | Imfence
   | Istore_int (_, _, _) | Ioffset_loc (_, _)
+  | Is_block | Is_long
   | Icldemote _ | Iprefetch _ -> false
   | Illvm_intrinsic _intr ->
       (* Used by the zero_alloc checker that runs before the Llvmize. *)
@@ -553,6 +562,8 @@ let equal_specific_operation left right =
     true
   | Ipackf32, Ipackf32 ->
     true
+  | Is_block, Is_block -> true
+  | Is_long, Is_long -> true
   | Icldemote x, Icldemote x' -> equal_addressing_mode x x'
   | Iprefetch { is_write = left_is_write; locality = left_locality; addr = left_addr; },
     Iprefetch { is_write = right_is_write; locality = right_locality; addr = right_addr; } ->
@@ -567,7 +578,7 @@ let equal_specific_operation left right =
   | (Ilea _ | Istore_int _ | Ioffset_loc _ | Ifloatarithmem _ | Ibswap _ |
      Isextend32 | Izextend32 | Irdtsc | Irdpmc | Ilfence | Isfence | Imfence |
      Ipackf32 | Isimd _ | Isimd_mem _ | Icldemote _ | Iprefetch _ |
-     Illvm_intrinsic _), _ ->
+     Illvm_intrinsic _ | Is_block | Is_long), _ ->
     false
 
 (* addressing mode functions *)
@@ -665,6 +676,8 @@ let isomorphic_specific_operation op1 op2 =
     true
   | Ipackf32, Ipackf32 ->
     true
+  | Is_block, Is_block -> true
+  | Is_long, Is_long -> true
   | Icldemote x, Icldemote x' -> equal_addressing_mode_without_displ x x'
   | Iprefetch { is_write = left_is_write; locality = left_locality; addr = left_addr; },
     Iprefetch { is_write = right_is_write; locality = right_locality; addr = right_addr; } ->
@@ -679,5 +692,5 @@ let isomorphic_specific_operation op1 op2 =
   | (Ilea _ | Istore_int _ | Ioffset_loc _ | Ifloatarithmem _ | Ibswap _ |
      Isextend32 | Izextend32 | Irdtsc | Irdpmc | Ilfence | Isfence | Imfence |
      Ipackf32 | Isimd _ | Isimd_mem _ | Icldemote _ | Iprefetch _ |
-     Illvm_intrinsic _), _ ->
+     Illvm_intrinsic _ | Is_block | Is_long), _ ->
     false

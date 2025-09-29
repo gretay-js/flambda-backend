@@ -618,7 +618,8 @@ let destroyed_at_basic (basic : Cfg_intf.S.basic) =
        | End_region
        | Specific (Ilea _ | Ioffset_loc _ | Ibswap _
                   | Isextend32 | Izextend32
-                  | Ilfence | Isfence | Imfence)
+                  | Ilfence | Isfence | Imfence
+                  | Is_block | Is_long)
        | Name_for_debugger _ | Dls_get | Pause)
   | Poptrap _ | Prologue | Epilogue ->
     if fp then [| rbp |] else [||]

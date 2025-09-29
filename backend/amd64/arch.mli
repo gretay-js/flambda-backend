@@ -104,6 +104,8 @@ type specific_operation =
         addr: addressing_mode;
       }
   | Illvm_intrinsic of string
+  | Is_block                     (* is the value non-null and not immediate *)
+  | Is_long                      (* is null or a (tagged) immediate *)
 
 and float_operation =
   | Ifloatadd

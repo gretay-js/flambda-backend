@@ -215,7 +215,7 @@ let pseudoregs_for_operation op arg res =
       | Istore_int (_, _, _)
       | Ilfence | Isfence | Imfence
       | Ioffset_loc (_, _)
-      | Irdtsc | Icldemote _ | Iprefetch _ )
+      | Irdtsc | Icldemote _ | Iprefetch _ | Is_block | Is_long )
   | Move | Spill | Reload | Reinterpret_cast _ | Static_cast _ | Const_int _
   | Const_float32 _ | Const_float _ | Const_vec128 _ | Const_vec256 _
   | Const_vec512 _ | Const_symbol _ | Stackoffset _ | Load _
@@ -382,6 +382,9 @@ let select_operation'
     | "caml_cldemote" ->
       let addr, eloc = select_addressing Word_int (one_arg "cldemote" args) in
       Rewritten (specific (Icldemote addr), [eloc])
+    | "caml_is_block_untagged" -> Rewritten (specific Is_block, args)
+    | "caml_is_tagged_immediate_or_null_untagged" ->
+      Rewritten (specific Is_long, args)
     | _ -> (
       match Simd_selection.select_operation_cfg ~dbg func args with
       | Some (op, args) -> Rewritten (Basic (Op op), args)

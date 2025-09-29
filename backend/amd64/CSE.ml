@@ -37,6 +37,7 @@ let class_of_operation (op : Operation.t)
     | Ifloatarithmem _ -> Class (Op_load Mutable)
     | Ibswap _ -> Use_default
     | Irdtsc | Irdpmc
+    | Is_block | Is_long -> Class Op_pure
     | Ilfence | Isfence | Imfence -> Class Op_other
     | Ipackf32 -> Class Op_pure
     | Isimd op ->
