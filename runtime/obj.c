@@ -412,3 +412,19 @@ CAMLprim value caml_is_null(value v)
 {
   return Is_null(v) ? Val_true : Val_false;
 }
+
+intnat caml_is_tagged_immediate_or_null_untagged(intnat v) {
+  return Is_long(v);
+}
+
+intnat caml_is_block_untagged(value v) {
+  return Is_block(v);
+}
+
+CAMLprim value caml_is_tagged_immediate_or_null(value v) {
+  return Val_long(Is_long(v));
+}
+
+CAMLprim value caml_is_block(value v) {
+  return Val_long(Is_block(v));
+}
