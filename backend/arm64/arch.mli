@@ -26,9 +26,11 @@ val command_line_options : (string * Arg.spec * string) list
 
 (* Addressing modes *)
 
+[@@@ocamlformat "disable"]
 type addressing_mode =
   | Iindexed of int                     (* reg + displ *)
   | Ibased of string * int              (* global var + displ *)
+[@@@ocamlformat "enable"]
 
 (* We do not support the reg + shifted reg addressing mode, because
    what we really need is reg + shifted reg + displ,
@@ -42,6 +44,7 @@ type cmm_label = Label.t
 
 type bswap_bitwidth = Sixteen | Thirtytwo | Sixtyfour
 
+[@@@ocamlformat "disable"]
 type specific_operation =
   | Ifar_poll
   | Ifar_alloc of { bytes : int; dbginfo : Cmm.alloc_dbginfo }
@@ -63,6 +66,8 @@ type specific_operation =
 and arith_operation =
     Ishiftadd
   | Ishiftsub
+
+[@@@ocamlformat "enable"]
 
 val equal_specific_operation : specific_operation -> specific_operation -> bool
 

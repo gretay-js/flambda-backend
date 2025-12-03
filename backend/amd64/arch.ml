@@ -232,13 +232,14 @@ let equal_sym_global left right =
   | Local, Local -> true
   | (Global | Local), _ -> false
 
+[@@@ocamlformat "disable"]
 type addressing_mode =
     Ibased of string * sym_global * int (* symbol + displ *)
   | Iindexed of int                     (* reg + displ *)
   | Iindexed2 of int                    (* reg + reg + displ *)
   | Iscaled of int * int                (* reg * scale + displ *)
   | Iindexed2scaled of int * int        (* reg + reg * scale + displ *)
-
+[@@@ocamlformat "enable"]
 type prefetch_temporal_locality_hint = Nonlocal | Low | Moderate | High
 
 type prefetch_info = {
@@ -252,6 +253,7 @@ type bswap_bitwidth = Sixteen | Thirtytwo | Sixtyfour
 type float_width = Cmm.float_width
 
 (* Specific operations, including [Simd], must not raise. *)
+[@@@ocamlformat "disable"]
 type specific_operation =
     Ilea of addressing_mode            (* "lea" gives scaled adds *)
   | Istore_int of nativeint * addressing_mode * bool
@@ -293,7 +295,7 @@ and float_operation =
   | Ifloatsub
   | Ifloatmul
   | Ifloatdiv
-
+[@@@ocamlformat "enable"]
 (* Sizes, endianness *)
 
 let big_endian = false

@@ -31,7 +31,7 @@ let win64 = Arch.win64
 
 (* Registers available for register allocation *)
 
-(* Register map:
+(*= Register map:
     rax         0
     rbx         1
     rdi         2
@@ -50,7 +50,7 @@ let win64 = Arch.win64
 
   xmm0 - xmm15  100 - 115 *)
 
-(* Conventions:
+(*= Conventions:
      rax - r13: OCaml function arguments
      rax: OCaml and C function results
      xmm0 - xmm9: OCaml function arguments
@@ -330,7 +330,7 @@ let loc_results_return res =
 
 let max_arguments_for_tailcalls = 10 (* in regs *) + 64 (* in domain state *)
 
-(* C calling conventions under Unix:
+(*= C calling conventions under Unix:
      first integer args in rdi, rsi, rdx, rcx, r8, r9
      first float args in xmm0 ... xmm7
      remaining args on stack

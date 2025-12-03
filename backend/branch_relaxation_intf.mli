@@ -34,7 +34,7 @@ module type S = sig
        (see below). *)
     val max_displacement : t -> distance
 
-    (* Which variety of conditional branch may be produced by the emitter for a
+    (*= Which variety of conditional branch may be produced by the emitter for a
        given instruction description.  For the moment we assume that only one
        such variety per instruction description is needed.
 

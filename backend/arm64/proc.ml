@@ -29,7 +29,7 @@ let word_addressed = false
 
 (* Registers available for register allocation *)
 
-(* Integer register map:
+(*= Integer register map:
     x0 - x15              general purpose (caller-save)
     x16, x17              temporaries (used by call veeners)
     x18                   platform register (reserved)
@@ -175,7 +175,7 @@ let outgoing ofs =
   else Domainstate (ofs + size_domainstate_args)
 let not_supported _ofs = fatal_error "Proc.loc_results: cannot call"
 
-(* OCaml calling convention:
+(*= OCaml calling convention:
      first integer args in r0...r15
      first float args in d0...d15
      remaining args in domain area, then on stack.
@@ -202,7 +202,7 @@ let loc_results_return res =
   in
   loc
 
-(* C calling convention:
+(*= C calling convention:
      first integer args in r0...r7
      first float args in d0...d7
      remaining args on stack.

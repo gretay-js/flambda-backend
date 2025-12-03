@@ -44,9 +44,11 @@ let command_line_options = [
 
 (* Addressing modes *)
 
+[@@@ocamlformat "disable"]
 type addressing_mode =
   | Iindexed of int                     (* reg + displ *)
   | Ibased of string * int              (* global var + displ *)
+[@@@ocamlformat "enable"]
 
 (* We do not support the reg + shifted reg addressing mode, because
    what we really need is reg + shifted reg + displ,
@@ -61,6 +63,7 @@ type cmm_label = Label.t
 type bswap_bitwidth = Sixteen | Thirtytwo | Sixtyfour
 
 (* Specific operations, including [Simd], must not raise. *)
+[@@@ocamlformat "disable"]
 type specific_operation =
   | Ifar_poll
   | Ifar_alloc of { bytes : int; dbginfo : Cmm.alloc_dbginfo }
@@ -82,6 +85,7 @@ type specific_operation =
 and arith_operation =
     Ishiftadd
   | Ishiftsub
+[@@@ocamlformat "enable"]
 
 (* Sizes, endianness *)
 
@@ -290,7 +294,7 @@ let isomorphic_specific_operation op1 op2 =
 
 (* Recognition of logical immediate arguments *)
 
-(* An automaton to recognize ( 0+1+0* | 1+0+1* )
+(*= An automaton to recognize ( 0+1+0* | 1+0+1* )
 
                0          1          0
               / \        / \        / \
@@ -347,7 +351,7 @@ let logical_imm_length x =
   else if not (test 2) then 4
   else 2
 
-(* A valid logical immediate is
+(*= A valid logical immediate is
 - neither [0] nor [-1];
 - composed of a repetition [BBBBB] of a bit-pattern [B] of length [e]
 - the low [e] bits of the number, that is, [B], match [0+1+0*] or [1+0+1*].

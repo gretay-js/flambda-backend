@@ -106,7 +106,7 @@ type result =
 
 (* relative label + offset *)
 
-(*
+(*=
 let string_of_result = function
   Rint n -> Printf.sprintf "Rint %Ld" n
   | Rabs (s, n) -> Printf.sprintf "Rabs (%S, %Ld)" s n
@@ -117,18 +117,17 @@ let get_symbol b s =
   try String.Tbl.find b.labels s
   with Not_found ->
     let sy =
-      {
-        sy_name = s;
+      { sy_name = s;
         sy_type = None;
         sy_size = None;
         sy_pos = None;
         sy_binding = Sy_local;
         sy_protected = false;
         sy_num = None;
-        sy_sec = b.sec;
+        sy_sec = b.sec
       }
     in
-    String.Tbl.add b.labels s sy ;
+    String.Tbl.add b.labels s sy;
     sy
 
 let buf_int8 b i = Buffer.add_char b.buf (char_of_int (i land 0xff))
@@ -161,7 +160,7 @@ let str_int64L s pos v =
   str_int32L s pos v;
   str_int32L s (pos + 4) (Int64.shift_right_logical v 32)
 
-(* When a jump has to be generated, we compare the offset between the
+(*= When a jump has to be generated, we compare the offset between the
    source instruction and the target instruction, in number of
    instructions.
 
